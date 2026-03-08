@@ -1,0 +1,29 @@
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Docker override files (may contain secrets)
+docker-compose.override.yml
+compose.override.yaml
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Log files that might contain secrets
+*.log
+logs/

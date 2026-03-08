@@ -1,0 +1,62 @@
+
+services:
+  arcane:
+    image: ghcr.io/getarcaneapp/arcane:latest
+    container_name: arcane
+    restart: unless-stopped
+    networks:
+      - arcane-network
+    ports:
+      - 3552:3552
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - arcane-data:/app/data
+      - arcane-data:/app/data/projects
+    environment:
+      - APP_URL=${APP_URL:-http://localhost:3552}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_JSON=${LOG_JSON:-false}
+      - POSTGRES_DB=${POSTGRES_DB:-arcane}
+      - POSTGRES_USER=${POSTGRES_USER:-arcane}
+      - OIDC_ENABLED=${OIDC_ENABLED:-false}
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: arcane-postgres
+    restart: unless-stopped
+    networks:
+      - arcane-network
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-arcane}
+      - POSTGRES_USER=${POSTGRES_USER:-arcane}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      # No port exposure needed - Arcane can access via arcane-network via postgres:5432
+      #- 5432:5432
+
+volumes:
+  arcane-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/arcane
+      o: bind
+  postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/arcane-postgres
+      o: bind
+
+networks:
+  arcane-network:
+    driver: bridge
