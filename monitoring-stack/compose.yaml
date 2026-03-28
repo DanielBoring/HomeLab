@@ -4,6 +4,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     restart: unless-stopped
+    user: "3001:3001"
     networks:
       - monitoring
     ports:
