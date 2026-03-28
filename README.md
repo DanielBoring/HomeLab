@@ -26,6 +26,21 @@ Web-based terminal emulator for remote system access.
 - **Port**: 8090
 - **Documentation**: See [termix/README.md](termix/README.md)
 
+### Monitoring Stack
+Prometheus + Grafana for metrics collection and visualization.
+
+- **Location**: [`/monitoring-stack`](monitoring-stack/)
+- **Ports**: 9090 (Prometheus), 3000 (Grafana)
+- **Network**: Creates the shared `monitoring` Docker network used by dependent services
+
+### Unpoller
+Polls UniFi network controller and exposes metrics to Prometheus.
+
+- **Location**: [`/unpoller`](unpoller/)
+- **Port**: 9130 (Prometheus scrape endpoint)
+- **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
+- **Controller**: UniFi OS device at `https://10.0.1.1`
+
 ## Quick Start
 
 ### Prerequisites
@@ -67,6 +82,15 @@ HomeLab/
 ├── termix/              # Terminal emulator service
 │   ├── compose.yaml     # Docker Compose configuration
 │   └── README.md        # Service documentation
+├── monitoring-stack/    # Prometheus + Grafana
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── prometheus.yml   # Prometheus scrape config
+│   ├── .env.example     # Environment template
+│   └── .env             # Secrets (gitignored)
+├── unpoller/            # UniFi metrics exporter
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── .env             # Secrets (gitignored)
 ├── .gitignore           # Git ignore patterns (protects secrets)
 ├── LICENSE              # MIT License
 └── README.md            # This file
@@ -118,6 +142,8 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Arcane Data**: `/mnt/SSD/Containers/arcane`
 - **Arcane Database**: `/mnt/SSD/Containers/arcane-postgres`
 - **Termix Data**: `/mnt/SSD/Containers/termix`
+- **Prometheus Data**: `/mnt/SSD/Containers/prometheus`
+- **Grafana Data**: `/mnt/SSD/Containers/grafana`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 

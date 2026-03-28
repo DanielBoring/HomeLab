@@ -3,6 +3,15 @@
 .env.local
 .env.*.local
 
+# SSL/TLS private keys and certificates
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+secrets/
+
 # Docker override files (may contain secrets)
 docker-compose.override.yml
 compose.override.yaml
@@ -27,3 +36,7 @@ desktop.ini
 # Log files that might contain secrets
 *.log
 logs/
+
+# Claude
+.claude
+CLAUDE.md
