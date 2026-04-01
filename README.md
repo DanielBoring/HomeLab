@@ -12,6 +12,21 @@ This repository serves as the central configuration hub for my home lab infrastr
 
 ## Services
 
+### Traefik
+Reverse proxy and TLS termination layer. Creates the shared `traefik` Docker network used by services that need to be exposed via domain names.
+
+- **Location**: [`/traefik`](traefik/)
+- **Ports**: 80 (HTTP), 443 (HTTPS), dashboard at `http://<TRAEFIK_DOMAIN>/dashboard/`
+- **Documentation**: See [traefik/README.md](traefik/README.md)
+- **Deploy first** — other services depend on the `traefik` network
+
+### Homepage
+Self-hosted dashboard with service tiles, API integrations, and Docker auto-discovery.
+
+- **Location**: [`/homepage`](homepage/)
+- **Port**: 3001
+- **Documentation**: See [homepage/README.md](homepage/README.md)
+
 ### Arcane
 Self-hosted application management platform for homelabs.
 
@@ -40,6 +55,13 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Port**: 9130 (Prometheus scrape endpoint)
 - **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
 - **Controller**: UniFi OS device at `https://10.0.1.1`
+
+### Tailscale
+Tailscale node that advertises subnet routes and acts as a VPN exit node for the tailnet.
+
+- **Location**: [`/tailscale`](tailscale/)
+- **Requires**: Auth key from the Tailscale admin console
+- **Documentation**: See [tailscale/README.md](tailscale/README.md)
 
 ## Quick Start
 
@@ -75,22 +97,35 @@ docker compose logs -f
 
 ```
 HomeLab/
+├── traefik/             # Reverse proxy and TLS termination
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── traefik.yml      # Traefik static configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
+├── homepage/            # Self-hosted dashboard
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
 ├── arcane/              # Application management platform
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
 │   └── README.md        # Service documentation
-├── termix/              # Terminal emulator service
+├── termix/              # Web-based terminal emulator
 │   ├── compose.yaml     # Docker Compose configuration
 │   └── README.md        # Service documentation
 ├── monitoring-stack/    # Prometheus + Grafana
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── prometheus.yml   # Prometheus scrape config
 │   ├── .env.example     # Environment template
-│   └── .env             # Secrets (gitignored)
+│   └── README.md        # Service documentation
 ├── unpoller/            # UniFi metrics exporter
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
-│   └── .env             # Secrets (gitignored)
+│   └── README.md        # Service documentation
+├── tailscale/           # Tailscale VPN node
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
 ├── .gitignore           # Git ignore patterns (protects secrets)
 ├── LICENSE              # MIT License
 └── README.md            # This file
@@ -139,11 +174,14 @@ The following files are automatically excluded from version control:
 
 Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 
+- **Traefik Certs**: `/mnt/SSD/Containers/traefik/certs`
+- **Homepage Config**: `/mnt/SSD/Containers/homepage`
 - **Arcane Data**: `/mnt/SSD/Containers/arcane`
 - **Arcane Database**: `/mnt/SSD/Containers/arcane-postgres`
 - **Termix Data**: `/mnt/SSD/Containers/termix`
 - **Prometheus Data**: `/mnt/SSD/Containers/prometheus`
 - **Grafana Data**: `/mnt/SSD/Containers/grafana`
+- **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 
