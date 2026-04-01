@@ -12,4 +12,4 @@ services:
     environment:
       PUID: 3001
       PGID: 3001
-      HOMEPAGE_ALLOWED_HOSTS: *.virtuallyboring.com:3001, 10.0.5.10:3001 # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
+      HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_ALLOWED_HOSTS} # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
