@@ -1,0 +1,38 @@
+
+services:
+  semaphore:
+    image: semaphoreui/semaphore:v2.17.26
+    container_name: semaphore
+    restart: unless-stopped
+    ports:
+      - "${SEMAPHORE_PORT:-3003}:3000"
+    environment:
+      - SEMAPHORE_DB_DIALECT=sqlite
+      - SEMAPHORE_ADMIN=${SEMAPHORE_ADMIN:-admin}
+      - SEMAPHORE_ADMIN_NAME=${SEMAPHORE_ADMIN_NAME:-Admin}
+      - SEMAPHORE_ADMIN_EMAIL=${SEMAPHORE_ADMIN_EMAIL:-admin@localhost}
+      - SEMAPHORE_ADMIN_PASSWORD=${SEMAPHORE_ADMIN_PASSWORD}
+    volumes:
+      - semaphore-data:/var/lib/semaphore
+      - semaphore-config:/etc/semaphore
+      - semaphore-tmp:/tmp/semaphore
+
+volumes:
+  semaphore-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/semaphore/data
+      o: bind
+  semaphore-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/semaphore/config
+      o: bind
+  semaphore-tmp:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/semaphore/tmp
+      o: bind

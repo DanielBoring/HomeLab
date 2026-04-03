@@ -1,0 +1,18 @@
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "${UPTIME_KUMA_PORT:-3002}:3001"
+    volumes:
+      - uptime-kuma-data:/app/data
+
+volumes:
+  uptime-kuma-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/uptime-kuma
+      o: bind

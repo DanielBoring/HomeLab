@@ -56,6 +56,20 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
 - **Controller**: UniFi OS device at `https://10.0.1.1`
 
+### Semaphore
+Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with scheduling and access control.
+
+- **Location**: [`/semaphore`](semaphore/)
+- **Port**: 3003
+- **Documentation**: See [semaphore/README.md](semaphore/README.md)
+
+### Uptime Kuma
+Self-hosted uptime monitoring for services via HTTP/HTTPS, TCP, DNS, and more.
+
+- **Location**: [`/uptime-kuma`](uptime-kuma/)
+- **Port**: 3002
+- **Documentation**: See [uptime-kuma/README.md](uptime-kuma/README.md)
+
 ### Tailscale
 Tailscale node that advertises subnet routes and acts as a VPN exit node for the tailnet.
 
@@ -122,6 +136,13 @@ HomeLab/
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
 │   └── README.md        # Service documentation
+├── semaphore/           # Ansible/Terraform UI
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
+├── uptime-kuma/         # Uptime monitoring
+│   ├── compose.yaml     # Docker Compose configuration
+│   └── README.md        # Service documentation
 ├── tailscale/           # Tailscale VPN node
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
@@ -181,6 +202,8 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Termix Data**: `/mnt/SSD/Containers/termix`
 - **Prometheus Data**: `/mnt/SSD/Containers/prometheus`
 - **Grafana Data**: `/mnt/SSD/Containers/grafana`
+- **Semaphore Data**: `/mnt/SSD/Containers/semaphore`
+- **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 
 Ensure this path exists and has appropriate permissions before deploying services.
