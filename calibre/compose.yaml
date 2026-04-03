@@ -1,0 +1,61 @@
+
+services:
+  calibre:
+    image: lscr.io/linuxserver/calibre:latest
+    container_name: calibre
+    #security_opt:
+    #  - seccomp:unconfined #optional - needed on some Docker configs for GUI
+    environment:
+      - PUID=3001
+      - PGID=3001
+      - TZ=America/New_York
+      - CUSTOM_PORT=8085
+      - CUSTOM_HTTPS_PORT=8086
+    volumes:
+      - calibre-config:/config
+    ports:
+      - 8085:8085 # desktop GUI (http)
+      - 8086:8086 # desktop GUI (https)
+      - 8081:8081 # webserver GUI (enable in Calibre settings)
+    shm_size: "1gb"
+    networks:
+      - calibre
+    restart: unless-stopped
+
+  calibre-web:
+    image: lscr.io/linuxserver/calibre-web:latest
+    container_name: calibre-web
+    environment:
+      - PUID=3001
+      - PGID=3001
+      - TZ=America/New_York
+      - DOCKER_MODS=linuxserver/mods:universal-calibre
+    volumes:
+      - calibre-web-config:/config
+      - /mnt/Data/Media/Books:/books
+    ports:
+      - 8083:8083
+    networks:
+      - calibre
+    depends_on:
+      - calibre
+    restart: unless-stopped
+
+volumes:
+  calibre-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/calibre
+      o: bind
+  calibre-web-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/calibre-web
+      o: bind
+
+networks:
+  calibre:
+    name: calibre
+    driver: bridge

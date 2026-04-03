@@ -77,6 +77,13 @@ Tailscale node that advertises subnet routes and acts as a VPN exit node for the
 - **Requires**: Auth key from the Tailscale admin console
 - **Documentation**: See [tailscale/README.md](tailscale/README.md)
 
+### Calibre
+Calibre desktop GUI (KasmVNC) and Calibre-Web for ebook library management and browser-based reading.
+
+- **Location**: [`/calibre`](calibre/)
+- **Ports**: 8085/8086 (Calibre desktop GUI), 8081 (Calibre content server), 8083 (Calibre-Web)
+- **Documentation**: See [calibre/README.md](calibre/README.md)
+
 ## Quick Start
 
 ### Prerequisites
@@ -147,6 +154,9 @@ HomeLab/
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
 │   └── README.md        # Service documentation
+├── calibre/             # Calibre + Calibre-Web ebook manager
+│   ├── compose.yaml     # Docker Compose configuration
+│   └── README.md        # Service documentation
 ├── .gitignore           # Git ignore patterns (protects secrets)
 ├── LICENSE              # MIT License
 └── README.md            # This file
@@ -205,6 +215,8 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Semaphore Data**: `/mnt/SSD/Containers/semaphore`
 - **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
+- **Calibre Config**: `/mnt/SSD/Containers/calibre`
+- **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 
