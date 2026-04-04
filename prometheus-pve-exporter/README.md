@@ -9,15 +9,27 @@ Exports Proxmox VE cluster and node metrics to Prometheus via a `/pve` endpoint 
 
 ### Creating the Proxmox user and token
 
-In the Proxmox web UI:
+**1. Create the user**
+- Datacenter → Permissions → Users → **Add**
+- User: `prometheus`
+- Realm: `Proxmox VE authentication server`
+- Password doesn't matter (token auth won't use it)
 
-1. Go to **Datacenter → Permissions → Users → Add**
-2. Set the username to `prometheus` and realm to `Proxmox VE authentication server` (`pve`)
-3. Go to **Datacenter → Permissions → Add → User Permission**
-4. Set path to `/`, user to `prometheus@pve`, role to `PVEAuditor`, uncheck **Propagate** is optional
-5. Go to **Datacenter → Permissions → API Tokens → Add**
-6. Select user `prometheus@pve`, set a token name (e.g. `monitoring`), uncheck **Privilege Separation**
-7. Copy the token secret shown — it is only displayed once
+**2. Assign the read-only role**
+- Datacenter → Permissions → **Add → User Permission**
+- Path: `/`
+- User: `prometheus@pve`
+- Role: `PVEAuditor`
+- Propagate: checked
+
+**3. Create the API token**
+- Datacenter → Permissions → API Tokens → **Add**
+- User: `prometheus@pve`
+- Token ID: `monitoring` (this becomes `PVE_TOKEN_NAME`)
+- **Uncheck "Privilege Separation"** — so the token inherits the user's PVEAuditor role
+- Click Add → copy the secret UUID immediately, it is only shown once
+
+> The token only needs to be created on one node — Proxmox syncs users and permissions across the cluster automatically.
 
 ## Quick Start
 
