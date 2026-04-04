@@ -1,0 +1,20 @@
+
+services:
+  prometheus-pve-exporter:
+    image: prompve/prometheus-pve-exporter:latest
+    container_name: prometheus-pve-exporter
+    restart: unless-stopped
+    init: true
+    networks:
+      - monitoring
+    ports:
+      - "9221:9221"
+    environment:
+      - PVE_USER=${PVE_USER}
+      - PVE_TOKEN_NAME=${PVE_TOKEN_NAME}
+      - PVE_TOKEN_VALUE=${PVE_TOKEN_VALUE}
+      - PVE_VERIFY_SSL=${PVE_VERIFY_SSL:-true}
+
+networks:
+  monitoring:
+    external: true

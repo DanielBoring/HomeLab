@@ -56,6 +56,14 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
 - **Controller**: UniFi OS device at `https://10.0.1.1`
 
+### Prometheus PVE Exporter
+Exports Proxmox VE cluster and node metrics to Prometheus.
+
+- **Location**: [`/prometheus-pve-exporter`](prometheus-pve-exporter/)
+- **Port**: 9221 (Prometheus scrape endpoint)
+- **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
+- **Documentation**: See [prometheus-pve-exporter/README.md](prometheus-pve-exporter/README.md)
+
 ### Semaphore
 Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with scheduling and access control.
 
@@ -166,6 +174,10 @@ HomeLab/
 │   └── README.md        # Service documentation
 ├── changedetection/     # Website change detection and monitoring
 │   ├── compose.yaml     # Docker Compose configuration
+│   └── README.md        # Service documentation
+├── prometheus-pve-exporter/  # Proxmox VE metrics exporter
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
 │   └── README.md        # Service documentation
 ├── .gitignore           # Git ignore patterns (protects secrets)
 ├── LICENSE              # MIT License
