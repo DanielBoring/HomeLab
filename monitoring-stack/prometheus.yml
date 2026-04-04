@@ -13,7 +13,7 @@ scrape_configs:
 
   - job_name: traefik
     static_configs:
-      - targets: ["traefik:8443"]
+      - targets: ["traefik:8442"]
 
   - job_name: pve
     static_configs:
