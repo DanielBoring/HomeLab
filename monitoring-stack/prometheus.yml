@@ -14,3 +14,20 @@ scrape_configs:
   - job_name: traefik
     static_configs:
       - targets: ["traefik:8080"]
+
+  - job_name: pve
+    static_configs:
+      - targets:
+          - 10.0.5.21 # pmox1.virtuallyboring.com
+          - 10.0.5.22 # pmox2.virtuallyboring.com
+          - 10.0.5.23 # pmox3.virtuallyboring.com
+    metrics_path: /pve
+    params:
+      module: [default]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: prometheus-pve-exporter:9221
