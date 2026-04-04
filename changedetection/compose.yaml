@@ -1,0 +1,28 @@
+services:
+  changedetection:
+    image: lscr.io/linuxserver/changedetection.io:latest
+    container_name: changedetection
+    hostname: changedetection
+    environment:
+      - PUID=3001
+      - PGID=3001
+      - TZ=America/New_York
+      # - BASE_URL=  # Set only if behind a reverse proxy with a subpath
+      - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000
+    volumes:
+      - /mnt/SSD/Containers/changedetection:/config
+    ports:
+      - 5000:5000
+    depends_on:
+      playwright-chrome:
+        condition: service_started
+    restart: unless-stopped
+
+  playwright-chrome:
+    image: dgtlmoon/sockpuppetbrowser:latest
+    container_name: playwright-chrome
+    hostname: playwright-chrome
+    environment:
+      - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080"]
+    shm_size: 2g
+    restart: unless-stopped

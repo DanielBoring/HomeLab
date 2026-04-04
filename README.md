@@ -84,6 +84,13 @@ Calibre desktop GUI (KasmVNC) and Calibre-Web for ebook library management and b
 - **Ports**: 8085/8086 (Calibre desktop GUI), 8081 (Calibre content server), 8083 (Calibre-Web)
 - **Documentation**: See [calibre/README.md](calibre/README.md)
 
+### Changedetection.io
+Website change detection and monitoring with full JavaScript rendering via Playwright/Chrome.
+
+- **Location**: [`/changedetection`](changedetection/)
+- **Port**: 5000
+- **Documentation**: See [changedetection/README.md](changedetection/README.md)
+
 ## Quick Start
 
 ### Prerequisites
@@ -157,6 +164,9 @@ HomeLab/
 ├── calibre/             # Calibre + Calibre-Web ebook manager
 │   ├── compose.yaml     # Docker Compose configuration
 │   └── README.md        # Service documentation
+├── changedetection/     # Website change detection and monitoring
+│   ├── compose.yaml     # Docker Compose configuration
+│   └── README.md        # Service documentation
 ├── .gitignore           # Git ignore patterns (protects secrets)
 ├── LICENSE              # MIT License
 └── README.md            # This file
@@ -217,6 +227,7 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
 - **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`
+- **Changedetection Data**: `/mnt/SSD/Containers/changedetection`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 
