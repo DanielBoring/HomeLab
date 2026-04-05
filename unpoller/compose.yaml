@@ -28,7 +28,7 @@ services:
       - UP_UNIFI_DEFAULT_SAVE_ANOMALIES=false
       - UP_POLLER_DEBUG=false
       # Webserver — provides a built-in UI and in-memory log viewer on port 37288
-      - UP_WEBSERVER_ENABLE=true
+      #- UP_WEBSERVER_ENABLE=true
 
 networks:
   monitoring:
