@@ -1,20 +1,29 @@
+# Enables the Traefik dashboard UI
+# insecure: true exposes the dashboard on port 8080 with no auth — fine for homelab,
+# but means the dashboard is accessible directly without going through a Traefik router
 api:
   dashboard: true
   insecure: true
 
+# Entry points are the network ports Traefik listens on
 entryPoints:
   web:
-    address: ":80"
+    address: ":80"       # HTTP — no redirect to HTTPS configured yet
   websecure:
-    address: ":443"
+    address: ":443"      # HTTPS — TLS not active until certificatesResolvers is configured below
+  metrics:
+    address: ":8442"     # Dedicated port for Prometheus metrics scraping
 
+# Tells Traefik to discover services/routes from Docker container labels
 providers:
   docker:
-    exposedByDefault: false
-    network: traefik
+    exposedByDefault: false  # Containers must opt-in via traefik.enable=true label
+    network: traefik         # Only route containers attached to this Docker network
 
+# Exposes Traefik's own metrics at http://traefik:8442/metrics for Prometheus
 metrics:
-  prometheus: {}
+  prometheus:
+    entryPoint: metrics
 
 log:
   level: INFO

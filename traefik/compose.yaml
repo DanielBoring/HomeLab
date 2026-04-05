@@ -14,7 +14,7 @@ services:
       - "${HTTPS_PORT:-443}:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /mnt/SSD/Containers/traefik/etc/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
       - traefik-certs:/letsencrypt
     environment:
       - TZ=${TZ:-UTC}
