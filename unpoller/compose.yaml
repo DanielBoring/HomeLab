@@ -9,19 +9,22 @@ services:
     ports:
       - "9130:9130"
     environment:
+      # Using Prometheus only; InfluxDB output disabled
       - UP_INFLUXDB_DISABLE=true
       - UP_PROMETHEUS_DISABLE=false
       - UP_PROMETHEUS_HTTP_LISTEN=0.0.0.0:9130
-      - UP_PROMETHEUS_NAMESPACE=unpoller
+      # Must match the job_name in prometheus.yml and expected prefix in Grafana dashboards
+      - UP_PROMETHEUS_NAMESPACE=unifipoller # Leave as unifipoller, as this matches the community dashboard namespace
       - UP_UNIFI_DEFAULT_URL=${UNIFI_URL}
       - UP_UNIFI_DEFAULT_USER=${UNIFI_USER}
       - UP_UNIFI_DEFAULT_PASS=${UNIFI_PASS}
       - UP_UNIFI_DEFAULT_VERIFY_SSL=false
       - UP_UNIFI_DEFAULT_SAVE_SITES=true
-      - UP_UNIFI_DEFAULT_SAVE_DPI=true
-      - UP_UNIFI_DEFAULT_SAVE_EVENTS=true
-      - UP_UNIFI_DEFAULT_SAVE_ALARMS=true
-      - UP_UNIFI_DEFAULT_SAVE_ANOMALIES=true
+      # DPI, events, alarms, and anomalies only work with InfluxDB/Loki outputs, not Prometheus
+      - UP_UNIFI_DEFAULT_SAVE_DPI=false
+      - UP_UNIFI_DEFAULT_SAVE_EVENTS=false
+      - UP_UNIFI_DEFAULT_SAVE_ALARMS=false
+      - UP_UNIFI_DEFAULT_SAVE_ANOMALIES=false
       - UP_POLLER_DEBUG=false
 
 networks:
