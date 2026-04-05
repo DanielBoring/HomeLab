@@ -8,6 +8,7 @@ services:
       - monitoring
     ports:
       - "9130:9130"
+      - "37288:37288"  # UniFi Poller web UI
     environment:
       # Using Prometheus only; InfluxDB output disabled
       - UP_INFLUXDB_DISABLE=true
@@ -26,6 +27,8 @@ services:
       - UP_UNIFI_DEFAULT_SAVE_ALARMS=false
       - UP_UNIFI_DEFAULT_SAVE_ANOMALIES=false
       - UP_POLLER_DEBUG=false
+      # Webserver — provides a built-in UI and in-memory log viewer on port 37288
+      - UP_WEBSERVER_ENABLE=true
 
 networks:
   monitoring:
