@@ -52,7 +52,7 @@ Prometheus + Grafana for metrics collection and visualization.
 Polls UniFi network controller and exposes metrics to Prometheus.
 
 - **Location**: [`/unpoller`](unpoller/)
-- **Port**: 9130 (Prometheus scrape endpoint)
+- **Ports**: 9130 (Prometheus scrape endpoint), 37288 (web UI — disabled by default)
 - **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
 - **Controller**: UniFi OS device at `https://10.0.1.1`
 
@@ -234,7 +234,9 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Termix Data**: `/mnt/SSD/Containers/termix`
 - **Prometheus Data**: `/mnt/SSD/Containers/prometheus`
 - **Grafana Data**: `/mnt/SSD/Containers/grafana`
-- **Semaphore Data**: `/mnt/SSD/Containers/semaphore`
+- **Semaphore Data**: `/mnt/SSD/Containers/semaphore/data`
+- **Semaphore Config**: `/mnt/SSD/Containers/semaphore/config`
+- **Semaphore Tmp**: `/mnt/SSD/Containers/semaphore/tmp`
 - **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
