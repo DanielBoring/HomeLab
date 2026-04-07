@@ -58,6 +58,18 @@ docker compose logs -f grafana
 - Prometheus UI: `http://<host-ip>:9090`
 - Grafana UI: `http://<host-ip>:3000`
 
+## OTLP Receiver
+
+The Prometheus OTLP receiver is enabled via `--web.enable-otlp-receiver`, exposing an ingest endpoint at `http://prometheus:9090/api/v1/otlp/v1/metrics`.
+
+### Trade-offs
+
+- **Performance** — OTLP is push-based, so Prometheus now accepts inbound connections in addition to scraping. High-volume senders can overwhelm it, and translating from the OTel data model adds CPU overhead.
+- **Data model mismatch** — OTel types (exponential histograms, sum/gauge distinctions) don't map cleanly to Prometheus internals; data may be silently transformed. OTel attribute names with dots are mangled into underscores.
+- **Cardinality risk** — Senders control which attributes become labels. Unlike scrape targets (where you control relabeling), a poorly instrumented app can introduce unbounded cardinality.
+- **Feature gaps** — The receiver is newer than the scrape path; some OTel features (e.g., exemplar handling) may lag behind.
+- **Architecture** — If an OTel Collector is already in the stack, prefer routing OTLP through it and exporting to Prometheus via `prometheusremotewrite` — this gives more control over transformation and batching.
+
 ## Adding Scraped Services
 
 To add a new service for Prometheus to scrape, add a job to [prometheus.yml](prometheus.yml):

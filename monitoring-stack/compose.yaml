@@ -17,6 +17,7 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
+      - "--web.enable-otlp-receiver"
 
   grafana:
     image: grafana/grafana:latest
