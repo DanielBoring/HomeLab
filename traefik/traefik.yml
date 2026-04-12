@@ -41,7 +41,7 @@ accessLog: {}   # Log every request — useful for troubleshooting
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: "${ACME_EMAIL}"
+      email: "daniel@virtuallyboring.com"
       storage: /letsencrypt/acme.json   # Persisted via the traefik-certs volume
       httpChallenge:
         entryPoint: web   # Port 80 must be reachable from the internet for this challenge

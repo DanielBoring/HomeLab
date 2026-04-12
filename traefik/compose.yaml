@@ -7,18 +7,16 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - traefik
-      - monitoring
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
+      traefik-macvlan:
+        ipv4_address: 10.0.5.5   # Traefik's dedicated LAN IP
+      traefik:
+      monitoring:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /mnt/SSD/Containers/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - traefik-certs:/letsencrypt
     environment:
       - TZ=${TZ:-UTC}
-      - ACME_EMAIL=${ACME_EMAIL}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN:-traefik.localhost}`)"
@@ -35,6 +33,15 @@ volumes:
       o: bind
 
 networks:
+  traefik-macvlan:
+    driver: macvlan
+    driver_opts:
+      parent: enp8s0
+    ipam:
+      config:
+        - subnet: 10.0.5.0/24
+          gateway: 10.0.5.1
+          ip_range: 10.0.5.5/32   # Reserve only this IP for Docker to assign
   traefik:
     name: traefik
     driver: bridge
