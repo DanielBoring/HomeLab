@@ -1,16 +1,22 @@
-# Enables the Traefik dashboard UI
-# insecure: true exposes the dashboard on port 8080 with no auth — fine for homelab,
-# but means the dashboard is accessible directly without going through a Traefik router
+# Dashboard is served via a router+auth label in compose.yaml — not on raw port 8080
 api:
   dashboard: true
-  insecure: true
+  insecure: false
 
 # Entry points are the network ports Traefik listens on
 entryPoints:
   web:
-    address: ":80"       # HTTP — no redirect to HTTPS configured yet
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure     # Globally redirect all HTTP → HTTPS
+          scheme: https
   websecure:
-    address: ":443"      # HTTPS — TLS not active until certificatesResolvers is configured below
+    address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt   # Default cert resolver for all HTTPS routers
   metrics:
     address: ":8442"     # Dedicated port for Prometheus metrics scraping
 
@@ -28,11 +34,14 @@ metrics:
 log:
   level: INFO
 
-# Uncomment and configure to enable Let's Encrypt TLS certificates
-# certificatesResolvers:
-#   letsencrypt:
-#     acme:
-#       email: "your-email@example.com"
-#       storage: /letsencrypt/acme.json
-#       httpChallenge:
-#         entryPoint: web
+accessLog: {}   # Log every request — useful for troubleshooting
+
+# Automatic Let's Encrypt TLS certificates
+# ACME_EMAIL must be set in your .env file
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "${ACME_EMAIL}"
+      storage: /letsencrypt/acme.json   # Persisted via the traefik-certs volume
+      httpChallenge:
+        entryPoint: web   # Port 80 must be reachable from the internet for this challenge
