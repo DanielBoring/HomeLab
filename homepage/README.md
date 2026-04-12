@@ -7,7 +7,7 @@ A modern, self-hosted dashboard for your home lab. Displays service statuses, in
 | Setting | Value |
 |---|---|
 | Image | `ghcr.io/gethomepage/homepage:latest` |
-| Port | 3001 (maps to container port 3000) |
+| Access | `https://homepage.virtuallyboring.com` (via Traefik) |
 | Config | `/mnt/SSD/Containers/homepage` |
 | Images | `/mnt/SSD/Containers/homepage/images` |
 
@@ -38,6 +38,8 @@ The `.env` file passes API keys and URLs to Homepage via `HOMEPAGE_VAR_*` variab
 
 | Variable | Description |
 |---|---|
+| `HOMEPAGE_DOMAIN` | Hostname Traefik routes to homepage (e.g. `home.virtuallyboring.com`) |
+| `HOMEPAGE_ALLOWED_HOSTS` | Must match `HOMEPAGE_DOMAIN` exactly — no port needed behind Traefik |
 | `HOMEPAGE_VAR_PIHOLE1_URL` | Pi-hole 1 URL |
 | `HOMEPAGE_VAR_PIHOLE1_API_KEY` | Pi-hole 1 API key |
 | `HOMEPAGE_VAR_PIHOLE2_URL` | Pi-hole 2 URL |
@@ -53,10 +55,20 @@ The `.env` file passes API keys and URLs to Homepage via `HOMEPAGE_VAR_*` variab
 docker compose up -d
 ```
 
-### 4. Access
+### 4. Add DNS record
+
+In your Windows DNS server, add a CNAME pointing to the Traefik A record:
 
 ```
-http://<host-ip>:3001
+homepage.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
+```
+
+`traefik.virtuallyboring.com` must have an A record pointing to `10.0.5.5` (Traefik's internal IP).
+
+### 5. Access
+
+```
+https://homepage.virtuallyboring.com
 ```
 
 ## Configuration
@@ -75,11 +87,13 @@ See the [Homepage documentation](https://gethomepage.dev) for full configuration
 
 ## Allowed Hosts
 
-The `HOMEPAGE_ALLOWED_HOSTS` environment variable is required to prevent DNS rebinding attacks. It is set in `compose.yaml` to match your domain and local IP. Update it if your hostname or IP changes:
+The `HOMEPAGE_ALLOWED_HOSTS` environment variable is required to prevent DNS rebinding attacks. Behind Traefik, set it to just the hostname — no port needed since requests arrive on standard port 443:
 
-```yaml
-HOMEPAGE_ALLOWED_HOSTS: "*.yourdomain.com:3001, 10.0.x.x:3001"
 ```
+HOMEPAGE_ALLOWED_HOSTS=homepage.virtuallyboring.com
+```
+
+If the value includes a port (e.g. `:3001`) Homepage will reject requests coming through Traefik and return a 403.
 
 ## Storage
 

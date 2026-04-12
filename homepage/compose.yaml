@@ -3,13 +3,25 @@ services:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
     restart: unless-stopped
-    ports:
-      - 3001:3000
     volumes:
-      - /mnt/SSD/Containers/homepage:/app/config # Make sure your local config directory exists
-      - /var/run/docker.sock:/var/run/docker.sock:ro # (optional) For docker integrations
-      - /mnt/SSD/Containers/homepage/images:/app/public/images # To mount images for use as background
+      - /mnt/SSD/Containers/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/SSD/Containers/homepage/images:/app/public/images
     environment:
       PUID: 3001
       PGID: 3001
-      HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_ALLOWED_HOSTS} # required, may need port. See gethomepage.dev/installation/#homepage_allowed_hosts
+      HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_ALLOWED_HOSTS}
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homepage.rule=Host(`${HOMEPAGE_DOMAIN:-homepage.localhost}`)"
+      - "traefik.http.routers.homepage.entrypoints=websecure"
+      - "traefik.http.routers.homepage.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.homepage.middlewares=secure-headers@file"
+      # No server.port label needed — homepage only exposes one port (3000)
+      # No traefik.docker.network label needed — only on one network
+
+networks:
+  traefik:
+    external: true
