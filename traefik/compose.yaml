@@ -17,6 +17,7 @@ services:
       - traefik-certs:/letsencrypt
     environment:
       - TZ=${TZ:-UTC}
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dashboard.rule=Host(`${TRAEFIK_DOMAIN:-traefik.localhost}`)"

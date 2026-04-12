@@ -43,5 +43,8 @@ certificatesResolvers:
     acme:
       email: "daniel@virtuallyboring.com"
       storage: /letsencrypt/acme.json   # Persisted via the traefik-certs volume
-      httpChallenge:
-        entryPoint: web   # Port 80 must be reachable from the internet for this challenge
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"   # Use Cloudflare's own DNS to verify propagation quickly
+          - "8.8.8.8:53"
