@@ -18,7 +18,7 @@ entryPoints:
       tls:
         certResolver: letsencrypt   # Default cert resolver for all HTTPS routers
   metrics:
-    address: ":8442"     # Dedicated port for Prometheus metrics scraping
+    address: ":8082"     # Dedicated port for Prometheus metrics scraping
 
 # Tells Traefik to discover services/routes from Docker container labels
 providers:
