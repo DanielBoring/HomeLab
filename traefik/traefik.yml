@@ -12,6 +12,7 @@ entryPoints:
         entryPoint:
           to: websecure     # Globally redirect all HTTP → HTTPS
           scheme: https
+          permanent: true   # 301 — browsers cache this and stop hitting port 80
   websecure:
     address: ":443"
     http:
@@ -25,8 +26,11 @@ providers:
   docker:
     exposedByDefault: false  # Containers must opt-in via traefik.enable=true label
     network: traefik         # Only route containers attached to this Docker network
+  file:
+    directory: /etc/traefik/dynamic   # Shared middlewares and non-Docker routes
+    watch: true                       # Picks up changes without restarting Traefik
 
-# Exposes Traefik's own metrics at http://traefik:8442/metrics for Prometheus
+# Exposes Traefik's own metrics at http://traefik:8082/metrics for Prometheus
 metrics:
   prometheus:
     entryPoint: metrics
@@ -36,8 +40,7 @@ log:
 
 accessLog: {}   # Log every request — useful for troubleshooting
 
-# Automatic Let's Encrypt TLS certificates
-# ACME_EMAIL must be set in your .env file
+# Automatic Let's Encrypt TLS certificates via Cloudflare DNS challenge
 certificatesResolvers:
   letsencrypt:
     acme:

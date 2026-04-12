@@ -1,0 +1,78 @@
+http:
+  middlewares:
+
+    # =========================================================================
+    # HOW MIDDLEWARES WORK
+    # =========================================================================
+    # Middlewares sit between the router and your container. When a request
+    # matches a router rule (e.g. Host(`myapp.yourdomain.com`)), Traefik runs
+    # it through any attached middlewares before forwarding it to the container.
+    #
+    # This file defines SHARED middlewares that any service can reference.
+    # Because they're defined here (file provider), you reference them with the
+    # @file suffix in your container labels:
+    #
+    #   - "traefik.http.routers.myapp.middlewares=secure-headers@file"
+    #
+    # You can chain multiple middlewares with a comma:
+    #
+    #   - "traefik.http.routers.myapp.middlewares=secure-headers@file,lan-only@file"
+    #
+    # Changes to this file are picked up by Traefik automatically — no restart
+    # needed. You can verify middlewares loaded in the Traefik dashboard under
+    # the "Middlewares" tab.
+    # =========================================================================
+
+
+    # -------------------------------------------------------------------------
+    # SECURE HEADERS
+    # -------------------------------------------------------------------------
+    # Adds HTTP security response headers to every reply from the service.
+    # These headers instruct the browser on how to behave when displaying the
+    # page — they don't change what your app does, only what the browser allows.
+    #
+    # Recommended for: all internet-facing services.
+    # Usage: - "traefik.http.routers.myapp.middlewares=secure-headers@file"
+    # -------------------------------------------------------------------------
+    secure-headers:
+      headers:
+        # Enables the browser's built-in XSS filter (older browsers)
+        browserXssFilter: true
+
+        # Prevents the browser from guessing the content type (MIME sniffing attack)
+        contentTypeNosniff: true
+
+        # Stops the page from being loaded inside an iframe on another site
+        # (prevents clickjacking attacks)
+        frameDeny: true
+
+        # HSTS: tells the browser to ONLY connect via HTTPS for the next year.
+        # After the first visit, the browser refuses to load the site over HTTP
+        # at all — even if you type http:// manually.
+        stsSeconds: 31536000        # 1 year in seconds
+        stsIncludeSubdomains: true  # Apply to all subdomains too
+        stsPreload: true            # Allow inclusion in browser preload lists
+
+        # Controls how much referrer info is sent when clicking links off-site.
+        # "strict-origin-when-cross-origin" sends the origin only (no path/query)
+        # when navigating to a different domain.
+        referrerPolicy: strict-origin-when-cross-origin
+
+
+    # -------------------------------------------------------------------------
+    # LAN ONLY
+    # -------------------------------------------------------------------------
+    # Blocks any request that doesn't come from your local network.
+    # If someone outside your LAN tries to reach a service with this middleware,
+    # they get a 403 Forbidden — Traefik drops the request before it ever
+    # reaches the container.
+    #
+    # Recommended for: admin UIs, dashboards, and internal tools you never
+    # want accessible from the internet (e.g. Portainer, Proxmox, Grafana).
+    #
+    # Usage: - "traefik.http.routers.myapp.middlewares=lan-only@file"
+    # -------------------------------------------------------------------------
+    lan-only:
+      ipAllowList:
+        sourceRange:
+          - "10.0.5.0/24"   # Your LAN subnet — adjust if your network changes
