@@ -73,15 +73,15 @@ Import the official Unpoller dashboards from Grafana by ID:
 
 ## Optional Metrics
 
-These are disabled by default to reduce load. Enable in `compose.yaml` by setting to `true`:
+These variables are disabled by default. **Note:** DPI, events, alarms, and anomalies are only exported to InfluxDB/Loki outputs — they do not appear in the Prometheus `/metrics` endpoint. Enabling them here has no effect unless you add an InfluxDB output.
 
 | Variable | Description |
 |---|---|
-| `UP_UNIFI_DEFAULT_SAVE_DPI` | Deep packet inspection data |
-| `UP_UNIFI_DEFAULT_SAVE_EVENTS` | Controller events |
-| `UP_UNIFI_DEFAULT_SAVE_ALARMS` | Controller alarms |
-| `UP_UNIFI_DEFAULT_SAVE_ANOMALIES` | Network anomalies |
-| `UP_UNIFI_DEFAULT_SAVE_IDS` | Intrusion detection |
+| `UP_UNIFI_DEFAULT_SAVE_DPI` | Deep packet inspection data (InfluxDB/Loki only) |
+| `UP_UNIFI_DEFAULT_SAVE_EVENTS` | Controller events (InfluxDB/Loki only) |
+| `UP_UNIFI_DEFAULT_SAVE_ALARMS` | Controller alarms (InfluxDB/Loki only) |
+| `UP_UNIFI_DEFAULT_SAVE_ANOMALIES` | Network anomalies (InfluxDB/Loki only) |
+| `UP_UNIFI_DEFAULT_SAVE_IDS` | Intrusion detection (InfluxDB/Loki only) |
 
 ## Maintenance
 

@@ -1,6 +1,6 @@
 # Traefik
 
-Traefik v3 reverse proxy with Docker provider and an optional Let's Encrypt TLS resolver. Exposes the Traefik dashboard and creates the shared `traefik` Docker network used by other services.
+Traefik v3 reverse proxy with Docker provider and Let's Encrypt TLS via Cloudflare DNS challenge. Exposes the Traefik dashboard and creates the shared `traefik` Docker network used by other services.
 
 https://doc.traefik.io/traefik/getting-started/docker/
 
@@ -9,20 +9,45 @@ https://doc.traefik.io/traefik/getting-started/docker/
 | Setting | Value |
 |---|---|
 | Image | `traefik:v3.3` |
+| IP | `10.0.5.5` (macvlan — dedicated LAN IP) |
 | HTTP port | 80 |
 | HTTPS port | 443 |
-| Dashboard | Enabled (insecure mode — internal access only) |
+| Metrics port | 8082 (Prometheus scrape) |
+| Dashboard | `https://${TRAEFIK_DOMAIN}/dashboard/` (no auth) |
 | Provider | Docker (auto-discovers containers via labels) |
-| TLS | Optional — Let's Encrypt config commented out in `traefik.yml` |
+| TLS | Let's Encrypt DNS challenge (Cloudflare) |
 | Certs storage | `/mnt/SSD/Containers/traefik/certs` |
+
+## Networking
+
+Traefik runs on a **macvlan** network, giving it a dedicated LAN IP (`10.0.5.5`) separate from the Docker host. This means:
+
+- Traefik binds to standard ports 80 and 443 on its own IP — no conflict with host ports
+- Other containers use the `traefik` bridge network to be reached by Traefik (macvlan is only for external access)
+- **The Docker host itself cannot reach macvlan IPs directly** — macvlan containers are isolated from their parent network interface. Access the Traefik dashboard from another machine on the LAN.
+
+Three networks are used:
+
+| Network | Type | Purpose |
+|---|---|---|
+| `traefik-macvlan` | macvlan | Traefik's dedicated LAN IP (`10.0.5.5`) |
+| `traefik` | bridge | Shared by all services that Traefik reverse-proxies |
+| `monitoring` | bridge (external) | Prometheus scrapes Traefik metrics on port `8082` |
 
 ## Prerequisites
 
-Create the certs directory before deploying:
+Create the required directories and copy the config files to the host before deploying:
 
 ```bash
 mkdir -p /mnt/SSD/Containers/traefik/certs
+mkdir -p /mnt/SSD/Containers/traefik/dynamic
+
+# Copy config files — these are mounted by absolute path, not served from the git working directory
+cp traefik.yml /mnt/SSD/Containers/traefik/traefik.yml
+cp dynamic/middlewares.yml /mnt/SSD/Containers/traefik/dynamic/middlewares.yml
 ```
+
+> **Important:** `traefik.yml` does **not** expand environment variables. Values like `${EMAIL}` are treated as literal strings. Hardcode values (e.g. your email address) directly in the file.
 
 ## Quick Start
 
@@ -40,10 +65,9 @@ nano .env
 
 | Variable | Default | Description |
 |---|---|---|
-| `HTTP_PORT` | `80` | Host port for HTTP |
-| `HTTPS_PORT` | `443` | Host port for HTTPS |
-| `TZ` | `UTC` | Timezone (e.g. `America/New_York`) |
 | `TRAEFIK_DOMAIN` | `traefik.localhost` | Hostname for the Traefik dashboard |
+| `TZ` | `America/New_York` | Container timezone |
+| `CF_DNS_API_TOKEN` | — | Cloudflare API token (requires Zone:DNS:Edit + Zone:Zone:Read) |
 
 ### 3. Deploy
 
@@ -51,10 +75,24 @@ nano .env
 docker compose up -d
 ```
 
-### 4. Access the dashboard
+### 4. Add DNS records
+
+In your Windows DNS server, add an A record pointing to Traefik's dedicated IP:
 
 ```
-http://<TRAEFIK_DOMAIN>/dashboard/
+traefik.virtuallyboring.com  A  10.0.5.5
+```
+
+Each service you add behind Traefik gets a CNAME pointing to this A record:
+
+```
+homepage.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
+```
+
+### 5. Access the dashboard
+
+```
+https://<TRAEFIK_DOMAIN>/dashboard/
 ```
 
 ## Adding Services
@@ -202,27 +240,40 @@ The Traefik dashboard (`traefik.yourdomain.com`) is the fastest way to debug:
 
 If a service doesn't appear at all, the container is missing `traefik.enable=true` or isn't on the `traefik` network.
 
-## Enabling Let's Encrypt TLS
+## Let's Encrypt (DNS Challenge)
 
-Uncomment the `certificatesResolvers` block in [traefik.yml](traefik.yml) and fill in your email:
+Certificates are issued automatically using Cloudflare DNS-01 challenge:
 
-```yaml
-certificatesResolvers:
-  letsencrypt:
-    acme:
-      email: "your-email@example.com"
-      storage: /letsencrypt/acme.json
-      httpChallenge:
-        entryPoint: web
-```
+1. When a router requests a cert, Traefik calls the Cloudflare API to create a `_acme-challenge` TXT record in your zone
+2. Let's Encrypt queries that TXT record to verify domain ownership
+3. Traefik receives the cert and removes the TXT record
+4. The cert is stored in `acme.json` and renewed automatically before expiry
 
-Then update your router labels to use `entrypoints=websecure` and `tls.certresolver=letsencrypt`.
+This works without exposing port 80 publicly — unlike HTTP challenge, which requires a public-facing web server.
+
+> **Gotcha — switching challenge types:** `acme.json` caches the ACME order state. If you ever change from HTTP challenge to DNS challenge (or vice versa), you must clear the file or Traefik will keep retrying the old challenge type and fail:
+> ```bash
+> truncate -s 0 /mnt/SSD/Containers/traefik/certs/acme.json
+> chmod 600 /mnt/SSD/Containers/traefik/certs/acme.json
+> docker compose restart traefik
+> ```
+
+## Dynamic Configuration
+
+Shared middlewares and non-Docker routes live in `dynamic/middlewares.yml`, loaded via the file provider (`/etc/traefik/dynamic`). Traefik watches this directory and picks up changes automatically — no restart needed.
+
+| Middleware | Purpose |
+|---|---|
+| `secure-headers@file` | Security headers (HSTS, X-Frame-Options, nosniff, referrer policy) |
+| `lan-only@file` | IP allowlist — restricts access to `10.0.5.0/24` |
 
 ## Storage
 
 | Data | Path |
 |---|---|
-| TLS certificates | `/mnt/SSD/Containers/traefik/certs` |
+| TLS certificates (`acme.json`) | `/mnt/SSD/Containers/traefik/certs` |
+| Static config | `/mnt/SSD/Containers/traefik/traefik.yml` |
+| Dynamic config (middlewares) | `/mnt/SSD/Containers/traefik/dynamic/` |
 
 ## Maintenance
 
@@ -233,9 +284,24 @@ docker compose pull
 docker compose up -d
 ```
 
+### Update config files
+
+After editing `traefik.yml` or `dynamic/middlewares.yml` in the repo, copy them to the host:
+
+```bash
+cp traefik.yml /mnt/SSD/Containers/traefik/traefik.yml
+cp dynamic/middlewares.yml /mnt/SSD/Containers/traefik/dynamic/middlewares.yml
+```
+
+`dynamic/middlewares.yml` changes are picked up automatically. `traefik.yml` changes require a restart:
+
+```bash
+docker compose restart traefik
+```
+
 ### Reload configuration
 
-Traefik automatically reloads when Docker labels change. To reload `traefik.yml` without restarting:
+Traefik automatically reloads when Docker labels change. To reload `traefik.yml`:
 
 ```bash
 docker compose restart traefik

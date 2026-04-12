@@ -16,7 +16,7 @@ This repository serves as the central configuration hub for my home lab infrastr
 Reverse proxy and TLS termination layer. Creates the shared `traefik` Docker network used by services that need to be exposed via domain names.
 
 - **Location**: [`/traefik`](traefik/)
-- **Ports**: 80 (HTTP), 443 (HTTPS), dashboard at `http://<TRAEFIK_DOMAIN>/dashboard/`
+- **Access**: `10.0.5.5` (macvlan — dedicated LAN IP), dashboard at `https://<TRAEFIK_DOMAIN>/dashboard/`
 - **Documentation**: See [traefik/README.md](traefik/README.md)
 - **Deploy first** — other services depend on the `traefik` network
 
@@ -24,7 +24,7 @@ Reverse proxy and TLS termination layer. Creates the shared `traefik` Docker net
 Self-hosted dashboard with service tiles, API integrations, and Docker auto-discovery.
 
 - **Location**: [`/homepage`](homepage/)
-- **Port**: 3001
+- **Access**: `https://homepage.virtuallyboring.com` (via Traefik)
 - **Documentation**: See [homepage/README.md](homepage/README.md)
 
 ### Arcane
@@ -75,7 +75,7 @@ Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with sched
 Self-hosted uptime monitoring for services via HTTP/HTTPS, TCP, DNS, and more.
 
 - **Location**: [`/uptime-kuma`](uptime-kuma/)
-- **Port**: 3002
+- **Access**: `https://uptime-kuma.virtuallyboring.com` (via Traefik)
 - **Documentation**: See [uptime-kuma/README.md](uptime-kuma/README.md)
 
 ### Tailscale

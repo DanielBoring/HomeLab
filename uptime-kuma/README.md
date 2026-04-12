@@ -2,11 +2,13 @@
 
 Self-hosted uptime monitoring with a clean web UI. Monitors services via HTTP/HTTPS, TCP, DNS, and more, with alerting via a wide range of notification providers.
 
-## Services
+## Overview
 
-| Service | Port | Description |
-|---|---|---|
-| Uptime Kuma | 3002 | Uptime monitoring web UI |
+| Setting | Value |
+|---|---|
+| Image | `louislam/uptime-kuma:latest` |
+| Access | `https://uptime-kuma.virtuallyboring.com` (via Traefik) |
+| Config | `/mnt/SSD/Containers/uptime-kuma` |
 
 ## Prerequisites
 
@@ -20,34 +22,43 @@ mkdir -p /mnt/SSD/Containers/uptime-kuma
 
 ## Quick Start
 
-### 1. Deploy
+### 1. Copy the environment template
+
+```bash
+cp .env.example .env
+```
+
+### 2. Edit the .env file
+
+```bash
+nano .env
+```
+
+| Variable | Description |
+|---|---|
+| `UPTIME_KUMA_DOMAIN` | Hostname Traefik routes to Uptime Kuma (e.g. `uptime-kuma.virtuallyboring.com`) |
+
+### 3. Deploy
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Verify
+### 4. Add DNS record
 
-```bash
-docker compose ps
-docker compose logs -f uptime-kuma
+In your Windows DNS server, add a CNAME pointing to the Traefik A record:
+
+```
+uptime-kuma.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
 ```
 
-### 3. Initial Setup
+### 5. Access
 
-Navigate to `http://<host-ip>:3002` and create an admin account on first launch.
-
-## Configuration
-
-| Variable | Default | Description |
-|---|---|---|
-| `UPTIME_KUMA_PORT` | `3002` | Host port for the web UI |
-
-To override, create a `.env` file:
-
-```bash
-UPTIME_KUMA_PORT=3002
 ```
+https://uptime-kuma.virtuallyboring.com
+```
+
+Create an admin account on first launch.
 
 ## Storage
 

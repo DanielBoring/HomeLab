@@ -100,6 +100,14 @@ After first login, add Prometheus as a data source:
 
 Then import dashboards by ID from [grafana.com/grafana/dashboards](https://grafana.com/grafana/dashboards).
 
+The following plugins are pre-installed at startup:
+
+| Plugin | Purpose |
+|---|---|
+| `grafana-clock-panel` | Clock/time display panels |
+| `natel-discrete-panel` | Discrete state timeline panels |
+| `grafana-piechart-panel` | Pie chart panels |
+
 ## Storage
 
 | Data | Path |

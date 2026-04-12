@@ -1,6 +1,8 @@
-# Arcane Docker Compose Setup
+# Arcane
 
-This directory contains the Docker Compose configuration for running [Arcane](https://github.com/getarcaneapp/arcane), a self-hosted application management platform for homelabs.
+Self-hosted application management platform for homelabs. Provides a web UI for managing Docker containers, with a PostgreSQL backend.
+
+[GitHub](https://github.com/getarcaneapp/arcane)
 
 ## Security Notice
 

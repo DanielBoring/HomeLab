@@ -1,13 +1,20 @@
-
 services:
   uptime-kuma:
     image: louislam/uptime-kuma:latest
     container_name: uptime-kuma
     restart: unless-stopped
-    ports:
-      - "${UPTIME_KUMA_PORT:-3002}:3001"
     volumes:
       - uptime-kuma-data:/app/data
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_DOMAIN:-uptime-kuma.localhost}`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.uptime-kuma.middlewares=secure-headers@file,lan-only@file"
+      # No server.port label needed — uptime-kuma only exposes one port (3001)
+      # No traefik.docker.network label needed — only on one network
 
 volumes:
   uptime-kuma-data:
@@ -16,3 +23,7 @@ volumes:
       type: none
       device: /mnt/SSD/Containers/uptime-kuma
       o: bind
+
+networks:
+  traefik:
+    external: true
