@@ -23,10 +23,10 @@ chown -R 3001:3001 /mnt/SSD/Containers/changedetection
 ## Quick Start
 
 ```bash
+cp .env.example .env
+# Edit .env if needed, then:
 docker compose up -d
 ```
-
-No `.env` file required — all configuration is in `compose.yaml`.
 
 ### Verify
 
@@ -39,11 +39,19 @@ Navigate to `http://<host-ip>:5000` to access the web UI.
 
 ## Configuration
 
+`.env` variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `TZ` | `America/New_York` | Timezone |
+| `CHANGEDETECTION_PORT` | `5000` | Host port for the web UI |
+
+Hardcoded in `compose.yaml`:
+
 | Variable | Service | Description |
 |---|---|---|
-| `PUID` / `PGID` | changedetection | Run as this user/group (set to `3001`) |
-| `TZ` | changedetection | Timezone (e.g. `America/New_York`) |
-| `BASE_URL` | changedetection | Full public URL — set only if behind a reverse proxy with a subpath |
+| `PUID` / `PGID` | changedetection | Run as this user/group (`3001`) |
+| `BASE_URL` | changedetection | Full public URL — uncomment only if behind a reverse proxy with a subpath |
 | `PLAYWRIGHT_DRIVER_URL` | changedetection | WebSocket URL of the Playwright browser (`ws://playwright-chrome:3000`) |
 | `DEFAULT_LAUNCH_ARGS` | playwright-chrome | Chrome launch flags (default: `--window-size=1920,1080`) |
 

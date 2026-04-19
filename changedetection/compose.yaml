@@ -6,13 +6,13 @@ services:
     environment:
       - PUID=3001
       - PGID=3001
-      - TZ=America/New_York
+      - TZ=${TZ:-America/New_York}
       # - BASE_URL=  # Set only if behind a reverse proxy with a subpath
       - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000
     volumes:
       - /mnt/SSD/Containers/changedetection:/config
     ports:
-      - 5000:5000
+      - ${CHANGEDETECTION_PORT:-5000}:5000
     depends_on:
       playwright-chrome:
         condition: service_started

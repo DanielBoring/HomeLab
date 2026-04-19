@@ -29,6 +29,8 @@ services:
       - "traefik.http.routers.dozzle.rule=Host(`${DOZZLE_DOMAIN:-dozzle.localhost}`)"
       - "traefik.http.routers.dozzle.entrypoints=websecure"
       - "traefik.http.routers.dozzle.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dozzle.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.dozzle.service=dozzle@docker"
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
     healthcheck:
       test: ["CMD", "/dozzle", "healthcheck"]
@@ -36,6 +38,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   dozzle-data:
