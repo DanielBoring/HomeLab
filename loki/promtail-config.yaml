@@ -1,0 +1,48 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /var/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # TrueNAS host system logs via systemd journal
+  - job_name: truenas-journal
+    journal:
+      max_age: 12h
+      labels:
+        job: systemd
+        host: truenas
+    relabel_configs:
+      - source_labels: ['__journal__systemd_unit']
+        target_label: unit
+      - source_labels: ['__journal_priority_keyword']
+        target_label: level
+
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    pipeline_stages:
+      # Drop entries older than 7 days — prevents 400 errors on catch-up after
+      # a redeploy and keeps ingestion consistent with reject_old_samples_max_age
+      - drop:
+          older_than: 168h
+          drop_counter_reason: too_old
+    relabel_configs:
+      # Container name (strip leading slash)
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+      # stdout vs stderr
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: stream
+      # Compose project and service labels
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: compose_project
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: compose_service

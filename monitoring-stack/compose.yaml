@@ -26,6 +26,7 @@ services:
     user: "3001:3001"
     networks:
       - monitoring
+      - loki
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     volumes:
@@ -37,50 +38,8 @@ services:
       - GF_INSTALL_PLUGINS=grafana-clock-panel,natel-discrete-panel,grafana-piechart-panel
     depends_on:
       - prometheus
-      - loki
-
-  loki:
-    image: grafana/loki:latest
-    container_name: loki
-    restart: unless-stopped
-    user: "3001:3001"
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - monitoring
-    ports:
-      - "${LOKI_PORT:-3100}:3100"
-    volumes:
-      - ./loki-config.yaml:/etc/loki/loki-config.yaml:ro
-      - loki-data:/loki
-    command: -config.file=/etc/loki/loki-config.yaml
-
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - monitoring
-    volumes:
-      - ./promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-      - promtail-positions:/var/promtail
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/log/journal:/var/log/journal:ro
-      - /run/log/journal:/run/log/journal:ro
-      - /etc/machine-id:/etc/machine-id:ro
-    command: -config.file=/etc/promtail/promtail-config.yaml
-    depends_on:
-      - loki
 
 volumes:
-  promtail-positions:
-    driver: local
-    driver_opts:
-      type: none
-      device: /mnt/SSD/Containers/promtail
-      o: bind
   prometheus-data:
     driver: local
     driver_opts:
@@ -93,14 +52,10 @@ volumes:
       type: none
       device: /mnt/SSD/Containers/grafana
       o: bind
-  loki-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: /mnt/SSD/Containers/loki
-      o: bind
 
 networks:
   monitoring:
     name: monitoring
     driver: bridge
+  loki:
+    external: true
