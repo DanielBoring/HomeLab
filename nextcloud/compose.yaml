@@ -1,0 +1,146 @@
+
+services:
+  db:
+    image: mariadb:11
+    container_name: nextcloud-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - nextcloud
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    volumes:
+      - nextcloud-db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${NEXTCLOUD_DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: nextcloud-redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - nextcloud
+    command: redis-server --requirepass ${NEXTCLOUD_REDIS_PASSWORD}
+    volumes:
+      - nextcloud-redis:/data
+
+  app:
+    image: nextcloud:stable-apache
+    container_name: nextcloud
+    restart: unless-stopped
+    networks:
+      - nextcloud
+      - traefik
+    ports:
+      - "${NEXTCLOUD_PORT:-8020}:80"
+    volumes:
+      - nextcloud-html:/var/www/html
+      - nextcloud-data:/var/www/html/data
+    environment:
+      # ── Database ──────────────────────────────────────────────────────────────
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=${NEXTCLOUD_DB_PASSWORD}
+      # ── Admin (first-run account creation only) ───────────────────────────────
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+      # ── Trusted domains and proxy ─────────────────────────────────────────────
+      - NEXTCLOUD_TRUSTED_DOMAINS=${NEXTCLOUD_DOMAIN:-nextcloud.localhost}
+      - OVERWRITEPROTOCOL=https
+      - OVERWRITECLIURL=https://${NEXTCLOUD_DOMAIN:-nextcloud.localhost}
+      - TRUSTED_PROXIES=172.16.0.0/12 10.0.0.0/8
+      # ── Redis ─────────────────────────────────────────────────────────────────
+      - REDIS_HOST=redis
+      - REDIS_HOST_PASSWORD=${NEXTCLOUD_REDIS_PASSWORD}
+      # ── PHP / upload limits ───────────────────────────────────────────────────
+      - PHP_MEMORY_LIMIT=1G
+      - PHP_UPLOAD_LIMIT=10G
+      - APACHE_BODY_LIMIT=0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-S", "--max-time", "2", "http://localhost/status.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nextcloud.rule=Host(`${NEXTCLOUD_DOMAIN:-nextcloud.localhost}`)"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.nextcloud.middlewares=secure-headers@file,lan-only@file,nextcloud-dav@docker"
+      - "traefik.http.routers.nextcloud.service=nextcloud@docker"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      # CalDAV / CardDAV discovery redirect (.well-known → /remote.php/dav)
+      - "traefik.http.middlewares.nextcloud-dav.redirectregex.permanent=true"
+      - "traefik.http.middlewares.nextcloud-dav.redirectregex.regex=https://(.*)/.well-known/(?:card|cal)dav"
+      - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cron:
+    image: nextcloud:stable-apache
+    container_name: nextcloud-cron
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - nextcloud
+    volumes:
+      - nextcloud-html:/var/www/html
+      - nextcloud-data:/var/www/html/data
+    entrypoint: /cron.sh
+    depends_on:
+      - app
+
+volumes:
+  nextcloud-html:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/nextcloud/html
+      o: bind
+  nextcloud-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/nextcloud/data
+      o: bind
+  nextcloud-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/nextcloud/db
+      o: bind
+  nextcloud-redis:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/nextcloud/redis
+      o: bind
+
+networks:
+  nextcloud:
+    name: nextcloud
+    driver: bridge
+  traefik:
+    external: true
