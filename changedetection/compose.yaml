@@ -26,3 +26,8 @@ services:
       - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080"]
     shm_size: 2g
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
