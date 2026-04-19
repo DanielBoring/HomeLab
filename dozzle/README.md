@@ -6,7 +6,7 @@ Real-time Docker log viewer. Streams container logs to a browser UI via the Dock
 
 | Service | Port | Description |
 |---|---|---|
-| dozzle | 8080 | Web UI (proxied via Traefik) |
+| dozzle | 8087 | Web UI (proxied via Traefik) |
 
 ## Prerequisites
 
@@ -49,7 +49,7 @@ Navigate to `https://<DOZZLE_DOMAIN>` to access the web UI.
 | `DOZZLE_HOSTNAME` | `homelab` | Display name for this host in the UI |
 | `DOZZLE_AUTH_PROVIDER` | `none` | Auth mode: `none`, `simple`, `forward-proxy` |
 | `DOZZLE_DOMAIN` | `dozzle.localhost` | Hostname Traefik routes to Dozzle |
-| `DOZZLE_PORT` | `8080` | Host port (direct access only — Traefik ignores this) |
+| `DOZZLE_PORT` | `8087` | Host port (direct access only — Traefik ignores this) |
 
 Commented-out options in `compose.yaml`:
 
@@ -67,6 +67,68 @@ Commented-out options in `compose.yaml`:
 | Data | Path |
 |---|---|
 | User settings and alert configs | `/mnt/SSD/Containers/dozzle` |
+
+## Monitoring Remote Hosts (Agent Mode)
+
+By default Dozzle only sees containers on the TrueNAS host it runs on (via the local Docker socket). To also monitor containers on remote hosts — such as the Proxmox nodes at `pmox1/2/3.virtuallyboring.com` — deploy a Dozzle agent on each remote host and point the central Dozzle instance at them.
+
+### 1. Deploy an agent on each remote host
+
+Run this on each Proxmox node (or any remote Docker host):
+
+```bash
+docker run -d \
+  --name dozzle-agent \
+  --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -p 7007:7007 \
+  amir20/dozzle:latest agent
+```
+
+Or as a compose service if you prefer:
+
+```yaml
+services:
+  dozzle-agent:
+    image: amir20/dozzle:latest
+    container_name: dozzle-agent
+    command: agent
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 7007:7007
+    healthcheck:
+      test: ["CMD", "/dozzle", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+### 2. Connect the central Dozzle instance to the agents
+
+Uncomment and populate `DOZZLE_REMOTE_AGENT` in `.env`:
+
+```env
+DOZZLE_REMOTE_AGENT=10.0.5.21:7007,10.0.5.22:7007,10.0.5.23:7007
+```
+
+Then restart Dozzle:
+
+```bash
+docker compose up -d
+```
+
+All three Proxmox nodes will appear as selectable hosts in the Dozzle UI alongside the TrueNAS host.
+
+### Notes
+
+- Agent traffic on port `7007` is TLS-encrypted — no additional setup required.
+- Restrict port `7007` to your LAN (`10.0.5.0/24`) on each Proxmox node's firewall so agents aren't reachable externally.
+- Each agent only exposes its own host's containers — the central Dozzle instance aggregates the views.
+- Set a `DOZZLE_HOSTNAME` on each remote agent by passing `-e DOZZLE_HOSTNAME=pmox1` to the `docker run` command (or the equivalent env var in compose) so hosts are clearly labeled in the UI.
+
+---
 
 ## Portainer Integration
 

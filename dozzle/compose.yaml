@@ -9,7 +9,7 @@ services:
     networks:
       - traefik
     ports:
-      - "${DOZZLE_PORT:-8080}:8080"
+      - "${DOZZLE_PORT:-8087}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - dozzle-data:/data
