@@ -65,6 +65,7 @@ services:
       - monitoring
     volumes:
       - ./promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - promtail-positions:/var/promtail
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/log/journal:/var/log/journal:ro
       - /run/log/journal:/run/log/journal:ro
@@ -74,6 +75,12 @@ services:
       - loki
 
 volumes:
+  promtail-positions:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/promtail
+      o: bind
   prometheus-data:
     driver: local
     driver_opts:
