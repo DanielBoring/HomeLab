@@ -1,0 +1,175 @@
+
+services:
+  broker:
+    image: redis:7
+    container_name: paperless-redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - paperless
+    volumes:
+      - paperless-redis:/data
+
+  db:
+    image: postgres:17
+    container_name: paperless-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - paperless
+    volumes:
+      - paperless-db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=paperless
+      - POSTGRES_USER=paperless
+      - POSTGRES_PASSWORD=${PAPERLESS_DBPASS}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d paperless -U paperless"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  webserver:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    restart: unless-stopped
+    networks:
+      - paperless
+      - traefik
+    ports:
+      - "${PAPERLESS_PORT:-8010}:8000"
+    volumes:
+      - paperless-data:/usr/src/paperless/data
+      - paperless-media:/usr/src/paperless/media
+      - paperless-consume:/usr/src/paperless/consume
+      - paperless-export:/usr/src/paperless/export
+    environment:
+      # ── Connections ───────────────────────────────────────────────────────────
+      - PAPERLESS_REDIS=redis://broker:6379
+      - PAPERLESS_DBHOST=db
+      - PAPERLESS_DBNAME=paperless
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=${PAPERLESS_DBPASS}
+      # ── Core ──────────────────────────────────────────────────────────────────
+      - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY}
+      - PAPERLESS_URL=https://${PAPERLESS_DOMAIN:-paperless.localhost}
+      - PAPERLESS_TIME_ZONE=${TZ:-America/New_York}
+      # ── Admin (first-run account creation only) ───────────────────────────────
+      - PAPERLESS_ADMIN_USER=${PAPERLESS_ADMIN_USER:-admin}
+      - PAPERLESS_ADMIN_PASSWORD=${PAPERLESS_ADMIN_PASSWORD}
+      - PAPERLESS_ADMIN_MAIL=${PAPERLESS_ADMIN_MAIL:-admin@localhost}
+      # ── User mapping — run as the homelab service account ─────────────────────
+      - USERMAP_UID=3001
+      - USERMAP_GID=3001
+      # ── OCR ───────────────────────────────────────────────────────────────────
+      - PAPERLESS_OCR_LANGUAGE=${PAPERLESS_OCR_LANGUAGE:-eng}
+      - PAPERLESS_OCR_DESKEW=true
+      - PAPERLESS_OCR_ROTATE_PAGES=true
+      # ── Tika + Gotenberg (Office document support) ────────────────────────────
+      - PAPERLESS_TIKA_ENABLED=true
+      - PAPERLESS_TIKA_ENDPOINT=http://tika:9998
+      - PAPERLESS_TIKA_GOTENBERG_ENDPOINT=http://gotenberg:3000
+      # ── Consumption ───────────────────────────────────────────────────────────
+      - PAPERLESS_CONSUMER_RECURSIVE=true
+      - PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS=true
+      - PAPERLESS_CONSUMER_DELETE_DUPLICATES=true
+      # - PAPERLESS_CONSUMER_POLLING=10        # uncomment if inotify fails on TrueNAS
+      # ── File naming ───────────────────────────────────────────────────────────
+      # - PAPERLESS_FILENAME_FORMAT={correspondent}/{document_type}/{created_year}/{title}
+      # ── Performance ───────────────────────────────────────────────────────────
+      # - PAPERLESS_TASK_WORKERS=2
+      # - PAPERLESS_THREADS_PER_WORKER=2
+      # - PAPERLESS_WEBSERVER_WORKERS=2
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-S", "--max-time", "2", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.paperless.rule=Host(`${PAPERLESS_DOMAIN:-paperless.localhost}`)"
+      - "traefik.http.routers.paperless.entrypoints=websecure"
+      - "traefik.http.routers.paperless.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.paperless.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.paperless.service=paperless@docker"
+      - "traefik.http.services.paperless.loadbalancer.server.port=8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: paperless-gotenberg
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - paperless
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+      - --chromium-allow-list=file:///tmp/.*
+
+  tika:
+    image: apache/tika:latest
+    container_name: paperless-tika
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - paperless
+
+volumes:
+  paperless-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/paperless/data
+      o: bind
+  paperless-media:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/paperless/media
+      o: bind
+  paperless-consume:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/paperless/consume
+      o: bind
+  paperless-export:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/paperless/export
+      o: bind
+  paperless-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/paperless/db
+      o: bind
+  paperless-redis:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/paperless/redis
+      o: bind
+
+networks:
+  paperless:
+    name: paperless
+    driver: bridge
+  traefik:
+    external: true
