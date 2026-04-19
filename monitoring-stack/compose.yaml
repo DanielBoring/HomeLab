@@ -30,12 +30,45 @@ services:
       - "${GRAFANA_PORT:-3000}:3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning:ro
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_INSTALL_PLUGINS=grafana-clock-panel,natel-discrete-panel,grafana-piechart-panel
     depends_on:
       - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    user: "3001:3001"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - monitoring
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - monitoring
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    depends_on:
+      - loki
 
 volumes:
   prometheus-data:
@@ -49,6 +82,12 @@ volumes:
     driver_opts:
       type: none
       device: /mnt/SSD/Containers/grafana
+      o: bind
+  loki-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/loki
       o: bind
 
 networks:

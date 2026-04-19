@@ -1,6 +1,6 @@
 # Monitoring Stack
 
-Prometheus + Grafana for metrics collection and visualization. This stack creates the shared `monitoring` Docker network that other services (such as Unpoller) attach to.
+Prometheus + Grafana for metrics collection and visualization, plus Loki + Promtail for log aggregation. This stack creates the shared `monitoring` Docker network that other services (such as Unpoller) attach to.
 
 ## Services
 
@@ -8,6 +8,8 @@ Prometheus + Grafana for metrics collection and visualization. This stack create
 |---|---|---|
 | Prometheus | 9090 | Metrics collection and storage |
 | Grafana | 3000 | Dashboards and visualization |
+| Loki | 3100 | Log aggregation and storage |
+| Promtail | internal | Log shipper — collects Docker container logs and forwards to Loki |
 
 ## Prerequisites
 
@@ -16,8 +18,10 @@ Create the persistent storage directories on the host before deploying:
 ```bash
 mkdir -p /mnt/SSD/Containers/prometheus
 mkdir -p /mnt/SSD/Containers/grafana
+mkdir -p /mnt/SSD/Containers/loki
 chown -R 3001:3001 /mnt/SSD/Containers/prometheus
 chown -R 3001:3001 /mnt/SSD/Containers/grafana
+chown -R 3001:3001 /mnt/SSD/Containers/loki
 ```
 
 ## Quick Start
@@ -40,6 +44,7 @@ nano .env
 | `GRAFANA_ADMIN_PASSWORD` | Yes | — | Grafana admin password |
 | `GRAFANA_PORT` | No | `3000` | Host port for Grafana |
 | `PROMETHEUS_PORT` | No | `9090` | Host port for Prometheus |
+| `LOKI_PORT` | No | `3100` | Host port for Loki |
 
 ### 3. Deploy
 
@@ -53,10 +58,13 @@ docker compose up -d
 docker compose ps
 docker compose logs -f prometheus
 docker compose logs -f grafana
+docker compose logs -f loki
+docker compose logs -f promtail
 ```
 
 - Prometheus UI: `http://<host-ip>:9090`
 - Grafana UI: `http://<host-ip>:3000`
+- Loki (API only, no UI): `http://<host-ip>:3100`
 
 ## OTLP Receiver
 
@@ -108,14 +116,49 @@ The following plugins are pre-installed at startup:
 | `natel-discrete-panel` | Discrete state timeline panels |
 | `grafana-piechart-panel` | Pie chart panels |
 
+## Loki
+
+Loki is configured in [loki-config.yaml](loki-config.yaml). Logs are stored on the local filesystem and retained for **30 days**, matching Prometheus.
+
+Promtail uses Docker service discovery (via the Docker socket) to automatically collect logs from every container on the host. Each log stream is labeled with `container`, `stream` (stdout/stderr), `compose_project`, and `compose_service`.
+
+### Querying logs in Grafana
+
+The Loki datasource is provisioned automatically — no manual setup needed. To explore logs:
+
+1. Go to **Explore** in Grafana.
+2. Select the **Loki** datasource.
+3. Use LogQL to query, e.g.:
+   ```logql
+   {container="dozzle"}
+   {compose_project="monitoring-stack"} |= "error"
+   ```
+
+### Useful LogQL examples
+
+```logql
+# All logs from a container
+{container="traefik"}
+
+# Error lines across all containers
+{compose_project=~".+"} |= "error"
+
+# Logs from a specific compose project
+{compose_project="arrrr-stack"}
+
+# Rate of error lines per container (for a dashboard panel)
+sum by (container) (rate({compose_project=~".+"} |= "error" [5m]))
+```
+
 ## Storage
 
 | Data | Path |
 |---|---|
 | Prometheus metrics | `/mnt/SSD/Containers/prometheus` |
 | Grafana data (dashboards, users) | `/mnt/SSD/Containers/grafana` |
+| Loki log chunks and index | `/mnt/SSD/Containers/loki` |
 
-Metrics are retained for **30 days** by default (`--storage.tsdb.retention.time=30d`).
+Metrics and logs are both retained for **30 days** by default.
 
 ## Maintenance
 
@@ -132,6 +175,7 @@ docker compose up -d
 docker compose down
 tar -czf monitoring-backup-$(date +%Y%m%d).tar.gz \
   /mnt/SSD/Containers/prometheus \
-  /mnt/SSD/Containers/grafana
+  /mnt/SSD/Containers/grafana \
+  /mnt/SSD/Containers/loki
 docker compose up -d
 ```
