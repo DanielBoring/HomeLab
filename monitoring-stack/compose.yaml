@@ -26,7 +26,6 @@ services:
     user: "3001:3001"
     networks:
       - monitoring
-      - loki
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
     volumes:
@@ -57,5 +56,3 @@ networks:
   monitoring:
     name: monitoring
     driver: bridge
-  loki:
-    external: true
