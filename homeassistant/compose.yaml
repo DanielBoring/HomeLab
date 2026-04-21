@@ -22,7 +22,7 @@ services:
     # After enabling Traefik routing, add this to configuration.yaml so HA
     # trusts the proxy and logs real client IPs:
     #
-    #   homeassistant:
+    #   http:
     #     use_x_forwarded_for: true
     #     trusted_proxies:
     #       - 172.16.0.0/12   # Docker bridge networks
