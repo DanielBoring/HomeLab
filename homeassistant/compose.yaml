@@ -1,0 +1,70 @@
+---
+services:
+  homeassistant:
+    # Pin to a release tag for production stability, e.g.:
+    #   image: lscr.io/linuxserver/homeassistant:2025.4.4
+    image: lscr.io/linuxserver/homeassistant:latest
+    container_name: homeassistant
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
+    ports:
+      - "${HOMEASSISTANT_PORT:-8123}:8123"
+    volumes:
+      - homeassistant-config:/config
+    environment:
+      - PUID=3001
+      - PGID=3001
+      - TZ=${TZ:-America/New_York}
+    # ── Traefik ─────────────────────────────────────────────────────────────
+    # After enabling Traefik routing, add this to configuration.yaml so HA
+    # trusts the proxy and logs real client IPs:
+    #
+    #   homeassistant:
+    #     use_x_forwarded_for: true
+    #     trusted_proxies:
+    #       - 172.16.0.0/12   # Docker bridge networks
+    #       - 10.0.0.0/8      # LAN + Traefik macvlan
+    #
+    # Without this, HA will show the Traefik container IP as the client address
+    # and may block Lovelace WebSocket connections.
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homeassistant.rule=Host(`${HOMEASSISTANT_DOMAIN:-homeassistant.localhost}`)"
+      - "traefik.http.routers.homeassistant.entrypoints=websecure"
+      - "traefik.http.routers.homeassistant.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.homeassistant.middlewares=secure-headers@file"
+      - "traefik.http.routers.homeassistant.service=homeassistant@docker"
+      - "traefik.http.services.homeassistant.loadbalancer.server.port=8123"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "-S", "--max-time", "2", "http://localhost:8123/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # ── Hardware passthrough (Zigbee / Z-Wave / Bluetooth) ───────────────────
+    # Uncomment and set the correct device path for USB dongles.
+    # NOTE: if you need mDNS or Bluetooth discovery, switch to network_mode: host
+    # instead of the traefik network — but Traefik labels will not work in that
+    # mode. Use the direct port (${HOMEASSISTANT_PORT}) for LAN access instead.
+    #devices:
+    #  - /dev/ttyUSB0:/dev/ttyUSB0   # Zigbee/Z-Wave USB stick
+
+volumes:
+  homeassistant-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/homeassistant
+      o: bind
+
+networks:
+  traefik:
+    external: true
