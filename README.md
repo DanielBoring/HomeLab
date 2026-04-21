@@ -99,6 +99,43 @@ Website change detection and monitoring with full JavaScript rendering via Playw
 - **Port**: 5000
 - **Documentation**: See [changedetection/README.md](changedetection/README.md)
 
+### Dozzle
+Real-time Docker log viewer. Streams container logs to a browser UI — stateless, no log storage.
+
+- **Location**: [`/dozzle`](dozzle/)
+- **Access**: `https://<DOZZLE_DOMAIN>` (via Traefik)
+- **Documentation**: See [dozzle/README.md](dozzle/README.md)
+
+### Loki
+Log aggregation stack (Loki + Promtail). Promtail ships container and systemd journal logs into Loki; Grafana is the query UI.
+
+- **Location**: [`/loki`](loki/)
+- **Port**: 3100 (Loki ingest — internal only)
+- **Requires**: `monitoring-stack` deployed first (Grafana datasource)
+- **Documentation**: See [loki/README.md](loki/README.md)
+
+### Nextcloud
+Self-hosted file sync and collaboration platform.
+
+- **Location**: [`/nextcloud`](nextcloud/)
+- **Access**: `https://<NEXTCLOUD_DOMAIN>` (via Traefik)
+- **Documentation**: See [nextcloud/README.md](nextcloud/README.md)
+
+### Paperless-NGX
+Document management system — scan, index, and archive documents with OCR and full-text search.
+
+- **Location**: [`/paperless-ngx`](paperless-ngx/)
+- **Access**: `https://<PAPERLESS_DOMAIN>` (via Traefik)
+- **Documentation**: See [paperless-ngx/readme.md](paperless-ngx/readme.md)
+
+### Open WebUI
+Web UI for interacting with self-hosted LLM models via Ollama.
+
+- **Location**: [`/openwebui`](openwebui/)
+- **Access**: `https://<OPENWEBUI_DOMAIN>` (via Traefik)
+- **Ollama host**: Remote instance at `PwnBot.virtuallyboring.com:11434`
+- **Documentation**: See [openwebui/README.md](openwebui/README.md)
+
 ## Quick Start
 
 ### Prerequisites
@@ -175,6 +212,28 @@ HomeLab/
 ├── changedetection/     # Website change detection and monitoring
 │   ├── compose.yaml     # Docker Compose configuration
 │   └── README.md        # Service documentation
+├── dozzle/              # Real-time Docker log viewer
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
+├── loki/                # Log aggregation (Loki + Promtail)
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── loki-config.yaml
+│   ├── promtail-config.yaml
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
+├── nextcloud/           # Self-hosted file sync and collaboration
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
+├── paperless-ngx/       # Document management with OCR
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── readme.md        # Service documentation
+├── openwebui/           # Web UI for Ollama LLM models
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
 ├── prometheus-pve-exporter/  # Proxmox VE metrics exporter
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
@@ -245,44 +304,28 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 
 Ensure this path exists and has appropriate permissions before deploying services.
 
+## Deployment
+
+Services are deployed and managed via **Portainer GitOps**:
+
+1. Push changes to this repository on GitHub
+2. Portainer polls GitHub every 5 minutes and automatically pulls changes and redeploys affected stacks
+3. For immediate deployment (e.g. during troubleshooting), trigger a manual **Force Update** in Portainer
+
+Environment variables are stored per-stack in Portainer — not in `.env` files on the host.
+
 ## Maintenance
-
-### Updating Services
-
-To update a service to the latest version:
-
-```bash
-cd <service-directory>
-
-# Pull latest images
-docker compose pull
-
-# Recreate containers with new images
-docker compose up -d
-
-# Verify
-docker compose logs -f
-```
 
 ### Backing Up Data
 
-Regular backups are essential:
-
 ```bash
-# Stop services
 cd <service-directory>
 docker compose down
-
-# Backup data volumes
 tar -czf backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/<service-name>
-
-# Restart services
 docker compose up -d
 ```
 
 ### Monitoring
-
-Check service health:
 
 ```bash
 # View all running containers
@@ -328,15 +371,6 @@ docker compose config
 # Check for missing environment variables
 grep -v '^#' .env | grep -v '^$'
 ```
-
-## Contributing
-
-This is a personal home lab repository, but suggestions and improvements are welcome:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request with a clear description
 
 ## Resources
 

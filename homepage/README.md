@@ -55,15 +55,23 @@ The `.env` file passes API keys and URLs to Homepage via `HOMEPAGE_VAR_*` variab
 docker compose up -d
 ```
 
-### 4. Add DNS record
+### 4. Add DNS records
 
-In your Windows DNS server, add a CNAME pointing to the Traefik A record:
+This environment uses split-brain DNS — `virtuallyboring.com` is served by both Active Directory DNS (internal) and Cloudflare (external). Records must be added in both places depending on whether the service should be reachable internally, externally, or both.
 
+**Internal (Active Directory DNS) — required for LAN access:**
 ```
+traefik.virtuallyboring.com   A      10.0.5.5
 homepage.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
 ```
 
-`traefik.virtuallyboring.com` must have an A record pointing to `10.0.5.5` (Traefik's internal IP).
+**External (Cloudflare) — only if you want internet access:**
+```
+homepage.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
+traefik.virtuallyboring.com   A      <your-public-ip>
+```
+
+If you only want LAN access (recommended for a dashboard), create the records in AD DNS only and skip Cloudflare.
 
 ### 5. Access
 
