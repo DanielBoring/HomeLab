@@ -41,7 +41,7 @@ docker compose up -d
 docker compose logs -f app
 ```
 
-First startup takes 60–90 seconds while Nextcloud initialises the database and creates the admin account. Navigate to `https://cloud.virtuallyboring.com` and log in with your admin credentials.
+First startup takes 60–90 seconds while Nextcloud initialises the database and creates the admin account. Navigate to `https://<NEXTCLOUD_DOMAIN>` and log in with your admin credentials.
 
 > **Note:** `NEXTCLOUD_ADMIN_USER` / `NEXTCLOUD_ADMIN_PASSWORD` only create the account on the very first run. After that, manage users through the web UI.
 

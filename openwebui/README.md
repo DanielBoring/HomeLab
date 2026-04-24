@@ -37,7 +37,7 @@ Then open `https://<OPENWEBUI_DOMAIN>`. DNS must resolve the domain to Traefik (
 | Variable          | Description                        | Example                                  |
 |-------------------|------------------------------------|------------------------------------------|
 | `OLLAMA_BASE_URL` | URL of the remote Ollama instance  | `http://<ollama-host>:11434`             |
-| `OPENWEBUI_DOMAIN`| Hostname Traefik routes to the UI  | `openwebui.virtuallyboring.com`          |
+| `OPENWEBUI_DOMAIN`| Hostname Traefik routes to the UI  | `openwebui.yourdomain.com`               |
 
 ## Ollama Host Requirements
 

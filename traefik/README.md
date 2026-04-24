@@ -80,13 +80,13 @@ docker compose up -d
 In your Windows DNS server, add an A record pointing to Traefik's dedicated IP:
 
 ```
-traefik.virtuallyboring.com  A  10.0.5.5
+traefik.yourdomain.com  A  10.0.5.5
 ```
 
 Each service you add behind Traefik gets a CNAME pointing to this A record:
 
 ```
-homepage.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
+myservice.yourdomain.com  CNAME  traefik.yourdomain.com
 ```
 
 ### 5. Access the dashboard

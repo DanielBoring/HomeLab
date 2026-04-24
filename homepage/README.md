@@ -7,7 +7,7 @@ A modern, self-hosted dashboard for your home lab. Displays service statuses, in
 | Setting | Value |
 |---|---|
 | Image | `ghcr.io/gethomepage/homepage:latest` |
-| Access | `https://homepage.virtuallyboring.com` (via Traefik) |
+| Access | `https://<HOMEPAGE_DOMAIN>` (via Traefik) |
 | Config | `/mnt/SSD/Containers/homepage` |
 | Images | `/mnt/SSD/Containers/homepage/images` |
 
@@ -38,7 +38,7 @@ The `.env` file passes API keys and URLs to Homepage via `HOMEPAGE_VAR_*` variab
 
 | Variable | Description |
 |---|---|
-| `HOMEPAGE_DOMAIN` | Hostname Traefik routes to homepage (e.g. `home.virtuallyboring.com`) |
+| `HOMEPAGE_DOMAIN` | Hostname Traefik routes to homepage (e.g. `home.yourdomain.com`) |
 | `HOMEPAGE_ALLOWED_HOSTS` | Must match `HOMEPAGE_DOMAIN` exactly — no port needed behind Traefik |
 | `HOMEPAGE_VAR_PIHOLE1_URL` | Pi-hole 1 URL |
 | `HOMEPAGE_VAR_PIHOLE1_API_KEY` | Pi-hole 1 API key |
@@ -57,18 +57,18 @@ docker compose up -d
 
 ### 4. Add DNS records
 
-This environment uses split-brain DNS — `virtuallyboring.com` is served by both Active Directory DNS (internal) and Cloudflare (external). Records must be added in both places depending on whether the service should be reachable internally, externally, or both.
+If you use split-brain DNS (e.g. internal DNS server for LAN + Cloudflare for external), you'll need records in both places.
 
-**Internal (Active Directory DNS) — required for LAN access:**
+**Internal DNS — required for LAN access:**
 ```
-traefik.virtuallyboring.com   A      10.0.5.5
-homepage.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
+traefik.yourdomain.com   A      10.0.5.5
+homepage.yourdomain.com  CNAME  traefik.yourdomain.com
 ```
 
-**External (Cloudflare) — only if you want internet access:**
+**External DNS (Cloudflare) — only if you want internet access:**
 ```
-homepage.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
-traefik.virtuallyboring.com   A      <your-public-ip>
+homepage.yourdomain.com  CNAME  traefik.yourdomain.com
+traefik.yourdomain.com   A      <your-public-ip>
 ```
 
 If you only want LAN access (recommended for a dashboard), create the records in AD DNS only and skip Cloudflare.
@@ -76,7 +76,7 @@ If you only want LAN access (recommended for a dashboard), create the records in
 ### 5. Access
 
 ```
-https://homepage.virtuallyboring.com
+https://<HOMEPAGE_DOMAIN>
 ```
 
 ## Configuration
@@ -98,7 +98,7 @@ See the [Homepage documentation](https://gethomepage.dev) for full configuration
 The `HOMEPAGE_ALLOWED_HOSTS` environment variable is required to prevent DNS rebinding attacks. Behind Traefik, set it to just the hostname — no port needed since requests arrive on standard port 443:
 
 ```
-HOMEPAGE_ALLOWED_HOSTS=homepage.virtuallyboring.com
+HOMEPAGE_ALLOWED_HOSTS=<HOMEPAGE_DOMAIN>
 ```
 
 If the value includes a port (e.g. `:3001`) Homepage will reject requests coming through Traefik and return a 403.

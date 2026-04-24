@@ -7,7 +7,7 @@ Self-hosted uptime monitoring with a clean web UI. Monitors services via HTTP/HT
 | Setting | Value |
 |---|---|
 | Image | `louislam/uptime-kuma:latest` |
-| Access | `https://uptime-kuma.virtuallyboring.com` (via Traefik) |
+| Access | `https://<UPTIME_KUMA_DOMAIN>` (via Traefik) |
 | Config | `/mnt/SSD/Containers/uptime-kuma` |
 
 ## Prerequisites
@@ -36,7 +36,7 @@ nano .env
 
 | Variable | Description |
 |---|---|
-| `UPTIME_KUMA_DOMAIN` | Hostname Traefik routes to Uptime Kuma (e.g. `uptime-kuma.virtuallyboring.com`) |
+| `UPTIME_KUMA_DOMAIN` | Hostname Traefik routes to Uptime Kuma (e.g. `uptime-kuma.yourdomain.com`) |
 
 ### 3. Deploy
 
@@ -49,13 +49,13 @@ docker compose up -d
 In your Windows DNS server, add a CNAME pointing to the Traefik A record:
 
 ```
-uptime-kuma.virtuallyboring.com  CNAME  traefik.virtuallyboring.com
+<UPTIME_KUMA_DOMAIN>  CNAME  traefik.yourdomain.com
 ```
 
 ### 5. Access
 
 ```
-https://uptime-kuma.virtuallyboring.com
+https://<UPTIME_KUMA_DOMAIN>
 ```
 
 Create an admin account on first launch.

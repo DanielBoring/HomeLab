@@ -11,7 +11,7 @@ Most smart home ecosystems require a cloud account and send your usage data to a
 | Setting | Value |
 |---|---|
 | Image | `lscr.io/linuxserver/homeassistant:latest` |
-| HTTPS access | `https://ha.virtuallyboring.com` (via Traefik) |
+| HTTPS access | `https://<HOMEASSISTANT_DOMAIN>` (via Traefik) |
 | Direct access | `http://<host-ip>:8123` (companion app, local tablets) |
 | Config | `/mnt/SSD/Containers/homeassistant` |
 
@@ -22,7 +22,7 @@ Companion app / browser
         │
         ▼
   Traefik (HTTPS 443)                    Direct LAN
-  ha.virtuallyboring.com    ──OR──    host-ip:8123
+  <HOMEASSISTANT_DOMAIN>    ──OR──    host-ip:8123
         │                                   │
         └──────────────────┬────────────────┘
                            ▼
@@ -63,7 +63,7 @@ cp .env.example .env
 
 | Variable | Required | Description |
 |---|---|---|
-| `HOMEASSISTANT_DOMAIN` | Yes | Hostname Traefik routes to HA (e.g. `ha.virtuallyboring.com`) |
+| `HOMEASSISTANT_DOMAIN` | Yes | Hostname Traefik routes to HA (e.g. `ha.yourdomain.com`) |
 | `TZ` | No | Timezone — defaults to `America/New_York` |
 | `HOMEASSISTANT_PORT` | No | Host port for direct LAN access — defaults to `8123` |
 
@@ -78,7 +78,7 @@ docker compose up -d
 Point your subdomain at the Traefik macvlan IP:
 
 ```
-ha.virtuallyboring.com  A  10.0.5.5
+<HOMEASSISTANT_DOMAIN>  A  10.0.5.5
 ```
 
 ### 5. Configure trusted proxies (required for Traefik)
@@ -104,7 +104,7 @@ Without this, HA will see the Traefik container IP as every client's address. Th
 ### 6. Access
 
 ```
-https://ha.virtuallyboring.com
+https://<HOMEASSISTANT_DOMAIN>
 ```
 
 Create your owner account on first launch. HA walks you through initial setup automatically.

@@ -24,7 +24,7 @@ Reverse proxy and TLS termination layer. Creates the shared `traefik` Docker net
 Self-hosted dashboard with service tiles, API integrations, and Docker auto-discovery.
 
 - **Location**: [`/homepage`](homepage/)
-- **Access**: `https://homepage.virtuallyboring.com` (via Traefik)
+- **Access**: `https://<HOMEPAGE_DOMAIN>` (via Traefik)
 - **Documentation**: See [homepage/README.md](homepage/README.md)
 
 ### Arcane
@@ -54,7 +54,7 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Location**: [`/unpoller`](unpoller/)
 - **Ports**: 9130 (Prometheus scrape endpoint), 37288 (web UI — disabled by default)
 - **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
-- **Controller**: UniFi OS device at `https://10.0.1.1`
+- **Controller**: UniFi OS device at `https://<UNIFI_CONTROLLER_IP>`
 
 ### Prometheus PVE Exporter
 Exports Proxmox VE cluster and node metrics to Prometheus.
@@ -75,7 +75,7 @@ Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with sched
 Self-hosted uptime monitoring for services via HTTP/HTTPS, TCP, DNS, and more.
 
 - **Location**: [`/uptime-kuma`](uptime-kuma/)
-- **Access**: `https://uptime-kuma.virtuallyboring.com` (via Traefik)
+- **Access**: `https://<UPTIME_KUMA_DOMAIN>` (via Traefik)
 - **Documentation**: See [uptime-kuma/README.md](uptime-kuma/README.md)
 
 ### Tailscale
@@ -133,7 +133,7 @@ Web UI for interacting with self-hosted LLM models via Ollama.
 
 - **Location**: [`/openwebui`](openwebui/)
 - **Access**: `https://<OPENWEBUI_DOMAIN>` (via Traefik)
-- **Ollama host**: Remote instance at `PwnBot.virtuallyboring.com:11434`
+- **Ollama host**: Remote instance at `<OLLAMA_HOST>:11434`
 - **Documentation**: See [openwebui/README.md](openwebui/README.md)
 
 ### NetBox
