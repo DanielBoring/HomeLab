@@ -1,0 +1,66 @@
+services:
+  tdarr-node-desktop:
+    image: haveagitgat/tdarr_node:latest
+    container_name: tdarr-node-desktop
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - tdarr-configs:/app/configs
+      - tdarr-logs:/app/logs
+      - tdarr-media:/data/media
+      - tdarr-transcode:/temp
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-1000}
+      - PGID=${PGID:-1000}
+      - UMASK_SET=002
+      - nodeName=Desktop-3090
+      - serverIP=${TDARR_SERVER_IP}
+      - serverPort=8266
+      - inContainer=true
+      - ffmpegVersion=7
+      - transcodegpuWorkers=2
+      - transcodecpuWorkers=2
+      - healthcheckgpuWorkers=1
+      - healthcheckcpuWorkers=1
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  tdarr-media:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=${TRUENAS_IP},rw,nfsvers=4"
+      device: ":/mnt/Data/Media"
+  tdarr-configs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${TDARR_CONFIGS_PATH}
+      o: bind
+  tdarr-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${TDARR_LOGS_PATH}
+      o: bind
+  tdarr-transcode:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${TDARR_TRANSCODE_PATH}
+      o: bind
