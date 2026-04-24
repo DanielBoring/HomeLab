@@ -106,14 +106,14 @@ Log in with the credentials from `NETBOX_ADMIN_USER` / `NETBOX_ADMIN_PASSWORD`.
 | `NETBOX_REDIS_PASSWORD` | Yes | Redis password for the task queue instance |
 | `NETBOX_REDIS_CACHE_PASSWORD` | Yes | Redis password for the cache instance |
 | `NETBOX_SECRET_KEY` | Yes | Django secret key — min 50 chars, never share or rotate without clearing sessions |
-| `NETBOX_ADMIN_USER` | Yes | Superuser username (first run only) |
-| `NETBOX_ADMIN_EMAIL` | Yes | Superuser email (first run only) |
-| `NETBOX_ADMIN_PASSWORD` | Yes | Superuser password (first run only) |
-| `NETBOX_ADMIN_API_TOKEN` | Yes | Superuser API token — 40 hex chars (first run only) |
+| `NETBOX_ADMIN_USER` | Yes¹ | Superuser username |
+| `NETBOX_ADMIN_EMAIL` | Yes¹ | Superuser email |
+| `NETBOX_ADMIN_PASSWORD` | Yes¹ | Superuser password |
+| `NETBOX_ADMIN_API_TOKEN` | Yes¹ | Superuser API token — 40 hex chars |
 | `NETBOX_DOMAIN` | Yes | Hostname Traefik routes to NetBox |
 | `NETBOX_PORT` | No | Host port for direct access (default: `8060`) |
 
-`SUPERUSER_*` vars are consumed once at first startup to create the admin account. After that they are ignored — change credentials through the web UI or `manage.py`.
+¹ **First-run only.** On startup, NetBox checks whether any superuser exists in the database. If none does, it creates one using these four vars. On every subsequent startup the check finds an existing superuser and skips the step — the vars are never read again. To change credentials after first run, use the web UI (profile → change password) or `docker exec -it netbox python manage.py changepassword <username>`.
 
 ---
 
