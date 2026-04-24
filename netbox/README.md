@@ -128,9 +128,116 @@ Migrations run automatically on startup. Check the release notes before upgradin
 
 ---
 
-## Useful things to configure after first login
+## Initial configuration
 
-1. **Set your home prefixes** — go to IPAM → Prefixes → Add. Start with your LAN (`10.0.0.0/20`).
-2. **Enable login required** — by default NetBox allows anonymous read access. To require login for all views, create `/etc/netbox/config/extra.py` (mounted into the container) containing `LOGIN_REQUIRED = True`.
-3. **Webhooks** — NetBox can POST change events to external URLs (Home Assistant, ntfy, etc.) via the netbox-worker. Configure under Integrations → Webhooks.
-4. **Custom scripts & reports** — drop Python files into the `scripts/` or `reports/` directories (mapped to `/mnt/SSD/Containers/netbox/scripts|reports`) and they appear in the UI under Customization.
+Work through these in order — later steps (devices, IPs) depend on the organizational structure you set up first.
+
+### 1. Create a regular user
+
+The `admin` superuser should not be your day-to-day account. Create a normal user under Admin → Users with only the permissions you need. Reserve the superuser for schema changes and bulk operations.
+
+### 2. Restrict anonymous access
+
+By default NetBox allows unauthenticated read access to everything. To require login, mount a config file into the container and add one line:
+
+```python
+# /mnt/SSD/Containers/netbox/config/extra.py
+LOGIN_REQUIRED = True
+```
+
+Then add this volume to the `netbox`, and `netbox-worker` services in `compose.yaml`:
+
+```yaml
+- /mnt/SSD/Containers/netbox/config:/etc/netbox/config:ro
+```
+
+Restart the stack to apply.
+
+### 3. Create a Site
+
+NetBox's organizational hierarchy starts with a **Site** — a physical location that racks, devices, and VLANs hang off.
+
+Organization → Sites → Add:
+- **Name:** `Home` (or whatever you call it)
+- **Status:** Active
+- **Physical address:** optional, useful for geo context
+
+Everything else in NetBox will reference this site.
+
+### 4. Set up IP space
+
+NetBox models IP address space in three layers:
+
+| Layer | What it is | Example |
+|---|---|---|
+| **Aggregate** | A top-level block you own/manage | `10.0.0.0/8` (RFC 1918) |
+| **Prefix** | A subnet carved out of the aggregate | `10.0.0.0/20` (your LAN) |
+| **IP Address** | A single assigned address | `10.0.1.1/20` (UDM SE) |
+
+**Add the RFC 1918 aggregate** (IPAM → Aggregates → Add):
+- Prefix: `10.0.0.0/8`
+- RIR: create one called `RFC 1918` with `Private` checked
+
+**Add your prefixes** (IPAM → Prefixes → Add):
+
+| Prefix | Site | Role | Description |
+|---|---|---|---|
+| `10.0.0.0/20` | Home | LAN | Main LAN |
+| `10.0.5.0/24` | Home | Infrastructure | Traefik macvlan subnet |
+
+NetBox will warn you if you try to assign an IP outside a known prefix, which catches typos and subnet mistakes early.
+
+### 5. Add VLANs
+
+If your network is segmented, model it now so you can attach VLANs to prefixes and device interfaces later.
+
+IPAM → VLANs → Add one per segment. Set the Site to `Home` so they're scoped correctly.
+
+### 6. Add device types
+
+Device types are the template (manufacturer + model) that individual devices are instances of. You only define a device type once and then stamp out as many devices as you own.
+
+Organization → Manufacturers → Add each vendor (`Ubiquiti`, `45Drives`, etc.).
+
+Organization → Device Types → Add:
+- **Manufacturer:** Ubiquiti
+- **Model:** UDM-SE
+- **Form factor:** 1U (or Desktop)
+
+The NetBox community maintains a library of pre-built device type definitions at [github.com/netbox-community/devicetype-library](https://github.com/netbox-community/devicetype-library) — worth importing rather than building from scratch.
+
+### 7. Add devices and assign IPs
+
+Organization → Devices → Add a device for each piece of physical hardware. Attach it to a device type, site, and (optionally) rack/location.
+
+Once a device exists, open it → Interfaces tab → add the management interface → then assign an IP address from your prefix. Marking one IP as the **primary** makes it show in device list views and enables future integration with Ansible inventory plugins.
+
+Start with the core infrastructure:
+- UDM SE (`10.0.1.1`)
+- TrueNAS host
+- Proxmox nodes
+- Switches and APs
+
+### 8. Document services as Virtual Machines or services
+
+For Docker workloads, model them as **Virtual Machines** under Virtualization (or skip this and just use IPAM to track the IPs — your call on how granular you want to go).
+
+### 9. Use the API
+
+Every action you took in the UI is available via REST API. Your API token (set during first run) authenticates requests. Quick test:
+
+```bash
+curl -s -H "Authorization: Token <your-token>" \
+  https://netbox.virtuallyboring.com/api/ipam/prefixes/ | jq '.results[].prefix'
+```
+
+The interactive API docs are at `https://netbox.virtuallyboring.com/api/docs/` — every endpoint is documented with request/response examples.
+
+### 10. Webhooks and automation
+
+NetBox can POST a JSON payload to any URL when objects are created, updated, or deleted. Practical homelab uses:
+- Trigger an Ansible playbook via Semaphore when a device is added
+- Send a notification to ntfy/Slack on IP assignment
+- Keep an external DNS provider in sync
+
+Configure under Integrations → Event Rules.
