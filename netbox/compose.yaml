@@ -1,0 +1,250 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: netbox-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - netbox
+    volumes:
+      - netbox-db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=netbox
+      - POSTGRES_USER=netbox
+      - POSTGRES_PASSWORD=${NETBOX_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netbox -d netbox"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: netbox-redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - netbox
+    command: redis-server --requirepass ${NETBOX_REDIS_PASSWORD}
+    volumes:
+      - netbox-redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${NETBOX_REDIS_PASSWORD} ping | grep PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: netbox-redis-cache
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - netbox
+    command: redis-server --requirepass ${NETBOX_REDIS_CACHE_PASSWORD}
+    volumes:
+      - netbox-redis-cache:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${NETBOX_REDIS_CACHE_PASSWORD} ping | grep PONG"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  netbox:
+    image: netboxcommunity/netbox:latest
+    container_name: netbox
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - netbox
+      - traefik
+    ports:
+      - "${NETBOX_PORT:-8060}:8080"
+    volumes:
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+    environment:
+      - TZ=${TZ:-America/New_York}
+      # ── Superuser (first-run only — ignored after initial setup) ──────────────
+      - SUPERUSER_NAME=${NETBOX_ADMIN_USER:-admin}
+      - SUPERUSER_EMAIL=${NETBOX_ADMIN_EMAIL}
+      - SUPERUSER_PASSWORD=${NETBOX_ADMIN_PASSWORD}
+      - SUPERUSER_API_TOKEN=${NETBOX_ADMIN_API_TOKEN}
+      # ── Django ────────────────────────────────────────────────────────────────
+      - ALLOWED_HOSTS=${NETBOX_DOMAIN} localhost 127.0.0.1
+      - SECRET_KEY=${NETBOX_SECRET_KEY}
+      # ── Database ──────────────────────────────────────────────────────────────
+      - DB_HOST=postgres
+      - DB_NAME=netbox
+      - DB_USER=netbox
+      - DB_PASSWORD=${NETBOX_DB_PASSWORD}
+      # ── Redis (task queue) ────────────────────────────────────────────────────
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${NETBOX_REDIS_PASSWORD}
+      # ── Redis (cache) ─────────────────────────────────────────────────────────
+      - REDIS_CACHE_HOST=redis-cache
+      - REDIS_CACHE_PORT=6379
+      - REDIS_CACHE_PASSWORD=${NETBOX_REDIS_CACHE_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redis-cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/login/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.netbox.rule=Host(`${NETBOX_DOMAIN}`)"
+      - "traefik.http.routers.netbox.entrypoints=websecure"
+      - "traefik.http.routers.netbox.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.netbox.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.netbox.service=netbox@docker"
+      - "traefik.http.services.netbox.loadbalancer.server.port=8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  netbox-worker:
+    image: netboxcommunity/netbox:latest
+    container_name: netbox-worker
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - netbox
+    command: /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py rqworker
+    volumes:
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - DB_HOST=postgres
+      - DB_NAME=netbox
+      - DB_USER=netbox
+      - DB_PASSWORD=${NETBOX_DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${NETBOX_REDIS_PASSWORD}
+      - REDIS_CACHE_HOST=redis-cache
+      - REDIS_CACHE_PORT=6379
+      - REDIS_CACHE_PASSWORD=${NETBOX_REDIS_CACHE_PASSWORD}
+      - SECRET_KEY=${NETBOX_SECRET_KEY}
+    depends_on:
+      netbox:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  netbox-housekeeping:
+    image: netboxcommunity/netbox:latest
+    container_name: netbox-housekeeping
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - netbox
+    command: /opt/netbox/housekeeping.sh
+    volumes:
+      - netbox-media:/opt/netbox/netbox/media
+      - netbox-reports:/opt/netbox/netbox/reports
+      - netbox-scripts:/opt/netbox/netbox/scripts
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - DB_HOST=postgres
+      - DB_NAME=netbox
+      - DB_USER=netbox
+      - DB_PASSWORD=${NETBOX_DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${NETBOX_REDIS_PASSWORD}
+      - REDIS_CACHE_HOST=redis-cache
+      - REDIS_CACHE_PORT=6379
+      - REDIS_CACHE_PASSWORD=${NETBOX_REDIS_CACHE_PASSWORD}
+      - SECRET_KEY=${NETBOX_SECRET_KEY}
+    depends_on:
+      netbox:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  netbox-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/netbox/db
+      o: bind
+  netbox-redis:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/netbox/redis
+      o: bind
+  netbox-redis-cache:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/netbox/redis-cache
+      o: bind
+  netbox-media:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/netbox/media
+      o: bind
+  netbox-reports:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/netbox/reports
+      o: bind
+  netbox-scripts:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/netbox/scripts
+      o: bind
+
+networks:
+  netbox:
+    name: netbox
+    driver: bridge
+  traefik:
+    external: true

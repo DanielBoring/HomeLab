@@ -136,6 +136,14 @@ Web UI for interacting with self-hosted LLM models via Ollama.
 - **Ollama host**: Remote instance at `PwnBot.virtuallyboring.com:11434`
 - **Documentation**: See [openwebui/README.md](openwebui/README.md)
 
+### NetBox
+IPAM (IP Address Management) and network documentation platform. Tracks IP prefixes, individual addresses, VLANs, devices, racks, and cables — single source of truth for home lab network inventory.
+
+- **Location**: [`/netbox`](netbox/)
+- **Access**: `https://<NETBOX_DOMAIN>` (via Traefik, LAN only)
+- **Port**: 8060 (direct access)
+- **Documentation**: See [netbox/README.md](netbox/README.md)
+
 ## Quick Start
 
 ### Prerequisites
@@ -234,6 +242,10 @@ HomeLab/
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
 │   └── README.md        # Service documentation
+├── netbox/              # IPAM and network documentation
+│   ├── compose.yaml     # Docker Compose configuration
+│   ├── .env.example     # Environment template
+│   └── README.md        # Service documentation
 ├── prometheus-pve-exporter/  # Proxmox VE metrics exporter
 │   ├── compose.yaml     # Docker Compose configuration
 │   ├── .env.example     # Environment template
@@ -301,6 +313,12 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
 - **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`
 - **Changedetection Data**: `/mnt/SSD/Containers/changedetection`
+- **NetBox Database**: `/mnt/SSD/Containers/netbox/db`
+- **NetBox Redis**: `/mnt/SSD/Containers/netbox/redis`
+- **NetBox Redis Cache**: `/mnt/SSD/Containers/netbox/redis-cache`
+- **NetBox Media**: `/mnt/SSD/Containers/netbox/media`
+- **NetBox Reports**: `/mnt/SSD/Containers/netbox/reports`
+- **NetBox Scripts**: `/mnt/SSD/Containers/netbox/scripts`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 
