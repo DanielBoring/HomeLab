@@ -177,7 +177,7 @@ services:
       - no-new-privileges:true
     networks:
       - netbox
-    command: /opt/netbox/housekeeping.sh
+    command: /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py housekeeping
     volumes:
       - netbox-media:/opt/netbox/netbox/media
       - netbox-reports:/opt/netbox/netbox/reports
