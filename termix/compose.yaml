@@ -3,12 +3,30 @@ services:
     image: ghcr.io/lukegus/termix:latest
     container_name: termix
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
     ports:
       - "8090:8080"
     volumes:
       - termix-data:/app/data
     environment:
-      PORT: "8080"
+      - TZ=${TZ:-America/New_York}
+      - PORT=8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.termix.rule=Host(`${TERMIX_DOMAIN}`)"
+      - "traefik.http.routers.termix.entrypoints=websecure"
+      - "traefik.http.routers.termix.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.termix.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.termix.service=termix@docker"
+      - "traefik.http.services.termix.loadbalancer.server.port=8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   termix-data:
@@ -19,5 +37,5 @@ volumes:
       o: bind
 
 networks:
-  termix-network:
-    driver: bridge
+  traefik:
+    external: true
