@@ -19,16 +19,14 @@ Browser / API client
             (tasks)    (page cache)
         │
 [netbox-worker]   ← RQ worker for background jobs
-[netbox-housekeeping]  ← Daily cleanup cron (runs once/day)
 ```
 
-Five containers total:
+Four containers total:
 
 | Container | Image | Role |
 |---|---|---|
 | `netbox` | `netboxcommunity/netbox` | Web UI + REST/GraphQL API |
 | `netbox-worker` | `netboxcommunity/netbox` | Background jobs (webhooks, scripts, reports) |
-| `netbox-housekeeping` | `netboxcommunity/netbox` | Daily maintenance (clears stale sessions, old change records) |
 | `netbox-db` | `postgres:16-alpine` | Primary data store |
 | `netbox-redis` | `redis:7-alpine` | Task queue (RQ) |
 | `netbox-redis-cache` | `redis:7-alpine` | Django page cache |

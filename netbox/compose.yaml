@@ -169,40 +169,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  netbox-housekeeping:
-    image: netboxcommunity/netbox:latest
-    container_name: netbox-housekeeping
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - netbox
-    command: /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py housekeeping
-    volumes:
-      - netbox-media:/opt/netbox/netbox/media
-      - netbox-reports:/opt/netbox/netbox/reports
-      - netbox-scripts:/opt/netbox/netbox/scripts
-    environment:
-      - TZ=${TZ:-America/New_York}
-      - DB_HOST=postgres
-      - DB_NAME=netbox
-      - DB_USER=netbox
-      - DB_PASSWORD=${NETBOX_DB_PASSWORD}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${NETBOX_REDIS_PASSWORD}
-      - REDIS_CACHE_HOST=redis-cache
-      - REDIS_CACHE_PORT=6379
-      - REDIS_CACHE_PASSWORD=${NETBOX_REDIS_CACHE_PASSWORD}
-      - SECRET_KEY=${NETBOX_SECRET_KEY}
-    depends_on:
-      netbox:
-        condition: service_healthy
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 volumes:
   netbox-db:
