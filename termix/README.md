@@ -1,18 +1,25 @@
 # Termix
 
-[Termix](https://github.com/lukegus/termix) is a lightweight, web-based terminal manager. It lets you define named SSH connections and open browser-based terminal sessions to your hosts — no client software or exposed SSH ports required on the accessing device.
+[Termix](https://github.com/lukegus/termix) is a web-based server management platform with SSH terminal and remote desktop (RDP/VNC) capabilities. It lets you define named connections and open browser-based sessions to your hosts — no client software required on the accessing device.
 
-Run it when you want a quick way to reach your homelab hosts from any browser (a phone, a borrowed laptop, a tablet) without setting up a full bastion or VPN client. It's not a replacement for proper SSH access from a trusted machine, but it fills the gap for casual, LAN-side access.
+Run it when you want a quick way to reach your homelab hosts from any browser (a phone, a borrowed laptop, a tablet) without setting up a full bastion or VPN client.
 
 ## Architecture
 
 ```
-Browser → Traefik (TLS + lan-only) → Termix :8080
+Browser → Traefik (TLS + lan-only) → termix :8080
                                          ↓
-                                    SSH to hosts
+                              ┌──────────┴──────────┐
+                         SSH to hosts          guacd :4822
+                                                    ↓
+                                          RDP/VNC to hosts
 ```
 
-Termix runs as a single container. It holds no secrets itself — connection details (hostnames, credentials) are configured in the UI and stored in the data volume at `/app/data`. The container sits on the `traefik` network and is restricted to LAN access only via the `lan-only` middleware.
+Two containers:
+- **termix** — web frontend; joined to both `termix` and `traefik` networks
+- **guacd** — Guacamole proxy daemon that handles RDP/VNC/Telnet protocol translation; internal `termix` network only, not exposed to the host
+
+Termix discovers guacd by container name via Docker DNS. No env var configuration is required — they just need to share the `termix` network.
 
 ## Prerequisites
 
@@ -70,20 +77,21 @@ Navigate to **Connections → Add New** and fill in:
 | Username | SSH user on the target |
 | Auth | Password or SSH private key (key is preferred) |
 
-Hosts can be organized with tags and folders if you have many. Once added, click the host to open a terminal session in the browser.
+### 3. Add RDP hosts (Windows Servers)
 
-### 3. Remote desktop (optional)
+Navigate to **Connections → Add New** and set the protocol to **RDP**, then fill in:
 
-RDP, VNC, and Telnet support requires a `guacd` sidecar container. This compose file does not include it — if you need remote desktop, add the following service and connect it on a shared network:
+| Field | Notes |
+|---|---|
+| Name | Friendly label |
+| Host | IP or hostname of the Windows Server |
+| Port | RDP port (default: `3389`) |
+| Username | Windows username (e.g. `Administrator` or `DOMAIN\user`) |
+| Password | Windows password |
+| Security | `NLA` for modern Windows; fall back to `Any` if NLA fails |
+| Ignore cert | Enable if using a self-signed certificate |
 
-```yaml
-guacd:
-  image: guacamole/guacd:1.6.0
-  container_name: guacd
-  restart: unless-stopped
-```
-
-SSH-only use cases (the common homelab case) do not need guacd.
+RDP connections are proxied through guacd — if guacd is not running, the connection will fail silently. Verify with `docker compose ps` that guacd is up.
 
 ## Updating
 

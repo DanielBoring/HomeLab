@@ -6,6 +6,7 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
+      - termix
       - traefik
     ports:
       - "8090:8080"
@@ -14,6 +15,8 @@ services:
     environment:
       - TZ=${TZ:-America/New_York}
       - PORT=8080
+    depends_on:
+      - guacd
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.termix.rule=Host(`${TERMIX_DOMAIN}`)"
@@ -22,6 +25,20 @@ services:
       - "traefik.http.routers.termix.middlewares=secure-headers@file,lan-only@file"
       - "traefik.http.routers.termix.service=termix@docker"
       - "traefik.http.services.termix.loadbalancer.server.port=8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  guacd:
+    image: guacamole/guacd:1.6.0
+    container_name: guacd
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - termix
     logging:
       driver: json-file
       options:
@@ -37,5 +54,8 @@ volumes:
       o: bind
 
 networks:
+  termix:
+    name: termix
+    driver: bridge
   traefik:
     external: true
