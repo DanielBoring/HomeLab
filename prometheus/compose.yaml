@@ -7,8 +7,7 @@ services:
     user: "3001:3001"
     networks:
       - monitoring
-    ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - traefik
     volumes:
       - /mnt/SSD/Containers/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -18,6 +17,15 @@ services:
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
       - "--web.enable-otlp-receiver"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_DOMAIN}`)"
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.prometheus.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.prometheus.service=prometheus@docker"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
     security_opt:
       - no-new-privileges:true
     logging:
@@ -44,3 +52,5 @@ networks:
   monitoring:
     name: monitoring
     driver: bridge
+  traefik:
+    external: true
