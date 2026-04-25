@@ -10,7 +10,7 @@ services:
       - traefik
     volumes:
       - grafana-data:/var/lib/grafana
-      - /mnt/SSD/Containers/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-provisioning:/etc/grafana/provisioning:ro
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
@@ -44,6 +44,12 @@ volumes:
     driver_opts:
       type: none
       device: /mnt/SSD/Containers/grafana
+      o: bind
+  grafana-provisioning:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/grafana/provisioning
       o: bind
 
 networks:

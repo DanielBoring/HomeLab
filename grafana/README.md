@@ -9,7 +9,7 @@ Dashboard and visualization layer for the homelab. Connects to Prometheus (and o
 Create the persistent storage directory and set ownership:
 
 ```bash
-mkdir -p /mnt/SSD/Containers/grafana
+mkdir -p /mnt/SSD/Containers/grafana/provisioning/datasources
 chown -R 3001:3001 /mnt/SSD/Containers/grafana
 ```
 
