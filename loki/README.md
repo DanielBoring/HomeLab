@@ -20,9 +20,9 @@ chown -R 3001:3001 /mnt/SSD/Containers/loki
 # promtail runs as root (required for Docker socket) — do not chown
 ```
 
-### 2. Deploy before monitoring-stack
+### 2. Deploy after Prometheus
 
-Loki creates the `loki` Docker network. Grafana (in `monitoring-stack`) joins it as an external network, so **this stack must be up before monitoring-stack is deployed**.
+Loki joins the `monitoring` Docker network as an external consumer. Prometheus (in `prometheus/`) creates that network, so **prometheus must be up before this stack is deployed**. Docker Compose validates external networks at startup and fails immediately if they don't exist — there is no retry. If you need to bring Loki up while Prometheus is down, pre-create the network manually: `docker network create monitoring`.
 
 ## Quick Start
 
@@ -81,15 +81,7 @@ Promtail saves its read position for each container log to `/var/promtail/positi
 
 ## Networking
 
-Loki creates the `loki` bridge network. Services that need to query Loki (e.g. Grafana) should join it as an external network:
-
-```yaml
-networks:
-  loki:
-    external: true
-```
-
-Grafana's provisioned Loki datasource points to `http://loki:3100` — this resolves correctly as long as Grafana is on the `loki` network.
+Loki and Promtail both join the shared `monitoring` bridge network (created by `prometheus/`). Grafana (also on `monitoring`) reaches Loki at `http://loki:3100` without any additional network configuration.
 
 ## Maintenance
 

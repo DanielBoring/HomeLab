@@ -8,7 +8,7 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - loki
+      - monitoring
     ports:
       - "${LOKI_PORT:-3100}:3100"
     volumes:
@@ -34,7 +34,7 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      - loki
+      - monitoring
     volumes:
       - ./promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
       - promtail-positions:/var/promtail
@@ -67,6 +67,6 @@ volumes:
       o: bind
 
 networks:
-  loki:
-    name: loki
-    driver: bridge
+  monitoring:
+    name: monitoring
+    external: true
