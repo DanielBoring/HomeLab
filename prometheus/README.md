@@ -18,10 +18,11 @@ Prometheus scrapes all targets via the `monitoring` bridge network. The OTLP rec
 
 ## Prerequisites
 
-Create the persistent storage directory and set ownership:
+Create the persistent storage directory, copy the config, and set ownership:
 
 ```bash
 mkdir -p /mnt/SSD/Containers/prometheus
+cp prometheus.yml /mnt/SSD/Containers/prometheus/prometheus.yml
 chown -R 3001:3001 /mnt/SSD/Containers/prometheus
 ```
 
@@ -40,7 +41,7 @@ docker compose up -d
 
 ## Adding Scrape Targets
 
-Add a job to [prometheus.yml](prometheus.yml):
+Edit `/mnt/SSD/Containers/prometheus/prometheus.yml` on the host:
 
 ```yaml
 scrape_configs:
