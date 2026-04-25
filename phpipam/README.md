@@ -66,7 +66,17 @@ MariaDB will initialize on first start — wait for the healthcheck to pass befo
 
 ### 1. Run the installer
 
-On first visit, phpIPAM detects no database schema and redirects to the installer at `/install/`. Choose **Automatic database installation** — it will create all tables using the credentials in your environment variables.
+On first visit, phpIPAM detects no database schema and redirects to the installer at `/install/`. Choose **Automatic database installation**.
+
+It will prompt for database credentials — these are the **root** credentials phpIPAM needs to create the schema, not the application user:
+
+| Field | Value |
+|---|---|
+| Username | `root` |
+| Password | `PHPIPAM_DB_ROOT_PASSWORD` from your `.env` |
+| Database location | `phpipam-db` (Docker DNS hostname of the MariaDB container) |
+
+After this one-time step, phpIPAM switches to the `phpipam` user for all normal operation.
 
 ### 2. Log in
 
