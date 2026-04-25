@@ -41,13 +41,16 @@ Root DNS servers → TLD servers → Authoritative servers
 
 ## Prerequisites
 
-Create the config directory before deploying:
+Create the config directory and set ownership before deploying:
 
 ```bash
 mkdir -p /mnt/SSD/Containers/unbound
+chown -R 1000:1000 /mnt/SSD/Containers/unbound
 ```
 
-> `mvance/unbound` runs as the `unbound` user internally — no `chown` needed.
+> `mvance/unbound` runs as the `unbound` user (UID 1000) inside the container. The bind-mounted
+> directory must be owned by UID 1000 so Unbound can write `var/root.key` for DNSSEC trust anchor
+> management. Skipping `chown` causes a `Permission denied` crash on startup.
 
 ## Quick Start
 
