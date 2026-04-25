@@ -1,0 +1,62 @@
+
+services:
+  metube:
+    image: ghcr.io/alexta69/metube:latest
+    container_name: metube
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
+    ports:
+      - "${METUBE_PORT:-8091}:8081"
+    volumes:
+      - metube-downloads:/downloads
+      - metube-config:/config
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+      - UMASK=${UMASK:-002}
+      - STATE_DIR=/config
+      - DOWNLOAD_DIR=/downloads
+      - AUDIO_DOWNLOAD_DIR=/downloads
+      - TEMP_DIR=/downloads
+      - CUSTOM_DIRS=true
+      - CREATE_CUSTOM_DIRS=true
+      - DEFAULT_THEME=auto
+      - MAX_CONCURRENT_DOWNLOADS=${METUBE_MAX_CONCURRENT:-3}
+      - DELETE_FILE_ON_TRASHCAN=false
+      # - YTDL_OPTIONS={"writesubtitles": true, "subtitleslangs": ["en"]}
+      # - OUTPUT_TEMPLATE=%(title)s.%(ext)s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.metube.rule=Host(`${METUBE_DOMAIN}`)"
+      - "traefik.http.routers.metube.entrypoints=websecure"
+      - "traefik.http.routers.metube.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.metube.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.metube.service=metube@docker"
+      - "traefik.http.services.metube.loadbalancer.server.port=8081"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  metube-downloads:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/Data/Media/Downloads/Untube
+      o: bind
+  metube-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/metube
+      o: bind
+
+networks:
+  traefik:
+    external: true
