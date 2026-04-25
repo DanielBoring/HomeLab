@@ -5,13 +5,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    ports:
-      - "${PEGAPROX_VNC_PORT:-5001}:5001"   # VNC websocket (noVNC console)
-      - "${PEGAPROX_SSH_PORT:-5002}:5002"   # SSH websocket (xterm.js terminal)
     environment:
       - TZ=${TZ:-America/New_York}
-      - PEGAPROX_BEHIND_PROXY=true
-      - PEGAPROX_TRUSTED_PROXIES=172.16.0.0/12
       - PEGAPROX_ALLOWED_ORIGINS=https://${PEGAPROX_DOMAIN}
     volumes:
       - pegaprox-config:/app/config

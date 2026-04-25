@@ -11,12 +11,19 @@ A web-based management interface for Proxmox VE clusters. It gives you a single 
 ```
 Browser
   │
-  ├── HTTPS :443 → Traefik → PegaProx :5000  (web UI + API)
-  ├── WS :5001 → direct → PegaProx :5001      (noVNC console)
-  └── WS :5002 → direct → PegaProx :5002      (SSH terminal)
+  └── HTTPS :443 → Traefik → PegaProx :5000  (web UI, API, and all WebSocket traffic)
+                                    │
+                              internal IPC only
+                                    │
+                              localhost:5001  (noVNC subprocess)
+                              localhost:5002  (SSH subprocess)
 ```
 
-The main UI and REST API go through Traefik (LAN-only, HTTPS). The VNC and SSH websocket ports are exposed directly on the host — browsers open those connections independently, and routing them through Traefik as separate routers adds complexity without benefit on a LAN.
+All browser traffic — including the noVNC console and SSH terminal WebSockets — flows through port 5000 via Traefik. Ports 5001 and 5002 are **internal IPC** between PegaProx's main process and its websocket subprocesses; they are never browser-facing and should not be exposed on the host.
+
+### Proxy note
+
+The upstream docs mention a `PEGAPROX_BEHIND_PROXY` env var — do not set it. When enabled, PegaProx switches its internal subprocess connections from `ws://localhost:5001` to `wss://localhost:5001`, but the subprocess servers don't speak TLS. This causes a flood of `Invalid HTTP method` TLS handshake errors in the logs and breaks the console and terminal entirely.
 
 **Default credentials:** `pegaprox` / `admin` — change immediately after first login.
 
@@ -45,16 +52,12 @@ Navigate to `https://<PEGAPROX_DOMAIN>` and log in with the default credentials.
 |---|---|---|
 | `TZ` | `America/New_York` | Timezone |
 | `PEGAPROX_DOMAIN` | — | **Required.** Traefik domain for the web UI |
-| `PEGAPROX_VNC_PORT` | `5001` | Host port for noVNC websocket |
-| `PEGAPROX_SSH_PORT` | `5002` | Host port for SSH websocket |
 
 ## Ports
 
-| Port | Protocol | Purpose |
-|---|---|---|
-| `443` (via Traefik) | HTTPS | Web UI + API |
-| `5001` (host direct) | WS | noVNC console websocket |
-| `5002` (host direct) | WS | SSH terminal websocket |
+| Port | Purpose |
+|---|---|
+| `443` via Traefik | Web UI, API, noVNC console, SSH terminal |
 
 ## Volumes
 
