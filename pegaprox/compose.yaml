@@ -1,0 +1,51 @@
+services:
+  pegaprox:
+    image: ghcr.io/pegaprox/pegaprox:latest
+    container_name: pegaprox
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${PEGAPROX_VNC_PORT:-5001}:5001"   # VNC websocket (noVNC console)
+      - "${PEGAPROX_SSH_PORT:-5002}:5002"   # SSH websocket (xterm.js terminal)
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PEGAPROX_BEHIND_PROXY=true
+      - PEGAPROX_TRUSTED_PROXIES=172.16.0.0/12
+      - PEGAPROX_ALLOWED_ORIGINS=https://${PEGAPROX_DOMAIN}
+    volumes:
+      - pegaprox-config:/app/config
+      - pegaprox-logs:/app/logs
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.pegaprox.rule=Host(`${PEGAPROX_DOMAIN}`)"
+      - "traefik.http.routers.pegaprox.entrypoints=websecure"
+      - "traefik.http.routers.pegaprox.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.pegaprox.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.pegaprox.service=pegaprox@docker"
+      - "traefik.http.services.pegaprox.loadbalancer.server.port=5000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pegaprox-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/pegaprox/config
+      o: bind
+  pegaprox-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/pegaprox/logs
+      o: bind
+
+networks:
+  traefik:
+    external: true
