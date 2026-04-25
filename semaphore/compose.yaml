@@ -1,12 +1,16 @@
-
 services:
   semaphore:
     image: semaphoreui/semaphore:v2.17.26
     container_name: semaphore
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
     ports:
       - "${SEMAPHORE_PORT:-3003}:3000"
     environment:
+      - TZ=${TZ:-America/New_York}
       - SEMAPHORE_DB_DIALECT=sqlite
       - SEMAPHORE_ADMIN=${SEMAPHORE_ADMIN:-admin}
       - SEMAPHORE_ADMIN_NAME=${SEMAPHORE_ADMIN_NAME:-Admin}
@@ -16,6 +20,19 @@ services:
       - semaphore-data:/var/lib/semaphore
       - semaphore-config:/etc/semaphore
       - semaphore-tmp:/tmp/semaphore
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.semaphore.rule=Host(`${SEMAPHORE_DOMAIN}`)"
+      - "traefik.http.routers.semaphore.entrypoints=websecure"
+      - "traefik.http.routers.semaphore.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.semaphore.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.semaphore.service=semaphore@docker"
+      - "traefik.http.services.semaphore.loadbalancer.server.port=3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   semaphore-data:
@@ -36,3 +53,7 @@ volumes:
       type: none
       device: /mnt/SSD/Containers/semaphore/tmp
       o: bind
+
+networks:
+  traefik:
+    external: true
