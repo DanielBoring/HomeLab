@@ -41,12 +41,26 @@ Web-based terminal emulator for remote system access.
 - **Port**: 8090
 - **Documentation**: See [termix/README.md](termix/README.md)
 
-### Monitoring Stack
-Prometheus + Grafana for metrics collection and visualization.
+### Prometheus
+Metrics collection and storage. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and pve-exporter attach to.
+
+- **Location**: [`/prometheus`](prometheus/)
+- **Access**: `https://<PROMETHEUS_DOMAIN>` (via Traefik, LAN only)
+- **Deploy before Grafana, Unpoller, and pve-exporter** — it creates the `monitoring` network
+- **Documentation**: See [prometheus/README.md](prometheus/README.md)
+
+### Grafana
+Dashboard and visualization layer. Connects to Prometheus (and optionally Loki) over the shared `monitoring` Docker network. The Prometheus datasource is provisioned automatically — no manual setup after first login.
+
+- **Location**: [`/grafana`](grafana/)
+- **Access**: `https://<GRAFANA_DOMAIN>` (via Traefik, LAN only)
+- **Requires**: `prometheus` stack deployed first
+- **Documentation**: See [grafana/README.md](grafana/README.md)
+
+### Monitoring Stack (legacy combined stack)
+The original combined Prometheus + Grafana + Loki + Promtail deployment. Kept for reference; the individual `prometheus`, `grafana`, and `loki` stacks are the current deployment pattern.
 
 - **Location**: [`/monitoring-stack`](monitoring-stack/)
-- **Ports**: 9090 (Prometheus), 3000 (Grafana)
-- **Network**: Creates the shared `monitoring` Docker network used by dependent services
 
 ### Unpoller
 Polls UniFi network controller and exposes metrics to Prometheus.
@@ -77,6 +91,57 @@ Self-hosted uptime monitoring for services via HTTP/HTTPS, TCP, DNS, and more.
 - **Location**: [`/uptime-kuma`](uptime-kuma/)
 - **Access**: `https://<UPTIME_KUMA_DOMAIN>` (via Traefik)
 - **Documentation**: See [uptime-kuma/README.md](uptime-kuma/README.md)
+
+### Unbound
+Validating, recursive, caching DNS resolver. Resolves queries by walking the DNS tree from root servers directly — no third-party DNS provider ever sees your queries. Used as the upstream recursive resolver for Pi-hole, replacing forwarders like 8.8.8.8 with a fully self-hosted DNS chain.
+
+- **Location**: [`/unbound`](unbound/)
+- **Port**: 5335 (UDP+TCP — DNS only, no web UI)
+- **Documentation**: See [unbound/README.md](unbound/README.md)
+
+### Home Assistant
+Open-source home automation platform. Connects to thousands of devices and services — lights, sensors, locks, cameras, media players — and runs automations entirely locally without cloud dependency.
+
+- **Location**: [`/homeassistant`](homeassistant/)
+- **Access**: `https://<HOMEASSISTANT_DOMAIN>` (via Traefik) and `http://<host-ip>:8123` (direct, for companion app)
+- **Documentation**: See [homeassistant/README.md](homeassistant/README.md)
+
+### What's Up Docker (WUD)
+Watches running containers and notifies you when a newer image is available. Passive by default — it won't touch your containers; it sends Discord notifications and shows a dashboard of what's outdated and by how much.
+
+- **Location**: [`/wud`](wud/)
+- **Access**: `https://<WUD_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [wud/README.md](wud/README.md)
+
+### phpIPAM
+Open-source IP address management tool. Tracks subnet allocations, individual IP assignments, VLANs, VRFs, and devices — a searchable source of truth for network addressing. Lighter-weight than NetBox and purpose-built for IP management.
+
+- **Location**: [`/phpipam`](phpipam/)
+- **Access**: `https://<PHPIPAM_DOMAIN>` (via Traefik, LAN only)
+- **Port**: 8030 (direct access)
+- **Documentation**: See [phpipam/README.md](phpipam/README.md)
+
+### PegaProx
+Web-based management interface for Proxmox VE clusters. Aggregates multiple nodes into a single dashboard with live VM monitoring, start/stop/snapshot controls, noVNC console access, and an SSH terminal.
+
+- **Location**: [`/pegaprox`](pegaprox/)
+- **Access**: `https://<PEGAPROX_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [pegaprox/README.md](pegaprox/README.md)
+
+### Tdarr
+Distributed media transcoding automation platform. Scans a media library, applies codec conversion rules (H.265, AV1), and manages a queue of transcode jobs across one or more worker nodes — shrinking library size and reducing Plex transcodes at watch time.
+
+- **Location**: [`/tdarr`](tdarr/)
+- **Access**: `https://<TDARR_DOMAIN>` (via Traefik, LAN only)
+- **Port**: 8265 (web UI and node communication)
+- **Documentation**: See [tdarr/README.md](tdarr/README.md)
+
+### Tdarr Desktop Node
+A Tdarr worker node configured for a gaming desktop (NVIDIA RTX 3090). Connects to the Tdarr server on TrueNAS over the LAN and processes transcode jobs using the desktop GPU when available.
+
+- **Location**: [`/tdarr-desktop-node`](tdarr-desktop-node/)
+- **Requires**: Tdarr server (`/tdarr`) running on TrueNAS; media accessible via NFS mount
+- **Documentation**: See [tdarr-desktop-node/README.md](tdarr-desktop-node/README.md)
 
 ### Tailscale
 Tailscale node that advertises subnet routes and acts as a VPN exit node for the tailnet.
@@ -178,81 +243,36 @@ docker compose logs -f
 
 ```
 HomeLab/
-├── traefik/             # Reverse proxy and TLS termination
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── traefik.yml      # Traefik static configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── homepage/            # Self-hosted dashboard
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── arcane/              # Application management platform
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── termix/              # Web-based terminal emulator
-│   ├── compose.yaml     # Docker Compose configuration
-│   └── README.md        # Service documentation
-├── monitoring-stack/    # Prometheus + Grafana
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── prometheus.yml   # Prometheus scrape config
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── unpoller/            # UniFi metrics exporter
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── semaphore/           # Ansible/Terraform UI
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── uptime-kuma/         # Uptime monitoring
-│   ├── compose.yaml     # Docker Compose configuration
-│   └── README.md        # Service documentation
-├── tailscale/           # Tailscale VPN node
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── calibre/             # Calibre + Calibre-Web ebook manager
-│   ├── compose.yaml     # Docker Compose configuration
-│   └── README.md        # Service documentation
-├── changedetection/     # Website change detection and monitoring
-│   ├── compose.yaml     # Docker Compose configuration
-│   └── README.md        # Service documentation
-├── dozzle/              # Real-time Docker log viewer
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── loki/                # Log aggregation (Loki + Promtail)
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── loki-config.yaml
-│   ├── promtail-config.yaml
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── nextcloud/           # Self-hosted file sync and collaboration
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── paperless-ngx/       # Document management with OCR
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── readme.md        # Service documentation
-├── openwebui/           # Web UI for Ollama LLM models
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── netbox/              # IPAM and network documentation
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
+├── traefik/              # Reverse proxy and TLS termination
+├── prometheus/           # Metrics collection (creates monitoring network)
+├── grafana/              # Metrics dashboards and visualization
+├── loki/                 # Log aggregation (Loki + Promtail)
+├── unpoller/             # UniFi metrics exporter
 ├── prometheus-pve-exporter/  # Proxmox VE metrics exporter
-│   ├── compose.yaml     # Docker Compose configuration
-│   ├── .env.example     # Environment template
-│   └── README.md        # Service documentation
-├── .gitignore           # Git ignore patterns (protects secrets)
-├── LICENSE              # MIT License
-└── README.md            # This file
+├── monitoring-stack/     # Legacy combined Prometheus + Grafana stack
+├── homepage/             # Self-hosted dashboard
+├── dozzle/               # Real-time Docker log viewer
+├── uptime-kuma/          # Uptime monitoring (HTTP, TCP, DNS)
+├── wud/                  # What's Up Docker — container update notifications
+├── nextcloud/            # Self-hosted file sync and collaboration
+├── paperless-ngx/        # Document management with OCR
+├── calibre/              # Calibre + Calibre-Web ebook manager
+├── changedetection/      # Website change detection and monitoring
+├── openwebui/            # Web UI for Ollama LLM models
+├── homeassistant/        # Home automation platform
+├── tdarr/                # Distributed media transcoding server
+├── tdarr-desktop-node/   # Tdarr GPU worker node (gaming desktop)
+├── netbox/               # Network documentation and IPAM
+├── phpipam/              # Lightweight IP address management
+├── unbound/              # Recursive DNS resolver (Pi-hole upstream)
+├── arcane/               # Application management platform
+├── termix/               # Web-based terminal emulator
+├── semaphore/            # Ansible/Terraform/OpenTofu UI
+├── pegaprox/             # Proxmox VE web management UI
+├── tailscale/            # Tailscale VPN node (subnet router)
+├── .gitignore            # Git ignore patterns (protects secrets)
+├── LICENSE               # MIT License
+└── README.md             # This file
 ```
 
 ## Security
@@ -305,6 +325,7 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Termix Data**: `/mnt/SSD/Containers/termix`
 - **Prometheus Data**: `/mnt/SSD/Containers/prometheus`
 - **Grafana Data**: `/mnt/SSD/Containers/grafana`
+- **Loki Data**: `/mnt/SSD/Containers/loki`
 - **Semaphore Data**: `/mnt/SSD/Containers/semaphore/data`
 - **Semaphore Config**: `/mnt/SSD/Containers/semaphore/config`
 - **Semaphore Tmp**: `/mnt/SSD/Containers/semaphore/tmp`
@@ -313,12 +334,16 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
 - **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`
 - **Changedetection Data**: `/mnt/SSD/Containers/changedetection`
+- **Home Assistant Config**: `/mnt/SSD/Containers/homeassistant`
+- **Tdarr Server Data**: `/mnt/SSD/Containers/tdarr/server`
+- **Tdarr Transcode Cache**: `/mnt/SSD/Containers/tdarr/transcode`
 - **NetBox Database**: `/mnt/SSD/Containers/netbox/db`
 - **NetBox Redis**: `/mnt/SSD/Containers/netbox/redis`
 - **NetBox Redis Cache**: `/mnt/SSD/Containers/netbox/redis-cache`
 - **NetBox Media**: `/mnt/SSD/Containers/netbox/media`
 - **NetBox Reports**: `/mnt/SSD/Containers/netbox/reports`
 - **NetBox Scripts**: `/mnt/SSD/Containers/netbox/scripts`
+- **phpIPAM Database**: `/mnt/SSD/Containers/phpipam`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 
