@@ -1,0 +1,45 @@
+services:
+  wud:
+    image: ghcr.io/getwud/wud
+    container_name: wud
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
+    ports:
+      - "${WUD_PORT:-3010}:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - wud-store:/store
+    environment:
+      - TZ=${TZ:-America/New_York}
+      # Check for updates every hour
+      - WUD_WATCHER_LOCAL_CRON=0 * * * *
+      # Discord notifications
+      - WUD_TRIGGER_DISCORD_HOMELAB_WEBHOOKURL=${WUD_DISCORD_WEBHOOK_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wud.rule=Host(`${WUD_DOMAIN}`)"
+      - "traefik.http.routers.wud.entrypoints=websecure"
+      - "traefik.http.routers.wud.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.wud.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.wud.service=wud@docker"
+      - "traefik.http.services.wud.loadbalancer.server.port=3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  wud-store:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/wud
+      o: bind
+
+networks:
+  traefik:
+    external: true
