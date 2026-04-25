@@ -21,8 +21,10 @@ services:
     ports:
       - "${LOKI_PORT:-3100}:3100"
     volumes:
-      - ./loki-config.yaml:/etc/loki/config.yaml:ro
       - loki-data:/loki
+    configs:
+      - source: loki-config
+        target: /etc/loki/config.yaml
     command: -config.file=/etc/loki/config.yaml
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
@@ -45,13 +47,15 @@ services:
     networks:
       - monitoring
     volumes:
-      - ./promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
       - promtail-positions:/var/promtail
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/log/journal:/var/log/journal:ro
       - /run/log/journal:/run/log/journal:ro
       - /etc/machine-id:/etc/machine-id:ro
-    command: -config.file=/etc/promtail/promtail-config.yaml
+    configs:
+      - source: promtail-config
+        target: /etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
     depends_on:
       loki:
         condition: service_healthy
@@ -60,6 +64,108 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+configs:
+  loki-config:
+    content: |
+      auth_enabled: false
+
+      server:
+        http_listen_port: 3100
+        grpc_listen_port: 9096
+        log_level: warn
+
+      common:
+        instance_addr: 127.0.0.1
+        path_prefix: /loki
+        storage:
+          filesystem:
+            chunks_directory: /loki/chunks
+            rules_directory: /loki/rules
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+
+      schema_config:
+        configs:
+          - from: 2024-01-01
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+
+      limits_config:
+        retention_period: 30d
+        reject_old_samples: true
+        reject_old_samples_max_age: 168h
+        ingestion_rate_mb: 16
+        ingestion_burst_size_mb: 32
+
+      compactor:
+        working_directory: /loki/compactor
+        retention_enabled: true
+        delete_request_store: filesystem
+
+      query_range:
+        results_cache:
+          cache:
+            embedded_cache:
+              enabled: true
+              max_size_mb: 100
+
+  promtail-config:
+    content: |
+      server:
+        http_listen_port: 9080
+        grpc_listen_port: 0
+        log_level: warn
+
+      positions:
+        filename: /var/promtail/positions.yaml
+
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+
+      scrape_configs:
+        # TrueNAS host system logs via systemd journal
+        - job_name: truenas-journal
+          journal:
+            max_age: 12h
+            labels:
+              job: systemd
+              host: truenas
+          relabel_configs:
+            - source_labels: ['__journal__systemd_unit']
+              target_label: unit
+            - source_labels: ['__journal_priority_keyword']
+              target_label: level
+
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 5s
+          pipeline_stages:
+            # Drop entries older than 7 days — prevents 400 errors on catch-up after
+            # a redeploy and keeps ingestion consistent with reject_old_samples_max_age
+            - drop:
+                older_than: 168h
+                drop_counter_reason: too_old
+          relabel_configs:
+            # Container name (strip leading slash)
+            - source_labels: ['__meta_docker_container_name']
+              regex: '/(.*)'
+              target_label: container
+            # stdout vs stderr
+            - source_labels: ['__meta_docker_container_log_stream']
+              target_label: stream
+            # Compose project and service labels
+            - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+              target_label: compose_project
+            - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+              target_label: compose_service
 
 volumes:
   loki-data:
