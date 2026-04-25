@@ -110,6 +110,15 @@ configs:
         retention_enabled: true
         delete_request_store: filesystem
 
+      ingester:
+        lifecycler:
+          address: 127.0.0.1
+          ring:
+            kvstore:
+              store: inmemory
+            replication_factor: 1
+          final_sleep: 0s
+
       query_range:
         results_cache:
           cache:
