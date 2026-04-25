@@ -48,7 +48,7 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: /mnt/Data/Media/Downloads/Metube
+      device: /mnt/Data/Media/Metube
       o: bind
   metube-config:
     driver: local
