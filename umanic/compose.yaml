@@ -9,7 +9,7 @@ services:
       - unmanic
       - traefik
     ports:
-      - "${UNMANIC_PORT:-8888}:8888"
+      - "${UNMANIC_PORT:-8095}:8888"
     volumes:
       - unmanic-config:/config
       - unmanic-media:/library
