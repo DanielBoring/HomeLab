@@ -1,0 +1,69 @@
+services:
+  unmanic:
+    image: josh5/unmanic:latest
+    container_name: unmanic
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - unmanic
+      - traefik
+    ports:
+      - "${UNMANIC_PORT:-8888}:8888"
+    volumes:
+      - unmanic-config:/config
+      - unmanic-media:/library
+      - unmanic-cache:/tmp/unmanic
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+    # Intel Arc A310 hardware acceleration — uncomment to enable VAAPI
+    # devices:
+    #   - /dev/dri:/dev/dri
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8888/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.unmanic.rule=Host(`${UNMANIC_DOMAIN}`)"
+      - "traefik.http.routers.unmanic.entrypoints=websecure"
+      - "traefik.http.routers.unmanic.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.unmanic.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.unmanic.service=unmanic@docker"
+      - "traefik.http.services.unmanic.loadbalancer.server.port=8888"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  unmanic-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/unmanic/config
+      o: bind
+  unmanic-media:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/Data/Media
+      o: bind
+  unmanic-cache:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/unmanic/cache
+      o: bind
+
+networks:
+  unmanic:
+    name: unmanic
+    driver: bridge
+  traefik:
+    external: true
