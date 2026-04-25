@@ -1,0 +1,121 @@
+services:
+  phpipam-db:
+    image: mariadb:11
+    container_name: phpipam-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - phpipam
+    volumes:
+      - phpipam-db:/var/lib/mysql
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - MYSQL_ROOT_PASSWORD=${PHPIPAM_DB_ROOT_PASSWORD}
+      - MYSQL_DATABASE=phpipam
+      - MYSQL_USER=phpipam
+      - MYSQL_PASSWORD=${PHPIPAM_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  phpipam-web:
+    image: phpipam/phpipam-www:latest
+    container_name: phpipam-web
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      - phpipam
+      - traefik
+    ports:
+      - "${PHPIPAM_PORT:-8030}:80"
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - IPAM_DATABASE_HOST=phpipam-db
+      - IPAM_DATABASE_USER=phpipam
+      - IPAM_DATABASE_PASS=${PHPIPAM_DB_PASSWORD}
+      - IPAM_DATABASE_NAME=phpipam
+      - IPAM_DATABASE_WEBHOST=%
+      - IPAM_TRUST_X_FORWARDED=true
+    depends_on:
+      phpipam-db:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpipam.rule=Host(`${PHPIPAM_DOMAIN}`)"
+      - "traefik.http.routers.phpipam.entrypoints=websecure"
+      - "traefik.http.routers.phpipam.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.phpipam.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.phpipam.service=phpipam@docker"
+      - "traefik.http.services.phpipam.loadbalancer.server.port=80"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  phpipam-cron:
+    image: phpipam/phpipam-cron:latest
+    container_name: phpipam-cron
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      - phpipam
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - IPAM_DATABASE_HOST=phpipam-db
+      - IPAM_DATABASE_USER=phpipam
+      - IPAM_DATABASE_PASS=${PHPIPAM_DB_PASSWORD}
+      - IPAM_DATABASE_NAME=phpipam
+      - SCAN_INTERVAL=1h
+    depends_on:
+      phpipam-db:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  phpipam-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/phpipam/db
+      o: bind
+  phpipam-logo:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/phpipam/logo
+      o: bind
+  phpipam-ca:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/phpipam/ca
+      o: bind
+
+networks:
+  phpipam:
+    name: phpipam
+    driver: bridge
+  traefik:
+    external: true
