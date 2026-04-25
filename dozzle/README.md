@@ -130,6 +130,43 @@ All three Proxmox nodes will appear as selectable hosts in the Dozzle UI alongsi
 
 ---
 
+## Starter Alerts
+
+Alerts are configured in the Dozzle UI under **Alerts** and persist in the `/data` volume. Each alert has a **Container Expression** (which containers to watch) and a **Trigger Expression** (what to match). When no container expression is needed for all containers, use `name != ""`.
+
+### Event Alerts
+
+Fire on Docker engine events — most reliable signal for container health, independent of log format.
+
+| Name | Container Expression | Trigger Expression |
+|---|---|---|
+| Container OOM killed | `name != ""` | `name == "oom"` |
+| Container died | `name != ""` | `name == "die"` |
+| Container restarting | `name != ""` | `name == "restart"` |
+
+### Log Alerts
+
+| Name | Container Expression | Trigger Expression |
+|---|---|---|
+| Traefik backend errors | `name == "traefik"` | `message contains "level=error"` |
+| Traefik DNS failure | `name == "traefik"` | `message contains "no such host"` |
+| Database errors | `name contains "db"` | `message contains "ERROR" && message contains "Table"` |
+| Semaphore task failed | `name == "semaphore"` | `message contains "Task failed"` |
+
+### Metric Alerts
+
+| Name | Container Expression | Trigger Expression | Notes |
+|---|---|---|---|
+| High CPU | `name != ""` | `cpu > 85` | Set cooldown 10+ min |
+| High memory | `name != ""` | `memory > 90` | Set cooldown 10+ min |
+
+### Tips
+
+- **Set a 10+ minute cooldown on metric alerts** to avoid Discord spam during backups or scans
+- Alert configs are stored in `/mnt/SSD/Containers/dozzle` and survive container restarts
+
+---
+
 ## Portainer Integration
 
 Portainer and Dozzle complement each other naturally — Portainer handles container management (deploy, start/stop, inspect) while Dozzle handles real-time log streaming. Both mount the Docker socket read-only and coexist without conflict.
