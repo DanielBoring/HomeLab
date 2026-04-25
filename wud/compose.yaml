@@ -8,7 +8,7 @@ services:
     networks:
       - traefik
     ports:
-      - "${WUD_PORT:-3010}:3000"
+      - "${WUD_PORT:-3015}:3000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - wud-store:/store
