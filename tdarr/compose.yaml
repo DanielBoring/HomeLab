@@ -74,15 +74,23 @@ services:
       - transcodecpuWorkers=1
       - healthcheckgpuWorkers=1
       - healthcheckcpuWorkers=1
-      - NVIDIA_DRIVER_CAPABILITIES=all
-      - NVIDIA_VISIBLE_DEVICES=all
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      # Intel Arc A310
+      - LIBVA_DRIVER_NAME=iHD
+      - LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri
+      # NVIDIA — uncomment and configure nvidia-container-toolkit if switching to NVIDIA
+      # - NVIDIA_DRIVER_CAPABILITIES=all
+      # - NVIDIA_VISIBLE_DEVICES=all
+    # Intel Arc A310 GPU passthrough
+    devices:
+      - /dev/dri:/dev/dri
+    # NVIDIA GPU reservation — requires nvidia-container-toolkit on host
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
     depends_on:
       tdarr:
         condition: service_healthy
