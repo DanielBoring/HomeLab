@@ -21,6 +21,9 @@ services:
       - "traefik.http.routers.pegaprox.middlewares=secure-headers@file,lan-only@file"
       - "traefik.http.routers.pegaprox.service=pegaprox@docker"
       - "traefik.http.services.pegaprox.loadbalancer.server.port=5000"
+      - "traefik.http.services.pegaprox.loadbalancer.server.scheme=https"
+      - "traefik.http.serversTransports.pegaprox-transport.insecureSkipVerify=true"
+      - "traefik.http.services.pegaprox.loadbalancer.serversTransport=pegaprox-transport"
     logging:
       driver: json-file
       options:
