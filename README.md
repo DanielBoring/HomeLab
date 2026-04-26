@@ -20,13 +20,6 @@ Reverse proxy and TLS termination layer. Creates the shared `traefik` Docker net
 - **Documentation**: See [traefik/README.md](traefik/README.md)
 - **Deploy first** — other services depend on the `traefik` network
 
-### Homepage
-Self-hosted dashboard with service tiles, API integrations, and Docker auto-discovery.
-
-- **Location**: [`/homepage`](homepage/)
-- **Access**: `https://<HOMEPAGE_DOMAIN>` (via Traefik)
-- **Documentation**: See [homepage/README.md](homepage/README.md)
-
 ### Arcane
 Self-hosted application management platform for homelabs.
 
@@ -250,7 +243,6 @@ HomeLab/
 ├── unpoller/             # UniFi metrics exporter
 ├── prometheus-pve-exporter/  # Proxmox VE metrics exporter
 ├── monitoring-stack/     # Legacy combined Prometheus + Grafana stack
-├── homepage/             # Self-hosted dashboard
 ├── dozzle/               # Real-time Docker log viewer
 ├── uptime-kuma/          # Uptime monitoring (HTTP, TCP, DNS)
 ├── wud/                  # What's Up Docker — container update notifications
@@ -319,7 +311,6 @@ The following files are automatically excluded from version control:
 Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 
 - **Traefik Certs**: `/mnt/SSD/Containers/traefik/certs`
-- **Homepage Config**: `/mnt/SSD/Containers/homepage`
 - **Arcane Data**: `/mnt/SSD/Containers/arcane`
 - **Arcane Database**: `/mnt/SSD/Containers/arcane-postgres`
 - **Termix Data**: `/mnt/SSD/Containers/termix`
