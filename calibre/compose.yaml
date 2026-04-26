@@ -4,7 +4,9 @@ services:
     image: lscr.io/linuxserver/calibre:latest
     container_name: calibre
     #security_opt:
-    #  - seccomp:unconfined #optional - needed on some Docker configs for GUI
+    #  - seccomp:unconfined  # needed on some Docker configs for the GUI
+    security_opt:
+      - no-new-privileges:true
     environment:
       - PUID=3001
       - PGID=3001
@@ -20,11 +22,27 @@ services:
     shm_size: "1gb"
     networks:
       - calibre
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.calibre.rule=Host(`${CALIBRE_DOMAIN}`)"
+      - "traefik.http.routers.calibre.entrypoints=websecure"
+      - "traefik.http.routers.calibre.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.calibre.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.calibre.service=calibre@docker"
+      - "traefik.http.services.calibre.loadbalancer.server.port=8085"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   calibre-web:
     image: lscr.io/linuxserver/calibre-web:latest
     container_name: calibre-web
+    security_opt:
+      - no-new-privileges:true
     environment:
       - PUID=3001
       - PGID=3001
@@ -37,8 +55,22 @@ services:
       - 8083:8083
     networks:
       - calibre
+      - traefik
     depends_on:
       - calibre
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.calibre-web.rule=Host(`${CALIBRE_WEB_DOMAIN}`)"
+      - "traefik.http.routers.calibre-web.entrypoints=websecure"
+      - "traefik.http.routers.calibre-web.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.calibre-web.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.calibre-web.service=calibre-web@docker"
+      - "traefik.http.services.calibre-web.loadbalancer.server.port=8083"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
 volumes:
@@ -59,3 +91,5 @@ networks:
   calibre:
     name: calibre
     driver: bridge
+  traefik:
+    external: true
