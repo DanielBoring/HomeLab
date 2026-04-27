@@ -1,0 +1,45 @@
+
+services:
+  libation:
+    image: rmcrackan/libation:latest
+    container_name: libation
+    restart: unless-stopped
+    user: "${PUID:-3001}:${PGID:-3001}"
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - libation-config:/config
+      - libation-db:/db
+      - libation-books:/data
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - SLEEP_TIME=${SLEEP_TIME:-6h}
+      - LIBATION_CONFIG_DIR=/config
+      - LIBATION_DB_DIR=/db
+      - LIBATION_BOOKS_DIR=/data
+      - LIBATION_CREATE_DB=true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  libation-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/libation/config
+      o: bind
+  libation-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/libation/db
+      o: bind
+  libation-books:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/Data/Media/Audiobooks
+      o: bind
