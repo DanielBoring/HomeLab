@@ -1,0 +1,79 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: linkwarden-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - linkwarden
+    volumes:
+      - linkwarden-db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    image: ghcr.io/linkwarden/linkwarden:latest
+    container_name: linkwarden
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - linkwarden
+      - traefik
+    volumes:
+      - linkwarden-data:/data/data
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=https://${LINKWARDEN_DOMAIN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.linkwarden.rule=Host(`${LINKWARDEN_DOMAIN}`)"
+      - "traefik.http.routers.linkwarden.entrypoints=websecure"
+      - "traefik.http.routers.linkwarden.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.linkwarden.middlewares=secure-headers@file"
+      - "traefik.http.routers.linkwarden.service=linkwarden@docker"
+      - "traefik.http.services.linkwarden.loadbalancer.server.port=3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  linkwarden-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/linkwarden/db
+      o: bind
+  linkwarden-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/linkwarden/data
+      o: bind
+
+networks:
+  linkwarden:
+    name: linkwarden
+    driver: bridge
+  traefik:
+    external: true
