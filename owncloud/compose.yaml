@@ -23,7 +23,7 @@ services:
       - ocis-data:/var/lib/ocis
     entrypoint:
       - /bin/sh
-    command: ["-c", "ocis init || true; ocis server"]
+    command: ["-c", "ocis init --insecure=false || true; ocis server"]
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ocis.rule=Host(`${OCIS_DOMAIN}`)"
