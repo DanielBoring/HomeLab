@@ -35,6 +35,7 @@ services:
       - traefik
     volumes:
       - linkwarden-data:/data/data
+    shm_size: 1gb
     depends_on:
       db:
         condition: service_healthy

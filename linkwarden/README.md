@@ -39,8 +39,8 @@ PostgreSQL and the app both run as internal container users — no `chown` neede
 ### 2. Generate secrets
 
 ```bash
-# Postgres password
-openssl rand -base64 32
+# Postgres password — must be hex; base64 contains +/= which break the DATABASE_URL
+openssl rand -hex 32
 
 # NextAuth secret
 openssl rand -base64 32
