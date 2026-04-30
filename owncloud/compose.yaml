@@ -1,0 +1,57 @@
+
+services:
+  ocis:
+    image: owncloud/ocis:latest
+    container_name: ocis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - OCIS_URL=https://${OCIS_DOMAIN}
+      - PROXY_TLS=false
+      - OCIS_LOG_LEVEL=${OCIS_LOG_LEVEL:-warn}
+      - OCIS_LOG_COLOR=false
+      - IDM_ADMIN_PASSWORD=${OCIS_ADMIN_PASSWORD}
+      - OCIS_JWT_SECRET=${OCIS_JWT_SECRET}
+      - STORAGE_TRANSFER_SECRET=${OCIS_TRANSFER_SECRET}
+      - OCIS_MACHINE_AUTH_API_KEY=${OCIS_MACHINE_AUTH_API_KEY}
+    volumes:
+      - ocis-config:/etc/ocis
+      - ocis-data:/var/lib/ocis
+    entrypoint:
+      - /bin/sh
+    command: ["-c", "ocis init || true; ocis server"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ocis.rule=Host(`${OCIS_DOMAIN}`)"
+      - "traefik.http.routers.ocis.entrypoints=websecure"
+      - "traefik.http.routers.ocis.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ocis.middlewares=secure-headers@file"
+      - "traefik.http.routers.ocis.service=ocis@docker"
+      - "traefik.http.services.ocis.loadbalancer.server.port=9200"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ocis-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/ocis/config
+      o: bind
+  ocis-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/ocis/data
+      o: bind
+
+networks:
+  traefik:
+    external: true
