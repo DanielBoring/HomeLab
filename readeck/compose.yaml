@@ -1,0 +1,48 @@
+services:
+  app:
+    image: codeberg.org/readeck/readeck:latest
+    container_name: readeck
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
+    volumes:
+      - readeck-data:/readeck
+    environment:
+      - READECK_LOG_LEVEL=info
+      - READECK_LOG_FORMAT=text
+      - READECK_SERVER_HOST=0.0.0.0
+      - READECK_SERVER_PORT=8000
+      - READECK_ALLOWED_HOSTS=${READECK_DOMAIN},localhost
+      - READECK_USE_X_FORWARDED=true
+    healthcheck:
+      test: ["CMD", "/bin/readeck", "healthcheck", "-config", "config.toml"]
+      interval: 30s
+      timeout: 2s
+      retries: 3
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.readeck.rule=Host(`${READECK_DOMAIN}`)"
+      - "traefik.http.routers.readeck.entrypoints=websecure"
+      - "traefik.http.routers.readeck.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.readeck.middlewares=secure-headers@file"
+      - "traefik.http.routers.readeck.service=readeck@docker"
+      - "traefik.http.services.readeck.loadbalancer.server.port=8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  readeck-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/readeck/data
+      o: bind
+
+networks:
+  traefik:
+    external: true
