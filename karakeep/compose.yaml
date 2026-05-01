@@ -7,13 +7,13 @@ services:
     networks:
       - karakeep
       - traefik
-    env_file:
-      - /mnt/SSD/Containers/karakeep/.env
     environment:
       MEILI_ADDR: http://meilisearch:7700
       BROWSER_WEB_URL: http://chrome:9222
       DATA_DIR: /data
       NEXTAUTH_URL: https://${KARAKEEP_DOMAIN}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY}
     volumes:
       - karakeep-data:/data
     logging:
@@ -56,10 +56,9 @@ services:
       - no-new-privileges:true
     networks:
       - karakeep
-    env_file:
-      - /mnt/SSD/Containers/karakeep/.env
     environment:
       MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY}
     volumes:
       - karakeep-meilisearch:/meili_data
     logging:
