@@ -8,7 +8,7 @@ services:
       - karakeep
       - traefik
     env_file:
-      - .env
+      - /mnt/SSD/Containers/karakeep/.env
     environment:
       MEILI_ADDR: http://meilisearch:7700
       BROWSER_WEB_URL: http://chrome:9222
@@ -57,7 +57,7 @@ services:
     networks:
       - karakeep
     env_file:
-      - .env
+      - /mnt/SSD/Containers/karakeep/.env
     environment:
       MEILI_NO_ANALYTICS: "true"
     volumes:
