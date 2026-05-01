@@ -75,4 +75,5 @@ http:
     lan-only:
       ipAllowList:
         sourceRange:
-          - "10.0.0.0/20"   # Your LAN subnet — adjust if your network changes
+          - "10.0.0.0/20"    # LAN subnet
+          - "100.64.0.0/10"  # Tailscale
