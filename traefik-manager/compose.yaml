@@ -1,0 +1,61 @@
+
+services:
+  traefik-manager:
+    image: ghcr.io/chr0nzz/traefik-manager:latest
+    container_name: traefik-manager
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    environment:
+      - COOKIE_SECURE=true
+      - DOMAINS=virtuallyboring.com
+      - CERT_RESOLVER=letsencrypt
+      - TRAEFIK_API_URL=http://traefik:8080
+      - CONFIG_DIR=/traefik-dynamic
+      - ACME_JSON_PATH=/app/acme.json
+      - STATIC_CONFIG_PATH=/app/traefik.yml
+    volumes:
+      - traefik-dynamic:/traefik-dynamic
+      - manager-config:/app/config
+      - manager-backups:/app/backups
+      - /mnt/SSD/Containers/traefik/certs/acme.json:/app/acme.json:ro
+      - /mnt/SSD/Containers/traefik/traefik.yml:/app/traefik.yml:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-manager.rule=Host(`${TRAEFIK_MANAGER_DOMAIN}`)"
+      - "traefik.http.routers.traefik-manager.entrypoints=websecure"
+      - "traefik.http.routers.traefik-manager.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-manager.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.traefik-manager.service=traefik-manager@docker"
+      - "traefik.http.services.traefik-manager.loadbalancer.server.port=5000"
+    networks:
+      - traefik
+
+volumes:
+  traefik-dynamic:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/traefik/dynamic
+      o: bind
+  manager-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/traefik-manager/config
+      o: bind
+  manager-backups:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/traefik-manager/backups
+      o: bind
+
+networks:
+  traefik:
+    external: true

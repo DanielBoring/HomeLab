@@ -1,7 +1,8 @@
-# Dashboard is served via a router+auth label in compose.yaml — not on raw port 8080
+# Dashboard served via router label in compose.yaml; insecure: true opens port 8080
+# on the traefik bridge and macvlan (LAN-only) for traefik-manager API access
 api:
   dashboard: true
-  insecure: false
+  insecure: true
 
 # Entry points are the network ports Traefik listens on
 entryPoints:
