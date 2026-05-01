@@ -1,0 +1,101 @@
+services:
+  gitea-db:
+    image: postgres:17
+    container_name: gitea-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - gitea
+    volumes:
+      - gitea-db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=gitea
+      - POSTGRES_USER=gitea
+      - POSTGRES_PASSWORD=${GITEA_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d gitea -U gitea"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  gitea:
+    image: docker.gitea.com/gitea:1
+    container_name: gitea
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - gitea
+      - traefik
+    ports:
+      - "${GITEA_SSH_PORT:-2222}:22"
+    environment:
+      - USER_UID=${PUID:-3001}
+      - USER_GID=${PGID:-3001}
+      - TZ=${TZ:-America/New_York}
+      # ── Database ──────────────────────────────────────────────────────────────
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=gitea-db:5432
+      - GITEA__database__NAME=gitea
+      - GITEA__database__USER=gitea
+      - GITEA__database__PASSWD=${GITEA_DB_PASSWORD}
+      # ── Server ────────────────────────────────────────────────────────────────
+      - GITEA__server__DOMAIN=${GITEA_DOMAIN}
+      - GITEA__server__SSH_DOMAIN=${GITEA_DOMAIN}
+      - GITEA__server__ROOT_URL=https://${GITEA_DOMAIN}
+      - GITEA__server__SSH_PORT=${GITEA_SSH_PORT:-2222}
+      - GITEA__server__SSH_LISTEN_PORT=22
+      # ── Security ──────────────────────────────────────────────────────────────
+      - GITEA__security__SECRET_KEY=${GITEA_SECRET_KEY}
+      - GITEA__security__INTERNAL_TOKEN=${GITEA_INTERNAL_TOKEN}
+    volumes:
+      - gitea-data:/data
+    depends_on:
+      gitea-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsSL", "http://localhost:3000/api/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitea.rule=Host(`${GITEA_DOMAIN}`)"
+      - "traefik.http.routers.gitea.entrypoints=websecure"
+      - "traefik.http.routers.gitea.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gitea.middlewares=secure-headers@file"
+      - "traefik.http.routers.gitea.service=gitea@docker"
+      - "traefik.http.services.gitea.loadbalancer.server.port=3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  gitea-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/gitea/data
+      o: bind
+  gitea-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/gitea/db
+      o: bind
+
+networks:
+  gitea:
+    name: gitea
+    driver: bridge
+  traefik:
+    external: true
