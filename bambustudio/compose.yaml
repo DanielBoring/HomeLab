@@ -1,0 +1,44 @@
+services:
+  bambustudio:
+    image: lscr.io/linuxserver/bambustudio:latest
+    container_name: bambustudio
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 1gb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+      - CUSTOM_USER=${BAMBUSTUDIO_USER}
+      - PASSWORD=${BAMBUSTUDIO_PASSWORD}
+      - DARK_MODE=${DARK_MODE:-true}
+    volumes:
+      - bambustudio-data:/config
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.bambustudio.rule=Host(`${BAMBUSTUDIO_DOMAIN}`)"
+      - "traefik.http.routers.bambustudio.entrypoints=websecure"
+      - "traefik.http.routers.bambustudio.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.bambustudio.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.bambustudio.service=bambustudio@docker"
+      - "traefik.http.services.bambustudio.loadbalancer.server.port=3000"
+
+volumes:
+  bambustudio-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/bambustudio
+      o: bind
+
+networks:
+  traefik:
+    external: true
