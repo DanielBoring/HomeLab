@@ -1,0 +1,44 @@
+services:
+  code-server:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: code-server
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+      - PASSWORD=${CODESERVER_PASSWORD}
+      - SUDO_PASSWORD=${CODESERVER_SUDO_PASSWORD}
+      - PROXY_DOMAIN=${CODESERVER_DOMAIN}
+      - DEFAULT_WORKSPACE=/config/workspace
+    volumes:
+      - code-server-data:/config
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.code-server.rule=Host(`${CODESERVER_DOMAIN}`)"
+      - "traefik.http.routers.code-server.entrypoints=websecure"
+      - "traefik.http.routers.code-server.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.code-server.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.code-server.service=code-server@docker"
+      - "traefik.http.services.code-server.loadbalancer.server.port=8443"
+
+volumes:
+  code-server-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/code-server
+      o: bind
+
+networks:
+  traefik:
+    external: true
