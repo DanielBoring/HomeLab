@@ -1,0 +1,71 @@
+services:
+  retroarch:
+    image: lscr.io/linuxserver/retroarch:latest
+    container_name: retroarch
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 1gb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+      - CUSTOM_USER=${RETROARCH_USER}
+      - PASSWORD=${RETROARCH_PASSWORD}
+      # Intel Arc GPU — VAAPI rendering and encoding
+      - DRINODE=${INTEL_DRI_NODE:-/dev/dri/renderD128}
+      - DRI_NODE=${INTEL_DRI_NODE:-/dev/dri/renderD128}
+      # NVIDIA — uncomment these and remove the Intel vars above if switching to Nvidia
+      # Also see the deploy block below
+      # - NVIDIA_DRIVER_CAPABILITIES=all
+      # - NVIDIA_VISIBLE_DEVICES=all
+      # - DRINODE=${NVIDIA_DRI_NODE:-/dev/dri/renderD128}
+      # - DRI_NODE=${NVIDIA_DRI_NODE:-/dev/dri/renderD128}
+    # Intel Arc GPU passthrough
+    devices:
+      - /dev/dri:/dev/dri
+    # NVIDIA — requires nvidia-container-toolkit configured on the host
+    # Remove the devices block above and uncomment this when switching to Nvidia
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    volumes:
+      - retroarch-data:/config
+      - retroarch-roms:/roms
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.retroarch.rule=Host(`${RETROARCH_DOMAIN}`)"
+      - "traefik.http.routers.retroarch.entrypoints=websecure"
+      - "traefik.http.routers.retroarch.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.retroarch.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.retroarch.service=retroarch@docker"
+      - "traefik.http.services.retroarch.loadbalancer.server.port=3000"
+
+volumes:
+  retroarch-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/retroarch
+      o: bind
+  retroarch-roms:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${ROMS_PATH:-/mnt/Data/Media/ROMs}
+      o: bind
+
+networks:
+  traefik:
+    external: true
