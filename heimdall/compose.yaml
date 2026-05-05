@@ -1,0 +1,41 @@
+services:
+  heimdall:
+    image: lscr.io/linuxserver/heimdall:latest
+    container_name: heimdall
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+      - ALLOW_INTERNAL_REQUESTS=${ALLOW_INTERNAL_REQUESTS:-false}
+    volumes:
+      - heimdall-data:/config
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.heimdall.rule=Host(`${HEIMDALL_DOMAIN}`)"
+      - "traefik.http.routers.heimdall.entrypoints=websecure"
+      - "traefik.http.routers.heimdall.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.heimdall.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.heimdall.service=heimdall@docker"
+      - "traefik.http.services.heimdall.loadbalancer.server.port=80"
+
+volumes:
+  heimdall-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/heimdall
+      o: bind
+
+networks:
+  traefik:
+    external: true
