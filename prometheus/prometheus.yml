@@ -15,6 +15,10 @@ scrape_configs:
     static_configs:
       - targets: ["traefik:8082"]
 
+  - job_name: alloy
+    static_configs:
+      - targets: ["alloy:12345"]
+
   - job_name: pve
     static_configs:
       - targets:

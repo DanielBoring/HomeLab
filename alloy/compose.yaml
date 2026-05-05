@@ -1,0 +1,57 @@
+services:
+  alloy:
+    image: grafana/alloy:latest
+    container_name: alloy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+    ports:
+      # Syslog — network devices send to TrueNAS:514; mapped to unprivileged 5514 inside container
+      - "514:5514/udp"
+      - "514:5514/tcp"
+      # OTLP — host-bound so external services can push telemetry directly
+      - "${OTLP_GRPC_PORT:-4317}:4317"
+      - "${OTLP_HTTP_PORT:-4318}:4318"
+    networks:
+      - monitoring
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.alloy.rule=Host(`${ALLOY_DOMAIN}`)"
+      - "traefik.http.routers.alloy.entrypoints=websecure"
+      - "traefik.http.routers.alloy.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.alloy.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.alloy.service=alloy@docker"
+      - "traefik.http.services.alloy.loadbalancer.server.port=12345"
+
+volumes:
+  alloy-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/alloy
+      o: bind
+
+networks:
+  monitoring:
+    external: true
+  traefik:
+    external: true

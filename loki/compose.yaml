@@ -38,32 +38,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  promtail:
-    image: grafana/promtail:latest
-    container_name: promtail
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - monitoring
-    volumes:
-      - promtail-positions:/var/promtail
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/log/journal:/var/log/journal:ro
-      - /run/log/journal:/run/log/journal:ro
-      - /etc/machine-id:/etc/machine-id:ro
-    configs:
-      - source: promtail-config
-        target: /etc/promtail/config.yaml
-    command: -config.file=/etc/promtail/config.yaml
-    depends_on:
-      loki:
-        condition: service_healthy
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 configs:
   loki-config:
@@ -126,56 +100,6 @@ configs:
               enabled: true
               max_size_mb: 100
 
-  promtail-config:
-    content: |
-      server:
-        http_listen_port: 9080
-        grpc_listen_port: 0
-        log_level: warn
-
-      positions:
-        filename: /var/promtail/positions.yaml
-
-      clients:
-        - url: http://loki:3100/loki/api/v1/push
-
-      scrape_configs:
-        # TrueNAS host system logs via systemd journal
-        - job_name: truenas-journal
-          journal:
-            max_age: 12h
-            labels:
-              job: systemd
-              host: truenas
-          relabel_configs:
-            - source_labels: ['__journal__systemd_unit']
-              target_label: unit
-            - source_labels: ['__journal_priority_keyword']
-              target_label: level
-
-        - job_name: docker
-          docker_sd_configs:
-            - host: unix:///var/run/docker.sock
-              refresh_interval: 5s
-          pipeline_stages:
-            # Drop entries older than 7 days — prevents 400 errors on catch-up after
-            # a redeploy and keeps ingestion consistent with reject_old_samples_max_age
-            - drop:
-                older_than: 168h
-                drop_counter_reason: too_old
-          relabel_configs:
-            # Container name (strip leading slash)
-            - source_labels: ['__meta_docker_container_name']
-              regex: '/(.*)'
-              target_label: container
-            # stdout vs stderr
-            - source_labels: ['__meta_docker_container_log_stream']
-              target_label: stream
-            # Compose project and service labels
-            - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
-              target_label: compose_project
-            - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
-              target_label: compose_service
 
 volumes:
   loki-data:
@@ -183,12 +107,6 @@ volumes:
     driver_opts:
       type: none
       device: /mnt/SSD/Containers/loki
-      o: bind
-  promtail-positions:
-    driver: local
-    driver_opts:
-      type: none
-      device: /mnt/SSD/Containers/promtail
       o: bind
 
 networks:

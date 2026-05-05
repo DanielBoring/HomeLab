@@ -17,6 +17,7 @@ services:
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
       - "--web.enable-otlp-receiver"
+      - "--web.enable-remote-write-receiver"
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"

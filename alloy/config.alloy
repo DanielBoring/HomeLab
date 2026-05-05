@@ -1,0 +1,147 @@
+// ── Loki destination ──────────────────────────────────────────────────────────
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// ── Drop logs older than 7 days ───────────────────────────────────────────────
+// Prevents 400 errors when Alloy catches up after a redeploy.
+// Mirrors Loki's reject_old_samples_max_age of 168h.
+loki.process "drop_old" {
+  stage.drop {
+    older_than          = "168h"
+    drop_counter_reason = "too_old"
+  }
+  forward_to = [loki.write.default.receiver]
+}
+
+// ── Docker container logs ─────────────────────────────────────────────────────
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+}
+
+discovery.relabel "docker" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+}
+
+loki.source.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.docker.output
+  forward_to       = [loki.process.drop_old.receiver]
+  refresh_interval = "5s"
+}
+
+// ── Systemd journal (TrueNAS host logs) ──────────────────────────────────────
+discovery.relabel "journal" {
+  targets = []
+
+  rule {
+    source_labels = ["__journal__systemd_unit"]
+    target_label  = "unit"
+  }
+  rule {
+    source_labels = ["__journal_priority_keyword"]
+    target_label  = "level"
+  }
+}
+
+loki.source.journal "truenas" {
+  max_age       = "12h"
+  labels        = {
+    job  = "systemd",
+    host = "truenas",
+  }
+  relabel_rules = discovery.relabel.journal.rules
+  forward_to    = [loki.process.drop_old.receiver]
+}
+
+// ── Syslog receiver — UniFi devices, TrueNAS ─────────────────────────────────
+// Point each device at TrueNAS_IP:514 (mapped to container port 5514).
+// Syslog is real-time push so it bypasses the drop_old filter.
+discovery.relabel "syslog" {
+  targets = []
+
+  rule {
+    source_labels = ["__syslog_message_hostname"]
+    target_label  = "host"
+  }
+  rule {
+    source_labels = ["__syslog_message_severity"]
+    target_label  = "level"
+  }
+  rule {
+    source_labels = ["__syslog_message_facility"]
+    target_label  = "facility"
+  }
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "app"
+  }
+}
+
+loki.source.syslog "network_devices" {
+  listener {
+    address  = "0.0.0.0:5514"
+    protocol = "udp"
+    labels   = { job = "syslog" }
+  }
+  listener {
+    address  = "0.0.0.0:5514"
+    protocol = "tcp"
+    labels   = { job = "syslog" }
+  }
+  relabel_rules = discovery.relabel.syslog.rules
+  forward_to    = [loki.write.default.receiver]
+}
+
+// ── OTLP receiver ─────────────────────────────────────────────────────────────
+// Logs    → Loki (direct, no drop filter — OTLP senders control their timestamps)
+// Metrics → Prometheus via remote_write (requires --web.enable-remote-write-receiver)
+// Traces  → dropped; add Tempo to the stack and wire otelcol.exporter.otlp here
+otelcol.receiver.otlp "default" {
+  grpc {
+    endpoint = "0.0.0.0:4317"
+  }
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    logs    = [otelcol.exporter.loki.default.input]
+    metrics = [otelcol.exporter.prometheus.default.input]
+    traces  = []
+  }
+}
+
+otelcol.exporter.loki "default" {
+  forward_to = [loki.write.default.receiver]
+}
+
+otelcol.exporter.prometheus "default" {
+  forward_to = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
