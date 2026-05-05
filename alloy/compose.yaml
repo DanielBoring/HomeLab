@@ -16,7 +16,7 @@ services:
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
     volumes:
-      - ./config.alloy:/etc/alloy/config.alloy:ro
+      - /mnt/SSD/Containers/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - alloy-data:/var/lib/alloy/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/log/journal:/var/log/journal:ro

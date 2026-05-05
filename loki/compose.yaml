@@ -92,6 +92,7 @@ configs:
               store: inmemory
             replication_factor: 1
           final_sleep: 0s
+          min_ready_duration: 0s
 
       query_range:
         results_cache:

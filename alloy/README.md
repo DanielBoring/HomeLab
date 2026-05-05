@@ -34,11 +34,19 @@ Alloy cannot bind privileged port 514 inside the container without root. Instead
 
 ## Prerequisites
 
-### Host directories
+### Host directories and config
 
 ```sh
 mkdir -p /mnt/SSD/Containers/alloy
 ```
+
+Copy `config.alloy` from this repo to TrueNAS before deploying — the container bind-mounts it from an absolute path, so it must exist on the host first:
+
+```sh
+scp alloy/config.alloy truenas:/mnt/SSD/Containers/alloy/config.alloy
+```
+
+Or paste the contents directly in a TrueNAS shell: `nano /mnt/SSD/Containers/alloy/config.alloy`
 
 ### Docker socket access
 
