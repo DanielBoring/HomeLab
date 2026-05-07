@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+*.env.local
 
 # SSL/TLS private keys and certificates
 *.key
@@ -14,12 +15,19 @@ secrets/
 
 # Docker override files (may contain secrets)
 docker-compose.override.yml
+docker-compose.override.yaml
+compose.override.yml
 compose.override.yaml
 
 # Backup files
 *.bak
 *.backup
 *.tmp
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+backups/
 
 # OS files
 .DS_Store
@@ -40,3 +48,8 @@ logs/
 # Claude
 .claude
 CLAUDE.md
+
+# Codex / agent-local notes and caches
+.codex/
+AGENTS.local.md
+agents.local.md
