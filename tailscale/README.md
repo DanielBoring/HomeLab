@@ -9,7 +9,7 @@ https://tailscale.com/docs/features/containers/docker
 | Setting | Value |
 |---|---|
 | Image | `tailscale/tailscale:latest` |
-| Network mode | Host networking via `net_admin` + `/dev/net/tun` |
+| Network mode | Dedicated Docker bridge network with `net_admin` + `/dev/net/tun` |
 | Exit node | Enabled (`--advertise-exit-node`) |
 | Subnet routes | `10.0.0.0/20` (configurable) |
 | State | `/mnt/SSD/Containers/tailscale` |
@@ -19,6 +19,7 @@ https://tailscale.com/docs/features/containers/docker
 - A Tailscale account and tailnet
 - An auth key from the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys)
 - `/dev/net/tun` available on the host (standard on Linux)
+- Upstream DNS servers `10.0.6.2` and `10.0.6.3` reachable from the Docker host, or adjust the `dns:` entries in `compose.yaml`
 
 ## Quick Start
 

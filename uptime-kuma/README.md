@@ -6,7 +6,7 @@ Self-hosted uptime monitoring with a clean web UI. Monitors services via HTTP/HT
 
 | Setting | Value |
 |---|---|
-| Image | `louislam/uptime-kuma:latest` |
+| Image | `louislam/uptime-kuma:2` |
 | Access | `https://<UPTIME_KUMA_DOMAIN>` (via Traefik) |
 | Config | `/mnt/SSD/Containers/uptime-kuma` |
 

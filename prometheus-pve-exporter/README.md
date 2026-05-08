@@ -4,7 +4,7 @@ Exports Proxmox VE cluster and node metrics to Prometheus via a `/pve` endpoint 
 
 ## Prerequisites
 
-- `monitoring-stack` deployed first — the exporter joins the `monitoring` Docker network it creates
+- `prometheus` deployed first — the exporter joins the `monitoring` Docker network it creates
 - A dedicated read-only user with an API token created in Proxmox
 
 ### Creating the Proxmox user and token

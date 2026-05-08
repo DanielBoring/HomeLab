@@ -26,18 +26,21 @@ cp prometheus.yml /mnt/SSD/Containers/prometheus/prometheus.yml
 chown -R 3001:3001 /mnt/SSD/Containers/prometheus
 ```
 
-**Deploy this stack before Grafana** — it creates the `monitoring` Docker network.
+**Deploy this stack before Grafana, Loki, Unpoller, and pve-exporter** — it creates the `monitoring` Docker network.
 
 ## Quick Start
 
 ```bash
 cp .env.example .env
+nano .env  # set PROMETHEUS_DOMAIN
 docker compose up -d
 ```
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `PROMETHEUS_PORT` | No | `9090` | Host port for the Prometheus UI and API |
+| `PROMETHEUS_DOMAIN` | Yes | — | Hostname Traefik routes to Prometheus |
+
+Prometheus UI: `https://<PROMETHEUS_DOMAIN>` (via Traefik, LAN only)
 
 ## Adding Scrape Targets
 
@@ -50,10 +53,10 @@ scrape_configs:
       - targets: ["my-container:port"]
 ```
 
-The target container must be on the `monitoring` Docker network. Reload without restarting:
+The target container must be on the `monitoring` Docker network. Reload from a shell that can reach the Prometheus container:
 
 ```bash
-curl -X POST http://localhost:9090/-/reload
+docker exec prometheus wget --quiet --method=POST -O- http://localhost:9090/-/reload
 ```
 
 ## OTLP Receiver

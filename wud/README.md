@@ -38,7 +38,7 @@ cp .env.example .env
 |---|---|
 | `TZ` | Timezone (default: `America/New_York`) |
 | `WUD_DOMAIN` | FQDN Traefik routes to WUD (e.g. `wud.virtuallyboring.com`) |
-| `WUD_PORT` | Host port for direct access (default: `3010`) |
+| `WUD_PORT` | Host port for direct access (default: `3015`) |
 | `WUD_DISCORD_WEBHOOK_URL` | Discord webhook URL for notifications |
 
 ### 2. Start
@@ -51,7 +51,7 @@ docker compose logs -f wud
 ### 3. Access
 
 - **Via Traefik:** `https://<WUD_DOMAIN>` (LAN only)
-- **Direct:** `http://<host-ip>:3010`
+- **Direct:** `http://<host-ip>:3015`
 
 ## Controlling What Gets Watched
 

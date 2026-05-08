@@ -27,10 +27,10 @@ Ensure your book library is accessible at `/mnt/Data/Media/Books` (mounted read-
 ## Quick Start
 
 ```bash
+cp example.env .env
+# Edit .env — set CALIBRE_DOMAIN and CALIBRE_WEB_DOMAIN
 docker compose up -d
 ```
-
-No `.env` file required — all configuration is in `compose.yaml`.
 
 ### Verify
 
@@ -39,7 +39,7 @@ docker compose ps
 docker compose logs -f
 ```
 
-Navigate to `http://<host-ip>:8085` to access the Calibre desktop GUI.
+Navigate to `https://<CALIBRE_DOMAIN>` for the Calibre desktop GUI or `https://<CALIBRE_WEB_DOMAIN>` for Calibre-Web. Direct host access is also available on `http://<host-ip>:8085` and `http://<host-ip>:8083`.
 
 ## Initial Setup
 
@@ -63,6 +63,8 @@ Navigate to `http://<host-ip>:8085` to access the Calibre desktop GUI.
 
 | Variable | Service | Description |
 |---|---|---|
+| `CALIBRE_DOMAIN` | calibre | Hostname Traefik routes to the Calibre desktop GUI |
+| `CALIBRE_WEB_DOMAIN` | calibre-web | Hostname Traefik routes to Calibre-Web |
 | `CUSTOM_PORT` | calibre | Remaps the HTTP desktop GUI port (default: 8080) |
 | `CUSTOM_HTTPS_PORT` | calibre | Remaps the HTTPS desktop GUI port (default: 8181) |
 | `DOCKER_MODS` | calibre-web | Adds ebook conversion support (x86-64 only) |

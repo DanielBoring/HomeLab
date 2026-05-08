@@ -17,7 +17,7 @@ chown -R 3001:3001 /mnt/SSD/Containers/grafana
 
 ```bash
 cp .env.example .env
-nano .env  # set GRAFANA_ADMIN_PASSWORD
+nano .env  # set GRAFANA_ADMIN_PASSWORD and GRAFANA_DOMAIN
 docker compose up -d
 ```
 
@@ -25,9 +25,9 @@ docker compose up -d
 |---|---|---|---|
 | `GRAFANA_ADMIN_USER` | No | `admin` | Admin username |
 | `GRAFANA_ADMIN_PASSWORD` | Yes | — | Admin password — Grafana will not start without it |
-| `GRAFANA_PORT` | No | `3000` | Host port for the Grafana UI |
+| `GRAFANA_DOMAIN` | Yes | — | Hostname Traefik routes to Grafana |
 
-Grafana UI: `http://<host-ip>:3000`
+Grafana UI: `https://<GRAFANA_DOMAIN>` (via Traefik, LAN only)
 
 ## Datasources
 

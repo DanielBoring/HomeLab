@@ -8,7 +8,7 @@ https://doc.traefik.io/traefik/getting-started/docker/
 
 | Setting | Value |
 |---|---|
-| Image | `traefik:v3.3` |
+| Image | `traefik:v3.6` |
 | IP | `10.0.5.5` (macvlan — dedicated LAN IP) |
 | HTTP port | 80 |
 | HTTPS port | 443 |
@@ -66,7 +66,7 @@ nano .env
 | Variable | Default | Description |
 |---|---|---|
 | `TRAEFIK_DOMAIN` | `traefik.localhost` | Hostname for the Traefik dashboard |
-| `TZ` | `America/New_York` | Container timezone |
+| `TZ` | `UTC` | Container timezone |
 | `CF_DNS_API_TOKEN` | — | Cloudflare API token (requires Zone:DNS:Edit + Zone:Zone:Read) |
 
 ### 3. Deploy

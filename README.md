@@ -50,17 +50,12 @@ Dashboard and visualization layer. Connects to Prometheus (and optionally Loki) 
 - **Requires**: `prometheus` stack deployed first
 - **Documentation**: See [grafana/README.md](grafana/README.md)
 
-### Monitoring Stack (legacy combined stack)
-The original combined Prometheus + Grafana + Loki + Promtail deployment. Kept for reference; the individual `prometheus`, `grafana`, and `loki` stacks are the current deployment pattern.
-
-- **Location**: [`/monitoring-stack`](monitoring-stack/)
-
 ### Unpoller
 Polls UniFi network controller and exposes metrics to Prometheus.
 
 - **Location**: [`/unpoller`](unpoller/)
 - **Ports**: 9130 (Prometheus scrape endpoint), 37288 (web UI — disabled by default)
-- **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
+- **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Controller**: UniFi OS device at `https://<UNIFI_CONTROLLER_IP>`
 
 ### Prometheus PVE Exporter
@@ -68,7 +63,7 @@ Exports Proxmox VE cluster and node metrics to Prometheus.
 
 - **Location**: [`/prometheus-pve-exporter`](prometheus-pve-exporter/)
 - **Port**: 9221 (Prometheus scrape endpoint)
-- **Requires**: `monitoring-stack` deployed first (joins the `monitoring` network)
+- **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Documentation**: See [prometheus-pve-exporter/README.md](prometheus-pve-exporter/README.md)
 
 ### Semaphore
@@ -165,12 +160,20 @@ Real-time Docker log viewer. Streams container logs to a browser UI — stateles
 - **Documentation**: See [dozzle/README.md](dozzle/README.md)
 
 ### Loki
-Log aggregation stack (Loki + Promtail). Promtail ships container and systemd journal logs into Loki; Grafana is the query UI.
+Log aggregation backend for container, syslog, journal, and OTLP logs. Grafana Alloy ships logs into Loki; Grafana is the query UI.
 
 - **Location**: [`/loki`](loki/)
 - **Port**: 3100 (Loki ingest — internal only)
-- **Requires**: `monitoring-stack` deployed first (Grafana datasource)
+- **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Documentation**: See [loki/README.md](loki/README.md)
+
+### Grafana Alloy
+Telemetry collector that replaces Promtail. Collects Docker logs, systemd journal logs, syslog, and OTLP telemetry, then forwards logs to Loki and metrics to Prometheus.
+
+- **Location**: [`/alloy`](alloy/)
+- **Ports**: 514 (syslog UDP/TCP), 4317/4318 (OTLP), debug UI via Traefik
+- **Requires**: `prometheus`, `loki`, and `traefik` networks
+- **Documentation**: See [alloy/README.md](alloy/README.md)
 
 ### Nextcloud
 Self-hosted file sync and collaboration platform.
@@ -201,6 +204,100 @@ IPAM (IP Address Management) and network documentation platform. Tracks IP prefi
 - **Access**: `https://<NETBOX_DOMAIN>` (via Traefik, LAN only)
 - **Port**: 8060 (direct access)
 - **Documentation**: See [netbox/README.md](netbox/README.md)
+
+### Bambu Studio
+Browser-accessible Bambu Studio desktop GUI via KasmVNC.
+
+- **Location**: [`/bambustudio`](bambustudio/)
+- **Access**: `https://<BAMBUSTUDIO_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [bambustudio/README.md](bambustudio/README.md)
+
+### code-server
+Browser-based VS Code development environment.
+
+- **Location**: [`/code-server`](code-server/)
+- **Access**: `https://<CODESERVER_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [code-server/README.md](code-server/README.md)
+
+### Gitea
+Self-hosted Git service with PostgreSQL storage and direct SSH clone access.
+
+- **Location**: [`/gitea`](gitea/)
+- **Access**: `https://<GITEA_DOMAIN>` (via Traefik), SSH on host port 2222 by default
+- **Documentation**: See [gitea/README.md](gitea/README.md)
+
+### Heimdall
+Simple application dashboard and service launcher.
+
+- **Location**: [`/heimdall`](heimdall/)
+- **Access**: `https://<HEIMDALL_DOMAIN>` (via Traefik)
+- **Documentation**: See [heimdall/README.md](heimdall/README.md)
+
+### Karakeep
+Bookmark and read-it-later service with Meilisearch and browser capture support.
+
+- **Location**: [`/karakeep`](karakeep/)
+- **Access**: `https://<KARAKEEP_DOMAIN>` (via Traefik)
+- **Documentation**: See [karakeep/README.md](karakeep/README.md)
+
+### Libation
+Audible library downloader for audiobook archival workflows.
+
+- **Location**: [`/libation`](libation/)
+- **Output**: `/mnt/Data/Media/Audiobooks`
+- **Documentation**: See [libation/README.md](libation/README.md)
+
+### Linkwarden
+Collaborative bookmark manager with PostgreSQL persistence.
+
+- **Location**: [`/linkwarden`](linkwarden/)
+- **Access**: `https://<LINKWARDEN_DOMAIN>` (via Traefik)
+- **Documentation**: See [linkwarden/README.md](linkwarden/README.md)
+
+### MeTube
+Web UI for yt-dlp downloads.
+
+- **Location**: [`/metube`](metube/)
+- **Access**: `https://<METUBE_DOMAIN>` (via Traefik, LAN only)
+- **Port**: 8091 (direct access)
+- **Documentation**: See [metube/README.md](metube/README.md)
+
+### ownCloud Infinite Scale
+Modern ownCloud deployment using the OCIS container and local POSIX storage.
+
+- **Location**: [`/owncloud`](owncloud/)
+- **Access**: `https://<OCIS_DOMAIN>` (via Traefik)
+- **Documentation**: See [owncloud/README.md](owncloud/README.md)
+
+### Readeck
+Self-hosted read-it-later service.
+
+- **Location**: [`/readeck`](readeck/)
+- **Access**: `https://<READECK_DOMAIN>` (via Traefik)
+- **Documentation**: See [readeck/README.md](readeck/README.md)
+
+### RetroArch
+Browser-accessible RetroArch desktop GUI via KasmVNC.
+
+- **Location**: [`/retroarch`](retroarch/)
+- **Access**: `https://<RETROARCH_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [retroarch/README.md](retroarch/README.md)
+
+### Traefik Manager
+Web UI for managing Traefik dynamic configuration.
+
+- **Location**: [`/traefik-manager`](traefik-manager/)
+- **Access**: `https://<TRAEFIK_MANAGER_DOMAIN>` (via Traefik)
+- **Requires**: Traefik API enabled internally
+- **Documentation**: See [traefik-manager/README.md](traefik-manager/README.md)
+
+### Unmanic
+Automated media library optimization and transcoding worker.
+
+- **Location**: [`/umanic`](umanic/)
+- **Access**: `https://<UNMANIC_DOMAIN>` (via Traefik)
+- **Port**: 8095 (direct access)
+- **Documentation**: See [umanic/README.md](umanic/README.md)
 
 ## Quick Start
 
@@ -239,18 +336,26 @@ HomeLab/
 ├── traefik/              # Reverse proxy and TLS termination
 ├── prometheus/           # Metrics collection (creates monitoring network)
 ├── grafana/              # Metrics dashboards and visualization
-├── loki/                 # Log aggregation (Loki + Promtail)
+├── loki/                 # Log aggregation backend
+├── alloy/                # Telemetry collector for logs, syslog, and OTLP
 ├── unpoller/             # UniFi metrics exporter
 ├── prometheus-pve-exporter/  # Proxmox VE metrics exporter
-├── monitoring-stack/     # Legacy combined Prometheus + Grafana stack
 ├── dozzle/               # Real-time Docker log viewer
 ├── uptime-kuma/          # Uptime monitoring (HTTP, TCP, DNS)
 ├── wud/                  # What's Up Docker — container update notifications
 ├── nextcloud/            # Self-hosted file sync and collaboration
 ├── paperless-ngx/        # Document management with OCR
 ├── calibre/              # Calibre + Calibre-Web ebook manager
+├── bambustudio/          # Browser-accessible Bambu Studio GUI
+├── retroarch/            # Browser-accessible RetroArch GUI
 ├── changedetection/      # Website change detection and monitoring
 ├── openwebui/            # Web UI for Ollama LLM models
+├── owncloud/             # ownCloud Infinite Scale
+├── linkwarden/           # Bookmark manager
+├── karakeep/             # Bookmark/read-it-later service
+├── readeck/              # Read-it-later service
+├── metube/               # yt-dlp web UI
+├── libation/             # Audible library downloader
 ├── homeassistant/        # Home automation platform
 ├── tdarr/                # Distributed media transcoding server
 ├── tdarr-desktop-node/   # Tdarr GPU worker node (gaming desktop)
@@ -259,9 +364,14 @@ HomeLab/
 ├── unbound/              # Recursive DNS resolver (Pi-hole upstream)
 ├── arcane/               # Application management platform
 ├── termix/               # Web-based terminal emulator
+├── code-server/          # Browser-based VS Code
+├── gitea/                # Self-hosted Git service
+├── heimdall/             # Application dashboard
 ├── semaphore/            # Ansible/Terraform/OpenTofu UI
 ├── pegaprox/             # Proxmox VE web management UI
+├── traefik-manager/      # Traefik dynamic config manager
 ├── tailscale/            # Tailscale VPN node (subnet router)
+├── umanic/               # Media optimization worker
 ├── .gitignore            # Git ignore patterns (protects secrets)
 ├── LICENSE               # MIT License
 └── README.md             # This file
@@ -316,25 +426,68 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Termix Data**: `/mnt/SSD/Containers/termix`
 - **Prometheus Data**: `/mnt/SSD/Containers/prometheus`
 - **Grafana Data**: `/mnt/SSD/Containers/grafana`
+- **Grafana Provisioning**: `/mnt/SSD/Containers/grafana/provisioning`
 - **Loki Data**: `/mnt/SSD/Containers/loki`
+- **Alloy Data**: `/mnt/SSD/Containers/alloy`
 - **Semaphore Data**: `/mnt/SSD/Containers/semaphore/data`
 - **Semaphore Config**: `/mnt/SSD/Containers/semaphore/config`
 - **Semaphore Tmp**: `/mnt/SSD/Containers/semaphore/tmp`
 - **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
+- **WUD Store**: `/mnt/SSD/Containers/wud`
+- **Dozzle Data**: `/mnt/SSD/Containers/dozzle`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
 - **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`
+- **Bambu Studio Data**: `/mnt/SSD/Containers/bambustudio`
+- **RetroArch Data**: `/mnt/SSD/Containers/retroarch`
 - **Changedetection Data**: `/mnt/SSD/Containers/changedetection`
+- **code-server Data**: `/mnt/SSD/Containers/code-server`
+- **Gitea Data**: `/mnt/SSD/Containers/gitea/data`
+- **Gitea Database**: `/mnt/SSD/Containers/gitea/db`
+- **Heimdall Data**: `/mnt/SSD/Containers/heimdall`
+- **Karakeep Data**: `/mnt/SSD/Containers/karakeep/data`
+- **Karakeep Meilisearch**: `/mnt/SSD/Containers/karakeep/meilisearch`
+- **Libation Config**: `/mnt/SSD/Containers/libation/config`
+- **Libation Database**: `/mnt/SSD/Containers/libation/db`
+- **Linkwarden Data**: `/mnt/SSD/Containers/linkwarden/data`
+- **Linkwarden Database**: `/mnt/SSD/Containers/linkwarden/db`
+- **MeTube Config**: `/mnt/SSD/Containers/metube`
+- **Nextcloud HTML**: `/mnt/SSD/Containers/nextcloud/html`
+- **Nextcloud Data**: `/mnt/SSD/Containers/nextcloud/data`
+- **Nextcloud Database**: `/mnt/SSD/Containers/nextcloud/db`
+- **Nextcloud Redis**: `/mnt/SSD/Containers/nextcloud/redis`
+- **Open WebUI Data**: `/mnt/SSD/Containers/openwebui`
+- **ownCloud Config**: `/mnt/SSD/Containers/ocis/config`
+- **ownCloud Data**: `/mnt/SSD/Containers/ocis/data`
+- **Readeck Data**: `/mnt/SSD/Containers/readeck/data`
+- **Paperless Data**: `/mnt/SSD/Containers/paperless/data`
+- **Paperless Media**: `/mnt/SSD/Containers/paperless/media`
+- **Paperless Consume**: `/mnt/SSD/Containers/paperless/consume`
+- **Paperless Export**: `/mnt/SSD/Containers/paperless/export`
+- **Paperless Database**: `/mnt/SSD/Containers/paperless/db`
+- **Paperless Redis**: `/mnt/SSD/Containers/paperless/redis`
 - **Home Assistant Config**: `/mnt/SSD/Containers/homeassistant`
 - **Tdarr Server Data**: `/mnt/SSD/Containers/tdarr/server`
-- **Tdarr Transcode Cache**: `/mnt/SSD/Containers/tdarr/transcode`
+- **Tdarr Configs**: `/mnt/SSD/Containers/tdarr/configs`
+- **Tdarr Logs**: `/mnt/SSD/Containers/tdarr/logs`
+- **Tdarr Transcode Cache**: `/mnt/SSD/Containers/tdarr/transcode-cache`
 - **NetBox Database**: `/mnt/SSD/Containers/netbox/db`
 - **NetBox Redis**: `/mnt/SSD/Containers/netbox/redis`
 - **NetBox Redis Cache**: `/mnt/SSD/Containers/netbox/redis-cache`
 - **NetBox Media**: `/mnt/SSD/Containers/netbox/media`
 - **NetBox Reports**: `/mnt/SSD/Containers/netbox/reports`
 - **NetBox Scripts**: `/mnt/SSD/Containers/netbox/scripts`
-- **phpIPAM Database**: `/mnt/SSD/Containers/phpipam`
+- **PegaProx Config**: `/mnt/SSD/Containers/pegaprox/config`
+- **PegaProx Logs**: `/mnt/SSD/Containers/pegaprox/logs`
+- **phpIPAM Database**: `/mnt/SSD/Containers/phpipam/db`
+- **phpIPAM Logo**: `/mnt/SSD/Containers/phpipam/logo`
+- **phpIPAM CA**: `/mnt/SSD/Containers/phpipam/ca`
+- **Traefik Manager Config**: `/mnt/SSD/Containers/traefik-manager/config`
+- **Traefik Manager Backups**: `/mnt/SSD/Containers/traefik-manager/backups`
+- **Traefik Dynamic Config**: `/mnt/SSD/Containers/traefik/dynamic`
+- **Unmanic Config**: `/mnt/SSD/Containers/unmanic/config`
+- **Unmanic Cache**: `/mnt/SSD/Containers/unmanic/cache`
+- **Unbound Config**: `/mnt/SSD/Containers/unbound`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 

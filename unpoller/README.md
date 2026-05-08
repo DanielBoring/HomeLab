@@ -4,7 +4,7 @@ Polls a UniFi network controller and exposes metrics to Prometheus via a `/metri
 
 ## Prerequisites
 
-- `monitoring-stack` deployed first — Unpoller joins the `monitoring` Docker network it creates
+- `prometheus` deployed first — Unpoller joins the `monitoring` Docker network it creates
 - A read-only local user named `unifipoller` created on the UniFi controller
 
 ### Creating the UniFi user
