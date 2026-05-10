@@ -1,4 +1,4 @@
-# TrueNAS Node Exporter
+# Prometheus TrueNAS Exporter
 
 Prometheus Node Exporter exposes hardware and OS-level metrics from the TrueNAS host — CPU, memory, disk I/O, filesystem usage, network throughput, and more. Without it, Prometheus only sees metrics from services running inside Docker containers; Node Exporter fills the gap with visibility into the underlying machine.
 
@@ -22,7 +22,7 @@ TrueNAS host
 │
 ├── /proc, /sys, /  ← mounted read-only into container as /host
 │
-└── truenas-node-exporter (container)
+└── prometheus-truenas-exporter (container)
       │   reads host metrics via --path.rootfs=/host
       │   pid: host  (sees host process table)
       └── :9100 (monitoring network only)
@@ -46,7 +46,7 @@ The `monitoring` Docker network must exist (created by the `prometheus/` stack).
 ## Deployment
 
 ```sh
-cd truenas-node-exporter
+cd prometheus-truenas-exporter
 docker compose up -d
 ```
 
@@ -55,7 +55,7 @@ No `.env` file is needed — there are no configurable environment variables.
 Verify the exporter is reachable from within Prometheus:
 
 ```sh
-docker exec prometheus wget -qO- http://truenas-node-exporter:9100/metrics | head -20
+docker exec prometheus wget -qO- http://prometheus-truenas-exporter:9100/metrics | head -20
 ```
 
 ## Prometheus scrape config
@@ -65,7 +65,7 @@ The scrape job is already wired in `prometheus/prometheus.yml`:
 ```yaml
 - job_name: node
   static_configs:
-    - targets: ["truenas-node-exporter:9100"]
+    - targets: ["prometheus-truenas-exporter:9100"]
 ```
 
 After starting the container, reload Prometheus without a restart:
@@ -96,7 +96,7 @@ Then add each host to the `node` job in `prometheus/prometheus.yml`:
 - job_name: node
   static_configs:
     - targets:
-        - "truenas-node-exporter:9100"  # TrueNAS (container, monitoring network)
+        - "prometheus-truenas-exporter:9100"  # TrueNAS (container, monitoring network)
         - "10.0.5.21:9100"              # pmox1
         - "10.0.5.22:9100"              # pmox2
         - "10.0.5.23:9100"              # pmox3

@@ -1,7 +1,7 @@
 services:
-  truenas-node-exporter:
+  prometheus-truenas-exporter:
     image: prom/node-exporter:latest
-    container_name: truenas-node-exporter
+    container_name: prometheus-truenas-exporter
     restart: unless-stopped
     pid: host
     security_opt:
