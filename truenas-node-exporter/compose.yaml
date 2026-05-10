@@ -1,0 +1,23 @@
+services:
+  truenas-node-exporter:
+    image: prom/node-exporter:latest
+    container_name: truenas-node-exporter
+    restart: unless-stopped
+    pid: host
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    external: true
