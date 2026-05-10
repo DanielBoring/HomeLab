@@ -78,7 +78,6 @@ configs:
         ingestion_rate_strategy: local
         ingestion_rate_mb: 16
         ingestion_burst_size_mb: 32
-        use_ring_topology: false
 
       compactor:
         working_directory: /loki/compactor
