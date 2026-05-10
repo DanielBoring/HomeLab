@@ -1,7 +1,7 @@
 
 services:
   loki:
-    image: grafana/loki:latest
+    image: grafana/loki:3.7.1
     container_name: loki
     restart: unless-stopped
     user: "3001:3001"
@@ -12,6 +12,7 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
       - "traefik.http.routers.loki.rule=Host(`${LOKI_DOMAIN}`)"
       - "traefik.http.routers.loki.entrypoints=websecure"
       - "traefik.http.routers.loki.tls.certresolver=letsencrypt"
