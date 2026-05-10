@@ -13,7 +13,7 @@ Browser / mobile / browser extension
       Traefik (TLS)
             │
             ▼
-    readeck:8000 (Next.js)
+    readeck:8000 (Go)
             │
             ▼
     /readeck (SQLite + article data)

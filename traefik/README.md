@@ -265,7 +265,7 @@ Shared middlewares and non-Docker routes live in `dynamic/middlewares.yml`, load
 | Middleware | Purpose |
 |---|---|
 | `secure-headers@file` | Security headers (HSTS, X-Frame-Options, nosniff, referrer policy) |
-| `lan-only@file` | IP allowlist — restricts access to `10.0.5.0/24` |
+| `lan-only@file` | IP allowlist — restricts access to `10.0.0.0/20` (LAN) and `100.64.0.0/10` (Tailscale) |
 
 ## Storage
 
