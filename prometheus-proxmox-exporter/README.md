@@ -1,4 +1,4 @@
-# Prometheus PVE Exporter
+# Prometheus Proxmox Exporter
 
 Exports Proxmox VE cluster and node metrics to Prometheus via a `/pve` endpoint on port `9221`.
 
@@ -62,7 +62,7 @@ docker compose up -d
 
 ```bash
 # Check logs
-docker logs prometheus-pve-exporter
+docker logs prometheus-proxmox-exporter
 
 # Query metrics (replace with your Proxmox host IP)
 curl "http://localhost:9221/pve?target=<PROXMOX_IP>"
@@ -87,7 +87,7 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: prometheus-pve-exporter:9221
+        replacement: prometheus-proxmox-exporter:9221
 ```
 
 ## Grafana Dashboard

@@ -35,11 +35,11 @@ Web-based terminal emulator for remote system access.
 - **Documentation**: See [termix/README.md](termix/README.md)
 
 ### Prometheus
-Metrics collection and storage. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and pve-exporter attach to.
+Metrics collection and storage. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and proxmox-exporter attach to.
 
 - **Location**: [`/prometheus`](prometheus/)
 - **Access**: `https://<PROMETHEUS_DOMAIN>` (via Traefik, LAN only)
-- **Deploy before Grafana, Unpoller, and pve-exporter** — it creates the `monitoring` network
+- **Deploy before Grafana, Unpoller, and proxmox-exporter** — it creates the `monitoring` network
 - **Documentation**: See [prometheus/README.md](prometheus/README.md)
 
 ### Grafana
@@ -58,13 +58,13 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Controller**: UniFi OS device at `https://<UNIFI_CONTROLLER_IP>`
 
-### Prometheus PVE Exporter
+### Prometheus Proxmox Exporter
 Exports Proxmox VE cluster and node metrics to Prometheus.
 
-- **Location**: [`/prometheus-pve-exporter`](prometheus-pve-exporter/)
+- **Location**: [`/prometheus-proxmox-exporter`](prometheus-proxmox-exporter/)
 - **Port**: 9221 (Prometheus scrape endpoint)
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
-- **Documentation**: See [prometheus-pve-exporter/README.md](prometheus-pve-exporter/README.md)
+- **Documentation**: See [prometheus-proxmox-exporter/README.md](prometheus-proxmox-exporter/README.md)
 
 ### Semaphore
 Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with scheduling and access control.
@@ -339,7 +339,7 @@ HomeLab/
 ├── loki/                 # Log aggregation backend
 ├── alloy/                # Telemetry collector for logs, syslog, and OTLP
 ├── unpoller/             # UniFi metrics exporter
-├── prometheus-pve-exporter/  # Proxmox VE metrics exporter
+├── prometheus-proxmox-exporter/  # Proxmox VE metrics exporter
 ├── dozzle/               # Real-time Docker log viewer
 ├── uptime-kuma/          # Uptime monitoring (HTTP, TCP, DNS)
 ├── wud/                  # What's Up Docker — container update notifications

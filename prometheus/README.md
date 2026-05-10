@@ -1,11 +1,11 @@
 # Prometheus
 
-Metrics collection and storage for the homelab. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and pve-exporter attach to.
+Metrics collection and storage for the homelab. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and proxmox-exporter attach to.
 
 ## Architecture
 
 ```
-[traefik :8082]   [unpoller :9130]   [pve-exporter :9221]
+[traefik :8082]   [unpoller :9130]   [proxmox-exporter :9221]
         \                |                  /
          └──────── prometheus:9090 ─────────
                          │
@@ -26,7 +26,7 @@ cp prometheus.yml /mnt/SSD/Containers/prometheus/prometheus.yml
 chown -R 3001:3001 /mnt/SSD/Containers/prometheus
 ```
 
-**Deploy this stack before Grafana, Loki, Unpoller, and pve-exporter** — it creates the `monitoring` Docker network.
+**Deploy this stack before Grafana, Loki, Unpoller, and proxmox-exporter** — it creates the `monitoring` Docker network.
 
 ## Quick Start
 

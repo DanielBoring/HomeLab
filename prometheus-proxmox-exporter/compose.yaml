@@ -1,8 +1,8 @@
 
 services:
-  prometheus-pve-exporter:
+  prometheus-proxmox-exporter:
     image: prompve/prometheus-pve-exporter:latest
-    container_name: prometheus-pve-exporter
+    container_name: prometheus-proxmox-exporter
     restart: unless-stopped
     init: true
     networks:
