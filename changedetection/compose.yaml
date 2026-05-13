@@ -11,6 +11,7 @@ services:
       - TZ=${TZ:-America/New_York}
       # - BASE_URL=  # Set only if behind a reverse proxy with a subpath
       - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000
+      - FLARESOLVERR_URL=http://flaresolverr:8191/v1
     volumes:
       - /mnt/SSD/Containers/changedetection:/config
     ports:
