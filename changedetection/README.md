@@ -33,12 +33,15 @@ Browser
 |---|---|---|
 | `changedetection` | internal bridge | Allows the main container to reach playwright by service name |
 | `flaresolverr` | external | Shared with the FlareSolverr stack; allows `http://flaresolverr:8191` to resolve |
+| `traefik` | external | Traefik ingress — required so Traefik can reach the container on its `traefik` network IP |
 
 ## Prerequisites
 
-1. **FlareSolverr stack deployed first** — it creates the external `flaresolverr` network this stack depends on. If deploying without FlareSolverr, remove the `flaresolverr` network entries from `compose.yaml`.
+1. **Traefik deployed first** — it creates the external `traefik` network this stack depends on.
 
-2. **Host storage directory:**
+2. **FlareSolverr stack deployed** — it creates the external `flaresolverr` network. If deploying without FlareSolverr, remove the `flaresolverr` network entries from `compose.yaml`.
+
+3. **Host storage directory:**
    ```sh
    mkdir -p /mnt/SSD/Containers/changedetection
    chown -R 3001:3001 /mnt/SSD/Containers/changedetection
@@ -52,14 +55,15 @@ cp example.env .env
 docker compose up -d
 ```
 
-Open `http://<host-ip>:5000`.
+Open `https://<CHANGEDETECTION_DOMAIN>` (or `http://<host-ip>:5000` directly).
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `TZ` | `America/New_York` | Container timezone |
-| `CHANGEDETECTION_PORT` | `5000` | Host port the UI is exposed on |
+| `CHANGEDETECTION_DOMAIN` | — | Traefik domain (e.g. `changedetection.virtuallyboring.com`) |
+| `CHANGEDETECTION_PORT` | `5000` | Host port the UI is exposed on (fallback; Traefik is primary) |
 
 Variables hardcoded in `compose.yaml` (rarely need changing):
 

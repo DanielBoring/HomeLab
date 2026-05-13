@@ -18,6 +18,15 @@ services:
     networks:
       - changedetection
       - flaresolverr
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.changedetection.rule=Host(`${CHANGEDETECTION_DOMAIN}`)"
+      - "traefik.http.routers.changedetection.entrypoints=websecure"
+      - "traefik.http.routers.changedetection.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.changedetection.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.changedetection.service=changedetection@docker"
+      - "traefik.http.services.changedetection.loadbalancer.server.port=5000"
     depends_on:
       playwright-chrome:
         condition: service_started
@@ -49,4 +58,6 @@ services:
 networks:
   changedetection:
   flaresolverr:
+    external: true
+  traefik:
     external: true
