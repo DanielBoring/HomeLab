@@ -3,6 +3,8 @@ services:
     image: lscr.io/linuxserver/changedetection.io:latest
     container_name: changedetection
     hostname: changedetection
+    security_opt:
+      - no-new-privileges:true
     environment:
       - PUID=3001
       - PGID=3001
@@ -13,21 +15,38 @@ services:
       - /mnt/SSD/Containers/changedetection:/config
     ports:
       - ${CHANGEDETECTION_PORT:-5000}:5000
+    networks:
+      - changedetection
+      - flaresolverr
     depends_on:
       playwright-chrome:
         condition: service_started
-    restart: unless-stopped
-
-  playwright-chrome:
-    image: dgtlmoon/sockpuppetbrowser:latest
-    container_name: playwright-chrome
-    hostname: playwright-chrome
-    environment:
-      - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080"]
-    shm_size: 2g
     restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  playwright-chrome:
+    image: dgtlmoon/sockpuppetbrowser:latest
+    container_name: changedetection-playwright
+    hostname: changedetection-playwright
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080"]
+    shm_size: 2g
+    networks:
+      - changedetection
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  changedetection:
+  flaresolverr:
+    external: true
