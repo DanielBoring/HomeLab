@@ -1,0 +1,118 @@
+services:
+  romm:
+    image: rommapp/romm:latest
+    container_name: romm
+    restart: unless-stopped
+    user: "3001:3001"
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - DB_HOST=romm-db
+      - DB_NAME=romm
+      - DB_USER=${ROMM_DB_USER}
+      - DB_PASSWD=${ROMM_DB_PASSWORD}
+      - ROMM_AUTH_SECRET_KEY=${ROMM_AUTH_SECRET_KEY}
+      - SCREENSCRAPER_USER=${SCREENSCRAPER_USER}
+      - SCREENSCRAPER_PASSWORD=${SCREENSCRAPER_PASSWORD}
+      - RETROACHIEVEMENTS_API_KEY=${RETROACHIEVEMENTS_API_KEY}
+      - STEAMGRIDDB_API_KEY=${STEAMGRIDDB_API_KEY}
+      - HASHEOUS_API_ENABLED=true
+    volumes:
+      - romm-resources:/romm/resources
+      - romm-redis-data:/romm/redis-data
+      - romm-library:/romm/library
+      - romm-assets:/romm/assets
+      - romm-config:/romm/config
+    networks:
+      - romm
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.romm.rule=Host(`${ROMM_DOMAIN}`)"
+      - "traefik.http.routers.romm.entrypoints=websecure"
+      - "traefik.http.routers.romm.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.romm.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.romm.service=romm@docker"
+      - "traefik.http.services.romm.loadbalancer.server.port=8080"
+    depends_on:
+      romm-db:
+        condition: service_healthy
+        restart: true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  romm-db:
+    image: mariadb:lts
+    container_name: romm-db
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - MARIADB_ROOT_PASSWORD=${ROMM_DB_ROOT_PASSWORD}
+      - MARIADB_DATABASE=romm
+      - MARIADB_USER=${ROMM_DB_USER}
+      - MARIADB_PASSWORD=${ROMM_DB_PASSWORD}
+    volumes:
+      - romm-db:/var/lib/mysql
+    networks:
+      - romm
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      start_interval: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  romm-resources:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/romm/resources
+      o: bind
+  romm-redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/romm/redis-data
+      o: bind
+  romm-library:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/Data/Media/ROMs
+      o: bind
+  romm-assets:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/romm/assets
+      o: bind
+  romm-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/romm/config
+      o: bind
+  romm-db:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/romm/db
+      o: bind
+
+networks:
+  romm:
+    name: romm
+    driver: bridge
+  traefik:
+    external: true
