@@ -68,8 +68,10 @@ desktop.ini
 logs/
 
 # AI assistant local/private files
-.claude
-CLAUDE.md
-.codex/
-AGENTS.local.md
+.claude          # Claude Code local config
+CLAUDE.md        # Claude custom instructions (private)
+.codex/          # Codex/OpenAI agent cache
+AGENTS.local.md  # Agent-local overrides (not shared)
 agents.local.md
+.gemini/         # Gemini local config/cache (may contain API keys)
+GEMINI.md        # Gemini custom instructions (private)
