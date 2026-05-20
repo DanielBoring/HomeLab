@@ -33,15 +33,7 @@ Grafana UI: `https://<GRAFANA_DOMAIN>` (via Traefik, LAN only)
 
 The Prometheus datasource is provisioned via [provisioning/datasources/prometheus.yml](provisioning/datasources/prometheus.yml) — it points to `http://prometheus:9090` and is set as the default. No manual configuration required.
 
-To add Loki, add a second entry to the datasources file:
-
-```yaml
-  - name: Loki
-    type: loki
-    access: proxy
-    url: http://loki:3100
-    editable: false
-```
+The Loki datasource is provisioned via [provisioning/datasources/loki.yml](provisioning/datasources/loki.yml) — it points to `http://loki:3100` for log queries. Also auto-configured on deploy.
 
 ## Dashboards
 

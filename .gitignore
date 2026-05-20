@@ -11,7 +11,29 @@
 *.pfx
 *.crt
 *.cer
+
+# General secrets directory
 secrets/
+
+# Let's Encrypt certificate store (contains private keys)
+acme.json
+
+# SSH keys (no extension, won't match *.key)
+id_rsa
+id_ed25519
+id_ecdsa
+id_dsa
+
+# Basic auth password files
+*.htpasswd
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Local data directories (container runtime state copied locally)
+data/
 
 # Docker override files (may contain secrets)
 docker-compose.override.yml
@@ -45,11 +67,9 @@ desktop.ini
 *.log
 logs/
 
-# Claude
+# AI assistant local/private files
 .claude
 CLAUDE.md
-
-# Codex / agent-local notes and caches
 .codex/
 AGENTS.local.md
 agents.local.md

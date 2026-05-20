@@ -9,6 +9,21 @@ services:
       - monitoring
     ports:
       - "9221:9221"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9221/metrics | head -1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     environment:
       - PVE_USER=${PVE_USER}
       - PVE_TOKEN_NAME=${PVE_TOKEN_NAME}
