@@ -1,0 +1,75 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: searxng-redis
+    restart: unless-stopped
+    command: redis-server --save "" --appendonly "no"
+    networks:
+      - searxng
+    tmpfs:
+      - /var/lib/redis
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - searxng
+      - traefik
+    ports:
+      - "${SEARXNG_PORT:-8092}:8080"
+    environment:
+      - SEARXNG_BASE_URL=https://${SEARXNG_DOMAIN}/
+      - TZ=${TZ:-America/New_York}
+    volumes:
+      - searxng-config:/etc/searxng
+    depends_on:
+      - redis
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.searxng.rule=Host(`${SEARXNG_DOMAIN}`)"
+      - "traefik.http.routers.searxng.entrypoints=websecure"
+      - "traefik.http.routers.searxng.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.searxng.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.searxng.service=searxng@docker"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  searxng-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/searxng/config
+      o: bind
+
+networks:
+  traefik:
+    external: true
+  searxng:
+    driver: bridge

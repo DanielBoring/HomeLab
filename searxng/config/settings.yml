@@ -1,0 +1,60 @@
+# Inherit all SearXNG defaults, then override only what's specified below.
+# Without this, every engine and setting must be defined explicitly.
+use_default_settings: true
+
+general:
+  instance_name: "SearXNG"
+  # Disables the "contact us" link in the UI — no point on a private instance.
+  contact_url: false
+  # Disables the /stats endpoint; no need to expose query metrics.
+  enable_metrics: false
+
+server:
+  # Generate with: openssl rand -hex 32
+  # Replace this placeholder before first run — changing it later invalidates sessions.
+  secret_key: "REPLACE_WITH_GENERATED_SECRET"
+  # Rate-limits searches per IP using Redis. Prevents abuse if the instance is
+  # ever accidentally reachable; has no noticeable impact on normal use.
+  limiter: true
+  # Proxies result images through SearXNG so the browser never makes direct
+  # requests to external image hosts (no referrer leakage).
+  image_proxy: true
+  # Prevents this instance from being listed on the public searx.space directory.
+  public_instance: false
+  # GET is sufficient for a private instance and avoids CSRF complexity.
+  method: "GET"
+
+redis:
+  # Sidecar Redis container defined in compose.yaml — used for rate limiting
+  # and caching. The container name "redis" resolves on the searxng Docker network.
+  url: redis://redis:6379/0
+
+outgoing:
+  # Seconds to wait for an engine to respond before skipping it for this query.
+  # Default (3.0) is too tight — slow engines get temporarily banned unnecessarily.
+  request_timeout: 6.0
+  # Hard cap per engine, even with async fetching. Keeps the page from hanging.
+  max_request_timeout: 15.0
+  # Total simultaneous outbound HTTP connections across all engines.
+  pool_connections: 100
+  # Max connections kept alive per host (reused across requests).
+  pool_maxsize: 20
+
+ui:
+  # Appends a hash to static asset URLs so browsers bust the cache on upgrades.
+  static_use_hash: true
+  # Loads more results automatically when scrolling instead of paginating.
+  infinite_scroll: true
+  default_theme: simple
+  theme_args:
+    # "dark" or "light"
+    simple_style: dark
+
+search:
+  # 0 = off, 1 = moderate, 2 = strict. Off for a private single-user instance.
+  safe_search: 0
+  # Provider for the search-as-you-type suggestion dropdown. This does NOT
+  # affect which engines are used for results — all default engines are active.
+  autocomplete: "duckduckgo"
+  # Default language/region for results. Users can override per-query.
+  default_lang: "en"
