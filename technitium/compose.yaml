@@ -1,0 +1,54 @@
+services:
+  technitium:
+    image: technitium/dns-server:latest
+    container_name: technitium
+    hostname: technitium
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - DNS_SERVER_DOMAIN=${TECHNITIUM_DOMAIN}
+      - DNS_SERVER_ADMIN_PASSWORD=${TECHNITIUM_ADMIN_PASSWORD}
+      - DNS_SERVER_LOG_FOLDER_PATH=/var/log/technitium/dns
+    volumes:
+      - technitium-config:/etc/dns
+      - technitium-logs:/var/log/technitium/dns
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.technitium.rule=Host(`${TECHNITIUM_DOMAIN}`)"
+      - "traefik.http.routers.technitium.entrypoints=websecure"
+      - "traefik.http.routers.technitium.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.technitium.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.technitium.service=technitium@docker"
+      - "traefik.http.services.technitium.loadbalancer.server.port=5380"
+    sysctls:
+      - net.ipv4.ip_local_port_range=1024 65535
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  technitium-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/technitium/config
+      o: bind
+  technitium-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/technitium/logs
+      o: bind
+
+networks:
+  traefik:
+    external: true
