@@ -1,0 +1,113 @@
+services:
+  ntopng:
+    image: ntop/ntopng:stable
+    container_name: ntopng
+    restart: unless-stopped
+    user: "3001:3001"
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      ntopng-redis:
+        condition: service_healthy
+    networks:
+      - traefik
+      - monitoring
+      - ntopng
+    ports:
+      - "${NTOPNG_NETFLOW_PORT:-2055}:2055/udp"
+    volumes:
+      - ntopng-data:/var/lib/ntopng
+    command: >
+      -w 0.0.0.0:3000
+      --community
+      --redis ntopng-redis:6379
+    environment:
+      - TZ=${TZ:-America/New_York}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.ntopng.rule=Host(`${NTOPNG_DOMAIN}`)"
+      - "traefik.http.routers.ntopng.entrypoints=websecure"
+      - "traefik.http.routers.ntopng.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ntopng.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.ntopng.service=ntopng@docker"
+      - "traefik.http.services.ntopng.loadbalancer.server.port=3000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  ntopng-redis:
+    image: redis:7-alpine
+    container_name: ntopng-redis
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ntopng
+    volumes:
+      - ntopng-redis-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  ntopng-exporter:
+    image: ghcr.io/aauren/ntopng-exporter:latest
+    container_name: ntopng-exporter
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      ntopng:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - ntopng
+    environment:
+      - NTOPNG_HOST=ntopng
+      - NTOPNG_PORT=3000
+      - NTOPNG_USER=${NTOPNG_ADMIN_USER:-admin}
+      - NTOPNG_PASSWORD=${NTOPNG_ADMIN_PASSWORD}
+      - TZ=${TZ:-America/New_York}
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  ntopng-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/ntopng
+      o: bind
+  ntopng-redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/ntopng/redis
+      o: bind
+
+networks:
+  traefik:
+    external: true
+  monitoring:
+    external: true
+  ntopng:
+    name: ntopng
+    driver: bridge
