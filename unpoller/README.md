@@ -53,6 +53,8 @@ docker logs unpoller
 curl http://localhost:9130/metrics
 ```
 
+Docker healthchecks are intentionally omitted because the upstream image is minimal and does not include `/bin/sh`, `wget`, or `curl`. Verify availability through Prometheus scrape status or the published `/metrics` endpoint instead.
+
 ## Controller URL Format
 
 | Device | URL format |

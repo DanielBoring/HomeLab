@@ -82,6 +82,8 @@ cd prometheus && docker compose up -d
 
 Navigate to `https://alloy.yourdomain.com` for the debug UI. The **Graph** tab shows the live pipeline and whether each component is healthy.
 
+Docker healthchecks are intentionally omitted because the upstream Alloy image does not include `wget` or `curl`. Verify availability through Prometheus scrape status, Traefik, or the Alloy debug UI instead.
+
 ## Configuring UniFi devices to send syslog
 
 In UniFi Network → **Settings → System → Remote Logging**:
