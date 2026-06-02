@@ -13,13 +13,13 @@ Browser
 Traefik (TLS termination, lan-only)
   │
   ▼
-romm:8080  ──── embedded Redis (session/cache)
+romm:8080  ──── embedded Redis/Valkey (session/cache)
   │
   ▼
 romm-db:3306  (MariaDB LTS)
 ```
 
-RomM ships with an embedded Redis instance for session management and caching — no separate Redis container is needed. The ROM library at `/mnt/Data/Media/ROMs` is mounted read-only from RomM's perspective but can be written to by other processes on the host.
+RomM ships with an embedded Redis/Valkey instance for session management and caching — no separate Redis container is needed. The Redis data volume must be mounted at `/redis-data`, which is where the current RomM image writes its embedded Redis snapshots. The ROM library at `/mnt/Data/Media/ROMs` is mounted read-only from RomM's perspective but can be written to by other processes on the host.
 
 ## Prerequisites
 
@@ -110,7 +110,7 @@ Add keys to `.env` and `docker compose up -d` to reload — no rebuild needed.
 | Mount | Host Path | Purpose |
 |---|---|---|
 | `/romm/resources` | `/mnt/SSD/Containers/romm/resources` | Scraped metadata and cover art cache |
-| `/romm/redis-data` | `/mnt/SSD/Containers/romm/redis-data` | Embedded Redis persistence |
+| `/redis-data` | `/mnt/SSD/Containers/romm/redis-data` | Embedded Redis/Valkey persistence |
 | `/romm/library` | `/mnt/Data/Media/ROMs` | ROM files (read by RomM, organized by platform slug) |
 | `/romm/assets` | `/mnt/SSD/Containers/romm/assets` | User-uploaded assets (custom artwork, etc.) |
 | `/romm/config` | `/mnt/SSD/Containers/romm/config` | RomM config file (`config.yml`) |
@@ -121,3 +121,4 @@ Add keys to `.env` and `docker compose up -d` to reload — no rebuild needed.
 - **mariadb:lts** is used instead of `mariadb:latest` — pinning to the LTS tag avoids surprise major-version upgrades that require manual data migration steps. Update intentionally with `docker compose pull` when you're ready.
 - **Port 8080** is RomM's internal container port — no host port is exposed, Traefik handles all routing.
 - **`restart: true`** in `depends_on` means Docker will restart RomM if MariaDB restarts, re-establishing the DB connection automatically.
+- **Redis/Valkey writes to `/redis-data`**. If this is mounted elsewhere, Docker may create an anonymous volume at `/redis-data`; the embedded Redis process can then fail snapshot persistence and raise `MISCONF` / `stop-writes-on-bgsave-error` errors.

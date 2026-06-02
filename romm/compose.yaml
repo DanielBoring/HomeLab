@@ -19,7 +19,7 @@ services:
       - HASHEOUS_API_ENABLED=true
     volumes:
       - romm-resources:/romm/resources
-      - romm-redis-data:/romm/redis-data
+      - romm-redis-data:/redis-data
       - romm-library:/romm/library
       - romm-assets:/romm/assets
       - romm-config:/romm/config
