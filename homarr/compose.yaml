@@ -1,0 +1,49 @@
+services:
+  homarr:
+    image: ghcr.io/homarr-labs/homarr:latest
+    container_name: homarr
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TZ=America/New_York
+      - SECRET_ENCRYPTION_KEY=${SECRET_ENCRYPTION_KEY}
+    volumes:
+      - homarr-data:/appdata
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    dns:
+      - 10.0.6.4
+      - 10.0.6.5
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.homarr.rule=Host(`${HOMARR_DOMAIN}`)"
+      - "traefik.http.routers.homarr.entrypoints=websecure"
+      - "traefik.http.routers.homarr.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.homarr.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.homarr.service=homarr@docker"
+      - "traefik.http.services.homarr.loadbalancer.server.port=7575"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7575/api/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  traefik:
+    external: true
+
+volumes:
+  homarr-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/homarr
+      o: bind
