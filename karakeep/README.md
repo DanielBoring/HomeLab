@@ -16,10 +16,12 @@ Browser / Extension
    karakeep :3000          ← Next.js web app + API
         │
         ├──► meilisearch :7700   ← full-text search index
-        └──► chrome :9222        ← headless Chromium for screenshots & content fetch
+        └──► chrome.localhost :9222 ← headless Chromium for screenshots & content fetch
 ```
 
 All three containers share an internal `karakeep` bridge network. Only `karakeep` is attached to the `traefik` network — `chrome` and `meilisearch` have no external exposure.
+
+The Chrome sidecar is reachable through the `chrome.localhost` network alias. Chrome's DevTools endpoint rejects some requests whose `Host` header is a plain Docker service name such as `chrome`; using a `*.localhost` alias keeps the endpoint internal while satisfying Chrome's host validation.
 
 Data is persisted to two bind-mounted directories on the host:
 - `/mnt/SSD/Containers/karakeep/data` — bookmarks, attachments, user data
