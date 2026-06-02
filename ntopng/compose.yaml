@@ -3,7 +3,6 @@ services:
     image: ntop/ntopng:latest
     container_name: ntopng
     restart: unless-stopped
-    user: "3001:3001"
     security_opt:
       - no-new-privileges:true
     depends_on:
