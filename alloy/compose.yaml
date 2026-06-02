@@ -32,6 +32,8 @@ services:
     networks:
       - monitoring
       - traefik
+    healthcheck:
+      disable: true
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"

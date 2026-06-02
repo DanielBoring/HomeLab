@@ -18,6 +18,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    healthcheck:
+      disable: true
     environment:
       # Using Prometheus only; InfluxDB output disabled
       - UP_INFLUXDB_DISABLE=true
