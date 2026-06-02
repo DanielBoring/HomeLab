@@ -65,30 +65,6 @@ services:
       timeout: 5s
       retries: 3
 
-  ntopng-exporter:
-    image: ghcr.io/aauren/ntopng-exporter:latest
-    container_name: ntopng-exporter
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    depends_on:
-      ntopng:
-        condition: service_healthy
-    networks:
-      - monitoring
-      - ntopng
-    environment:
-      - NTOPNG_HOST=ntopng
-      - NTOPNG_PORT=3000
-      - NTOPNG_USER=${NTOPNG_ADMIN_USER:-admin}
-      - NTOPNG_PASSWORD=${NTOPNG_ADMIN_PASSWORD}
-      - TZ=${TZ:-America/New_York}
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "3"
-
 volumes:
   ntopng-data:
     driver: local

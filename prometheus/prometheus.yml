@@ -27,10 +27,6 @@ scrape_configs:
     static_configs:
       - targets: ["loki:3100"]
 
-  - job_name: ntopng
-    static_configs:
-      - targets: ["ntopng-exporter:9244"]
-
   - job_name: pve
     static_configs:
       - targets:
