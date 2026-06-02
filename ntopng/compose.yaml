@@ -1,6 +1,6 @@
 services:
   ntopng:
-    image: ntop/ntopng:stable
+    image: ntop/ntopng:latest
     container_name: ntopng
     restart: unless-stopped
     user: "3001:3001"
