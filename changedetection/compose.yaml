@@ -12,6 +12,7 @@ services:
       # - BASE_URL=  # Set only if behind a reverse proxy with a subpath
       - PLAYWRIGHT_DRIVER_URL=ws://playwright-chrome:3000
       - FLARESOLVERR_URL=http://flaresolverr:8191/v1
+      - LOGGER_LEVEL=INFO
     volumes:
       - /mnt/SSD/Containers/changedetection:/config
     ports:
@@ -45,7 +46,7 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080"]
+      - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080","--disable-gpu","--disable-software-rasterizer"]
     shm_size: 2g
     networks:
       - changedetection

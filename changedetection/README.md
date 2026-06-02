@@ -72,7 +72,10 @@ Variables hardcoded in `compose.yaml` (rarely need changing):
 | `PUID` / `PGID` | changedetection | Run as UID/GID `3001` |
 | `BASE_URL` | changedetection | Uncomment only if behind a reverse proxy with a subpath |
 | `PLAYWRIGHT_DRIVER_URL` | changedetection | WebSocket URL of the browser sidecar |
+| `LOGGER_LEVEL` | changedetection | Log output level; set to `INFO` to suppress noisy per-watch debug console messages |
 | `DEFAULT_LAUNCH_ARGS` | changedetection-playwright | Chrome launch flags |
+
+The Playwright sidecar can emit Chrome stderr lines for DBus, GPU, WebGL, blocked resources, or site-specific `401` requests while still completing checks successfully. The stack sets `LOGGER_LEVEL=INFO` and disables GPU/rasterizer paths in the sidecar to reduce this noise in Loki without changing watch behavior.
 
 ## FlareSolverr Integration
 
