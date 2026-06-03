@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install yamllint
-        run: pip install yamllint
+        run: pip install yamllint==1.35.1
 
       - name: Verify Docker Compose is available
         run: docker compose version
