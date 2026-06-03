@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Field Guide: Deploying a Docker Host on Proxmox (Ubuntu Cloud-Init + Portainer)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2330;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #9da7b3;
+    --accent: #58a6ff;
+    --accent-2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --code-bg: #0b0f15;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .layout { display: flex; max-width: 1400px; margin: 0 auto; }
+  nav {
+    position: sticky; top: 0; align-self: flex-start;
+    width: 290px; height: 100vh; overflow-y: auto;
+    padding: 24px 18px; border-right: 1px solid var(--border);
+    background: var(--panel); flex-shrink: 0;
+  }
+  nav h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 18px 0 8px; }
+  nav a { display: block; color: var(--text); text-decoration: none; padding: 4px 10px; border-radius: 6px; font-size: 14px; }
+  nav a:hover { background: var(--panel-2); color: var(--accent); }
+  nav .brand { font-weight: 700; font-size: 16px; color: var(--accent); margin-bottom: 6px; }
+  main { flex: 1; padding: 36px 48px; max-width: 980px; min-width: 0; }
+  header.hero {
+    border: 1px solid var(--border); border-radius: 14px; padding: 28px 32px; margin-bottom: 32px;
+    background: linear-gradient(135deg, #161b22, #1c2330);
+  }
+  header.hero h1 { margin: 0 0 8px; font-size: 28px; }
+  header.hero p { margin: 0; color: var(--muted); }
+  .pill { display: inline-block; font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--border); color: var(--accent); margin-right: 6px; }
+  h2.section { font-size: 22px; margin-top: 48px; padding-bottom: 8px; border-bottom: 1px solid var(--border); scroll-margin-top: 20px; }
+  h3 { font-size: 17px; margin-top: 28px; color: #d8e2ee; }
+  p, li { color: var(--text); }
+  code { font-family: var(--mono); background: var(--panel-2); padding: 2px 6px; border-radius: 5px; font-size: 13.5px; color: #ffd9a0; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 13px;
+    color: #d6deeb; position: relative;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  .callout { border-left: 4px solid var(--accent); background: var(--panel); padding: 12px 18px; border-radius: 0 10px 10px 0; margin: 18px 0; }
+  .callout.tip { border-left-color: var(--accent-2); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.danger { border-left-color: var(--danger); }
+  .callout .lbl { font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; display:block; margin-bottom: 4px; }
+  .callout.tip .lbl { color: var(--accent-2); }
+  .callout.warn .lbl { color: var(--warn); }
+  .callout.danger .lbl { color: var(--danger); }
+  .callout.note .lbl { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--panel-2); color: var(--accent); }
+  tr:nth-child(even) td { background: var(--panel); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0; }
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; background: var(--panel); }
+  .card h4 { margin: 0 0 8px; color: var(--accent); }
+  ol.steps { counter-reset: step; list-style: none; padding-left: 0; }
+  ol.steps > li { counter-increment: step; position: relative; padding: 6px 0 6px 44px; margin-bottom: 4px; }
+  ol.steps > li::before {
+    content: counter(step); position: absolute; left: 0; top: 4px;
+    width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #07101f;
+    font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .checklist { list-style: none; padding-left: 0; }
+  .checklist li { padding: 4px 0 4px 30px; position: relative; }
+  .checklist li::before { content: "☐"; position: absolute; left: 0; color: var(--accent); font-size: 18px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+  a.ext { color: var(--accent); }
+  .kbd { font-family: var(--mono); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; font-size: 12px; background: var(--panel-2); }
+  @media (max-width: 900px) {
+    nav { display: none; }
+    main { padding: 20px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="brand">🛠️ Docker Host Field Guide</div>
+  <div style="color:var(--muted);font-size:12px;">Proxmox · Ubuntu · Portainer</div>
+  <h2>Contents</h2>
+  <a href="#overview">0. Overview &amp; Goal</a>
+  <a href="#architecture">1. Target Architecture</a>
+  <a href="#template">2. Ubuntu Cloud-Init Template</a>
+  <a href="#clone">3. Clone &amp; Size the VM</a>
+  <a href="#first5">4. First 5 Things on Every Host</a>
+  <a href="#docker">5. Install Docker + Portainer</a>
+  <a href="#storage">6. The Storage Problem ★</a>
+  <a href="#mount-options">7. Mount Strategy Options</a>
+  <a href="#persistent-mount">8. Persistent Mount (fstab/systemd)</a>
+  <a href="#migrate">9. Migrating Compose Workloads</a>
+  <a href="#monitoring">10. Monitoring (Loki/Prom/Alloy)</a>
+  <a href="#tips">11. Tips &amp; Tricks</a>
+  <a href="#checklist">12. Cutover Checklist</a>
+  <a href="#refs">References</a>
+</nav>
+
+<main>
+<header class="hero">
+  <div>
+    <span class="pill">Proxmox VE</span>
+    <span class="pill">Ubuntu 26.04 cloud-init</span>
+    <span class="pill">Docker</span>
+    <span class="pill">Portainer</span>
+    <span class="pill">TrueNAS → new host</span>
+  </div>
+  <h1>Field Guide: Standing Up a Docker Host to Take Workloads off TrueNAS</h1>
+  <p>A repeatable playbook for deploying a clean Ubuntu cloud-init VM on Proxmox, hardening it, installing Docker + Portainer, and—most importantly—solving the storage / bind-mount migration so your existing Compose files keep working unchanged.</p>
+</header>
+
+<!-- ===================================================== -->
+<h2 class="section" id="overview">0. Overview &amp; Goal</h2>
+<p>Right now your services run as Docker Compose stacks <strong>on the TrueNAS box itself</strong>. Every stack in this repo bind-mounts its data into <code>/mnt/SSD/Containers/&lt;app&gt;</code> using named volumes with <code>driver_opts: o=bind</code> (see <code>paperless-ngx/compose.yaml</code>, <code>loki/</code>, etc.). The plan:</p>
+<ol class="steps">
+  <li>Spin up a dedicated <strong>Ubuntu Docker VM on Proxmox</strong> from your cloud-init template.</li>
+  <li>Apply a consistent <strong>host baseline</strong> (the "first 5 things").</li>
+  <li>Install <strong>Docker Engine</strong> and join it to your existing <strong>Portainer</strong> as an environment/agent.</li>
+  <li>Make <code>/mnt/SSD/Containers</code> resolvable on the new host so the <strong>same Compose files deploy unchanged</strong>.</li>
+  <li>Migrate stacks one at a time, keeping <strong>monitoring (Loki / Prometheus / Alloy)</strong> intact.</li>
+</ol>
+<div class="callout note">
+  <span class="lbl">Design principle</span>
+  Keep the <em>bind-mount path identical</em> on the new host (<code>/mnt/SSD/Containers/...</code>). If the path matches, none of the Compose files in this repo need editing—only <em>where</em> that path physically lives changes.
+</div>
+
+<!-- ===================================================== -->
+<h2 class="section" id="architecture">1. Target Architecture</h2>
+<div class="grid">
+  <div class="card">
+    <h4>Compute</h4>
+    <p>New Ubuntu VM on Proxmox (e.g. <code>docker01</code>), 2–4 vCPU, 4–8&nbsp;GB RAM, QEMU guest agent on. Managed centrally from your existing Portainer.</p>
+  </div>
+  <div class="card">
+    <h4>Storage (the question)</h4>
+    <p>Two viable models: <strong>(A)</strong> keep data on TrueNAS and mount it over NFS at <code>/mnt/SSD/Containers</code>, or <strong>(B)</strong> give the VM its own disk and migrate the data locally. Covered in §6–§9.</p>
+  </div>
+  <div class="card">
+    <h4>Networking</h4>
+    <p>Reuse the shared Docker networks already in the repo: <code>traefik</code> (reverse proxy) and <code>monitoring</code> (Prometheus/Loki). Traefik can stay where it is or move too.</p>
+  </div>
+  <div class="card">
+    <h4>Observability</h4>
+    <p>Grafana Alloy on the new host ships container logs to Loki via the Docker socket; Prometheus scrapes the new host. Just add the host as a new source—§10.</p>
+  </div>
+</div>
+
+<!-- ===================================================== -->
+<h2 class="section" id="template">2. Build / Confirm the Ubuntu Cloud-Init Template</h2>
+<p>Based on your write-up at <a class="ext" href="https://www.virtuallyboring.com/ubuntu-2604-cloud-init-template-proxmox/">virtuallyboring.com — Ubuntu 26.04 Cloud-Init Template</a>. If the template already exists, skip to §3.</p>
+<pre><code># On the Proxmox node shell
+export VMID=8001
+export STORAGE=local-zfs        # your VM storage
+
+# 1. Download the cloud image (26.04 'resolute')
+wget -q https://cloud-images.ubuntu.com/resolute/current/resolute-server-cloudimg-amd64.img
+qemu-img resize resolute-server-cloudimg-amd64.img 32G
+
+# 2. Create the VM shell
+qm create $VMID --name "ubuntu-2604-cloudinit-template" --ostype l26 \
+  --memory 2048 --cores 2 --cpu host --sockets 1 \
+  --net0 virtio,bridge=vmbr0 --agent 1 \
+  --bios ovmf --machine q35 --efidisk0 ${STORAGE}:0,pre-enrolled-keys=0
+
+# 3. Import disk + attach
+qm importdisk $VMID resolute-server-cloudimg-amd64.img $STORAGE
+qm set $VMID --scsihw virtio-scsi-pci --scsi0 ${STORAGE}:vm-${VMID}-disk-0
+qm set $VMID --boot c --bootdisk scsi0
+
+# 4. Cloud-init drive + serial console (needed by the cloud image)
+qm set $VMID --ide2 ${STORAGE}:cloudinit
+qm set $VMID --serial0 socket --vga serial0
+
+# 5. Defaults baked into the template
+qm set $VMID --ciuser youruser --sshkey ~/.ssh/id_ed25519.pub --ipconfig0 ip=dhcp
+
+# 6. Convert to template
+qm template $VMID</code></pre>
+<div class="callout tip">
+  <span class="lbl">Tip</span>
+  Bake the <code>qemu-guest-agent</code> install into a cloud-init <code>vendor</code> snippet (or first-boot <code>runcmd</code>) so every clone reports its IP to Proxmox and supports clean shutdowns. Enabling <code>--agent 1</code> alone does nothing until the agent is installed in-guest.
+</div>
+
+<!-- ===================================================== -->
+<h2 class="section" id="clone">3. Clone &amp; Size the New Docker VM</h2>
+<ol class="steps">
+  <li>Right-click the template → <strong>Clone</strong> → <em>Full Clone</em> (not linked—you want independence). Name it <code>docker01</code>.</li>
+  <li>Set CPU/RAM for your workload (start 2 vCPU / 4&nbsp;GB; bump per stack needs).</li>
+  <li>Set a <strong>static IP or DHCP reservation</strong>—Portainer, Traefik, and Prometheus all need a stable address.</li>
+  <li>If you choose the "local data" storage model (§7 Option B), add a <strong>second virtual disk</strong> now for <code>/mnt/SSD</code> so container data lives off the OS disk.</li>
+  <li>Boot, then: <code>sudo apt update &amp;&amp; sudo apt -y full-upgrade &amp;&amp; sudo reboot</code></li>
+</ol>
+
+<!-- ===================================================== -->
+<h2 class="section" id="first5">4. First 5 Things to Change on Every Docker Host</h2>
+<p>Adapted from <a class="ext" href="https://www.virtualizationhowto.com/2026/05/the-first-5-things-i-change-on-every-docker-host/">VirtualizationHowto — "The First 5 Things I Change on Every Docker Host"</a>, applied to this Proxmox/Ubuntu setup. Do these <em>before</em> you deploy a single stack.</p>
+
+<h3>4.1 — Cap container log growth</h3>
+<p>The default <code>json-file</code> driver never rotates; one chatty container can fill the disk. Set a global default in <code>/etc/docker/daemon.json</code>:</p>
+<pre><code>{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "10m", "max-file": "5" }
+}</code></pre>
+<div class="callout note">
+  <span class="lbl">Loki interaction</span>
+  You ship logs to Loki via Alloy, but the local json logs still accumulate on disk. Rotation here protects the host even though Loki is your long-term store. Keep <code>max-file</code> ≥ 3 so Alloy's Docker-socket tailer doesn't miss lines during bursts.
+</div>
+
+<h3>4.2 — Move Docker's data-root off the OS disk</h3>
+<p>Don't let <code>/var/lib/docker</code> (images, volumes, overlay layers) fill the root filesystem. Point it at a dedicated disk/dataset:</p>
+<pre><code># add to /etc/docker/daemon.json
+{ "data-root": "/mnt/docker-data" }</code></pre>
+<p>Stop Docker, move existing data, then restart:</p>
+<pre><code>sudo systemctl stop docker
+sudo rsync -aP /var/lib/docker/ /mnt/docker-data/
+sudo systemctl start docker
+docker info | grep "Docker Root Dir"</code></pre>
+<div class="callout warn">
+  <span class="lbl">Keep these separate</span>
+  <code>data-root</code> (images + Docker-managed volumes) is <em>different</em> from your application bind-mounts under <code>/mnt/SSD/Containers</code>. Both should live off the root disk, but they are two distinct concerns—don't conflate them.
+</div>
+
+<h3>4.3 — Harden access</h3>
+<ul>
+  <li>Run as a <strong>dedicated non-root user</strong> in the <code>docker</code> group (your cloud-init <code>ciuser</code> is already this).</li>
+  <li><strong>SSH keys only</strong> — in <code>/etc/ssh/sshd_config.d/</code>: <code>PasswordAuthentication no</code> and <code>PermitRootLogin no</code>.</li>
+  <li>Add <code>no-new-privileges:true</code> to stacks (this repo already does on most services—keep the convention).</li>
+  <li>Enable <code>ufw</code>: allow SSH + the ports you actually expose; deny the rest.</li>
+</ul>
+
+<h3>4.4 — Update OS + install core tooling</h3>
+<pre><code>sudo apt update &amp;&amp; sudo apt -y full-upgrade
+sudo apt -y install htop curl vim git ncdu nfs-common unattended-upgrades
+sudo dpkg-reconfigure --priority=low unattended-upgrades   # auto security patches</code></pre>
+<p><code>nfs-common</code> is needed now if you go with the NFS storage model (§7 Option A).</p>
+
+<h3>4.5 — Set resource limits</h3>
+<p>Stop one runaway container from starving the host. Add to stacks that deserve guardrails:</p>
+<pre><code>services:
+  app:
+    deploy:
+      resources:
+        limits:   { cpus: "2.0", memory: 2g }
+        reservations: { memory: 512m }</code></pre>
+
+<!-- ===================================================== -->
+<h2 class="section" id="docker">5. Install Docker Engine + Join Portainer</h2>
+<h3>5.1 Install Docker Engine (official repo)</h3>
+<pre><code>curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER   # log out/in afterwards
+docker run --rm hello-world</code></pre>
+
+<h3>5.2 Add the host to your existing Portainer</h3>
+<p>Keep Portainer as your single pane of glass. Two ways to attach the new host:</p>
+<table>
+  <tr><th>Method</th><th>How</th><th>When to use</th></tr>
+  <tr>
+    <td><strong>Portainer Agent</strong> (recommended)</td>
+    <td>Deploy the agent container on <code>docker01</code>; add it in Portainer → <em>Environments → Add → Docker Standalone → Agent</em>.</td>
+    <td>Secure, no Docker socket exposed over TCP. Best default.</td>
+  </tr>
+  <tr>
+    <td>Edge Agent</td>
+    <td>Agent dials home to Portainer; no inbound port needed.</td>
+    <td>If the host is on a different network segment / behind NAT.</td>
+  </tr>
+</table>
+<pre><code># Portainer Agent on the new host
+docker volume create portainer_agent_data
+docker run -d -p 9001:9001 --name portainer_agent --restart=always \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /var/lib/docker/volumes:/var/lib/docker/volumes \
+  -v /:/host \
+  portainer/agent:latest</code></pre>
+<div class="callout tip">
+  <span class="lbl">Git-backed stacks</span>
+  Point Portainer stacks at <em>this repository</em> (Git-based deployment) so the new host pulls the exact same Compose files you already version-control. Combined with identical bind-mount paths (§6), a stack moves hosts with zero edits.
+</div>
+
+<!-- ===================================================== -->
+<h2 class="section" id="storage">6. The Storage Problem ★ (the heart of this migration)</h2>
+<p>Every stack here expects its data at <code>/mnt/SSD/Containers/&lt;app&gt;/...</code>. Example from <code>paperless-ngx/compose.yaml</code>:</p>
+<pre><code>volumes:
+  paperless-media:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/paperless/media
+      o: bind</code></pre>
+<p>That <code>device:</code> path <strong>must exist on whatever host runs the container</strong>. So the storage question is really: <em>"How does <code>/mnt/SSD/Containers</code> appear on the new Ubuntu VM, and how does the existing data get there?"</em> You have two clean models.</p>
+
+<h2 class="section" id="mount-options">7. Mount Strategy: Two Models</h2>
+<div class="grid">
+  <div class="card">
+    <h4>Option A — Keep data on TrueNAS, mount over NFS</h4>
+    <p>TrueNAS stays the storage authority. The Ubuntu host mounts the SSD dataset over NFS at the <em>same</em> path <code>/mnt/SSD/Containers</code>. Compose files don't change at all.</p>
+    <p><strong>Pros:</strong> no data copy/cutover; TrueNAS snapshots &amp; replication still protect the data; instant rollback (point the path back).</p>
+    <p><strong>Cons:</strong> container I/O now crosses the network; NFS file-locking/permissions quirks for databases (Postgres/MariaDB/SQLite) can corrupt or slow them.</p>
+  </div>
+  <div class="card">
+    <h4>Option B — Migrate data local to the VM</h4>
+    <p>Give the VM its own (virtual) SSD disk mounted at <code>/mnt/SSD</code>, <code>rsync</code> the data over once, and run everything locally.</p>
+    <p><strong>Pros:</strong> best &amp; most predictable performance; databases happy on local disk; host is self-contained.</p>
+    <p><strong>Cons:</strong> a real cutover (stop → copy → start); you now own backups for this data (snapshot the Proxmox disk / back up to TrueNAS).</p>
+  </div>
+</div>
+<div class="callout danger">
+  <span class="lbl">Databases over NFS — read this</span>
+  Do <strong>not</strong> run SQLite, Postgres, MariaDB, or Redis persistence on an NFS mount unless you've tested it hard. NFS locking semantics cause corruption and lock errors. <strong>Recommended hybrid:</strong> bulk/app data (paperless media, nextcloud files, Loki chunks) on NFS = fine; <em>database</em> volumes on the VM's local disk = safe. You can mix per-volume in the same Compose file.</div>
+
+<h3>Recommended pattern: hybrid</h3>
+<table>
+  <tr><th>Data type</th><th>Where</th><th>Why</th></tr>
+  <tr><td>App bulk data (media, documents, log chunks)</td><td>NFS from TrueNAS</td><td>Large, benefits from TrueNAS snapshots; latency-tolerant</td></tr>
+  <tr><td>Databases (pg/maria/redis/sqlite)</td><td>Local VM disk</td><td>Needs POSIX locking + low latency</td></tr>
+  <tr><td>Docker images &amp; <code>data-root</code></td><td>Local VM disk</td><td>Never put overlay2 on NFS</td></tr>
+</table>
+
+<!-- ===================================================== -->
+<h2 class="section" id="persistent-mount">8. The Persistent Mount in Ubuntu</h2>
+<p>This is the "persistent mount in Ubuntu" you asked about. The goal: <code>/mnt/SSD/Containers</code> is mounted automatically at every boot, <em>before</em> Docker starts its containers.</p>
+
+<h3>8.1 On TrueNAS — export the dataset over NFS</h3>
+<ol class="steps">
+  <li>TrueNAS UI → <strong>Shares → NFS → Add</strong>. Path = the SSD dataset backing <code>/mnt/SSD/Containers</code>.</li>
+  <li>Set <strong>Allowed networks/hosts</strong> to the Docker VM's IP only.</li>
+  <li>Map permissions so container UIDs line up (e.g. Loki uses <code>3001:3001</code>; paperless/nextcloud have their own). Maproot only if you must—prefer matching UID/GID.</li>
+  <li>Enable the NFS service.</li>
+</ol>
+
+<h3>8.2 On Ubuntu — persistent mount via <code>/etc/fstab</code></h3>
+<pre><code>sudo apt -y install nfs-common
+sudo mkdir -p /mnt/SSD/Containers
+
+# /etc/fstab  (TrueNAS_IP:/mnt/pool/dataset  →  /mnt/SSD/Containers)
+TRUENAS_IP:/mnt/SSD/Containers  /mnt/SSD/Containers  nfs  \
+  rw,_netdev,noatime,hard,nfsvers=4.1,x-systemd.automount,x-systemd.requires=network-online.target  0 0
+
+sudo systemctl daemon-reload
+sudo mount -a
+df -h /mnt/SSD/Containers</code></pre>
+<table>
+  <tr><th>Option</th><th>Why it matters here</th></tr>
+  <tr><td><code>_netdev</code></td><td>Marks it a network mount so the OS waits for the network.</td></tr>
+  <tr><td><code>x-systemd.automount</code></td><td>Lazy-mounts on first access and survives a NAS reboot without hanging boot.</td></tr>
+  <tr><td><code>x-systemd.requires=network-online.target</code></td><td>Helps ordering so the mount is ready before Docker.</td></tr>
+  <tr><td><code>hard</code></td><td>Retries instead of returning I/O errors if the NAS blips (safer for data).</td></tr>
+  <tr><td><code>nfsvers=4.1</code></td><td>Modern NFS; better locking &amp; single-port firewalling than v3.</td></tr>
+</table>
+
+<h3>8.3 Make Docker wait for the mount</h3>
+<p>Even with the options above, force Docker to start only after the data is present so containers never start against an empty directory:</p>
+<pre><code># /etc/systemd/system/docker.service.d/wait-for-mounts.conf
+[Unit]
+RequiresMountsFor=/mnt/SSD/Containers
+After=mnt-SSD-Containers.mount</code></pre>
+<pre><code>sudo systemctl daemon-reload
+sudo systemctl restart docker</code></pre>
+<div class="callout danger">
+  <span class="lbl">Why this matters</span>
+  If Docker starts before the NFS mount is ready, a bind-mounted volume will resolve to the <em>empty local directory</em>—your app boots "blank," may re-initialize, and could write into the local dir, masking the NFS share. <code>RequiresMountsFor</code> prevents that race.
+</div>
+
+<h3>8.4 Local-disk model (Option B) mount</h3>
+<p>If migrating data local instead, add the VM's second disk and mount it the same persistent way (no network options needed):</p>
+<pre><code>sudo mkfs.ext4 /dev/sdb
+sudo mkdir -p /mnt/SSD
+echo 'UUID=&lt;uuid-of-sdb&gt;  /mnt/SSD  ext4  defaults,noatime  0 2' | sudo tee -a /etc/fstab
+sudo mount -a &amp;&amp; sudo mkdir -p /mnt/SSD/Containers</code></pre>
+
+<!-- ===================================================== -->
+<h2 class="section" id="migrate">9. Migrating the Compose Workloads</h2>
+<p>Move one stack at a time. The repeatable per-stack runbook:</p>
+<ol class="steps">
+  <li><strong>Freeze</strong> the stack on TrueNAS: <code>docker compose down</code> (clean stop = consistent data, especially DBs).</li>
+  <li><strong>Move the data</strong> (only for Option B / local model):
+    <pre><code>rsync -aHAX --info=progress2 \
+  truenas:/mnt/SSD/Containers/&lt;app&gt;/ \
+  /mnt/SSD/Containers/&lt;app&gt;/</code></pre>
+    <code>-aHAX</code> preserves perms, ACLs, xattrs, hardlinks—critical so UID/GID and permissions survive.</li>
+  <li><strong>Verify ownership</strong> matches what the container expects, e.g. Loki: <code>sudo chown -R 3001:3001 /mnt/SSD/Containers/loki</code>.</li>
+  <li><strong>Deploy</strong> on the new host (Portainer Git stack or <code>docker compose up -d</code>). Same <code>.env</code> values; same paths.</li>
+  <li><strong>Validate</strong>: app loads existing data, logs clean, healthcheck green.</li>
+  <li><strong>Repoint</strong> Traefik/DNS to the new host, then decommission the old stack.</li>
+</ol>
+<div class="callout tip">
+  <span class="lbl">Order of migration</span>
+  Move <strong>stateless / low-risk</strong> stacks first (heimdall, homarr, uptime-kuma) to prove the pipeline, then data-heavy ones (paperless, nextcloud), and <strong>monitoring last</strong> so you keep eyes on the migration while it happens.
+</div>
+<div class="callout warn">
+  <span class="lbl">Watch the UID/GID</span>
+  TrueNAS apps sometimes run under apps-specific UIDs (e.g. <code>568</code>/<code>apps</code>). On plain Ubuntu those UIDs differ. After rsync, confirm the numeric owner matches the container's expected user, or fix with <code>chown</code> / a <code>user:</code> directive. A "permission denied" on first boot is almost always this.
+</div>
+
+<!-- ===================================================== -->
+<h2 class="section" id="monitoring">10. Monitoring: Loki, Prometheus &amp; Alloy</h2>
+<p>Your observability stack (<code>prometheus/</code>, <code>loki/</code>, <code>grafana/</code>, <code>alloy/</code>) needs deliberate handling because it spans hosts during and after the move.</p>
+
+<h3>10.1 Decide where the stack lives</h3>
+<table>
+  <tr><th>Approach</th><th>Detail</th></tr>
+  <tr><td><strong>Leave Prometheus/Loki/Grafana on TrueNAS</strong>, add new host as a source</td><td>Least disruption. Just point Alloy on <code>docker01</code> at the existing Loki, and add <code>docker01</code> as a Prometheus scrape target. Recommended for the transition.</td></tr>
+  <tr><td><strong>Move the whole stack to docker01</strong></td><td>Cleaner long-term if TrueNAS is being de-emphasized. Migrate Loki chunks (<code>/mnt/SSD/Containers/loki</code>) and Prometheus TSDB like any other stack—but mind retention/size and the <code>monitoring</code> network ownership.</td></tr>
+</table>
+
+<h3>10.2 The shared <code>monitoring</code> network</h3>
+<p>In this repo, the <strong>Prometheus stack owns/creates</strong> the <code>monitoring</code> network and Loki/Grafana/exporters attach to it as <code>external</code>. That works because they're on the same host. <strong>Across two hosts a Docker bridge network does not span machines.</strong> Options:</p>
+<ul>
+  <li><strong>Keep each host's monitoring local</strong>: if Prometheus stays on TrueNAS, it scrapes <code>docker01</code> over the LAN by IP:port (not via the <code>monitoring</code> bridge). On <code>docker01</code>, expose exporter ports to the host.</li>
+  <li><strong>Or use an overlay / Tailscale</strong> if you want service-name resolution across hosts.</li>
+</ul>
+<div class="callout note">
+  <span class="lbl">Pre-create the network on the new host</span>
+  If you deploy a stack that references <code>monitoring</code> as external before Prometheus exists locally, Compose fails fast. Pre-create it: <code>docker network create monitoring</code> (the Loki README already documents this).
+</div>
+
+<h3>10.3 Alloy on the new host</h3>
+<p>Alloy auto-discovers container logs via the Docker socket and pushes to Loki. On <code>docker01</code> you simply:</p>
+<ul>
+  <li>Deploy Alloy with the Docker socket mounted (as in <code>alloy/</code>), pointing <code>loki.write</code> at your Loki endpoint (<code>http://&lt;loki-host&gt;:3100</code> if Loki is remote).</li>
+  <li>Drop the TrueNAS-specific bits (the <code>/var/log/journal</code> TrueNAS mount, the <code>:514</code> syslog receiver) unless this host should also receive syslog.</li>
+  <li>Add a Grafana label for the host so you can filter logs by source.</li>
+</ul>
+
+<h3>10.4 Add the new host to Prometheus</h3>
+<pre><code># prometheus scrape config — add a job for the new docker host
+- job_name: docker01-node
+  static_configs:
+    - targets: ["10.0.5.x:9100"]   # node_exporter / cAdvisor on docker01</code></pre>
+<p>Run <code>node_exporter</code> (and optionally <code>cAdvisor</code>) on <code>docker01</code> for host + per-container metrics, mirroring whatever TrueNAS exposed.</p>
+
+<!-- ===================================================== -->
+<h2 class="section" id="tips">11. Tips &amp; Tricks (Best Practices)</h2>
+<ul>
+  <li><strong>Keep paths identical across hosts.</strong> The single biggest lever—<code>/mnt/SSD/Containers</code> everywhere means Compose files are portable.</li>
+  <li><strong>One <code>.env</code> per stack, never commit secrets.</strong> The repo's <code>.gitignore</code> already excludes <code>.env</code>; reproduce env values on the new host out-of-band.</li>
+  <li><strong>Git-based Portainer stacks</strong> = drift-free deploys. The host pulls from this repo; you change code in one place.</li>
+  <li><strong>Pin image tags / use WUD.</strong> You already run <code>wud/</code> for update notifications—keep it pointed at the new host too.</li>
+  <li><strong>Snapshot before cutover.</strong> Take a Proxmox snapshot of <code>docker01</code> before each big migration so rollback is one click.</li>
+  <li><strong>Test the NFS-reboot story.</strong> Reboot the VM and reboot TrueNAS independently; confirm <code>x-systemd.automount</code> recovers and Docker waits.</li>
+  <li><strong>Mind file ownership early.</strong> Most first-boot failures after migration are UID/GID/permission mismatches—not app bugs.</li>
+  <li><strong>Don't put overlay2 (<code>data-root</code>) or databases on NFS.</strong> Local disk only.</li>
+  <li><strong>Stagger restarts.</strong> Use <code>restart: unless-stopped</code> (repo convention) and healthchecks so dependent stacks settle in order after a reboot.</li>
+  <li><strong>Back up the new data path.</strong> If you go local (Option B), schedule a backup/replication back to TrueNAS so you don't lose the safety net you had.</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 class="section" id="checklist">12. Cutover Checklist</h2>
+<ul class="checklist">
+  <li>Ubuntu cloud-init template verified; <code>docker01</code> cloned with static IP &amp; guest agent</li>
+  <li>OS fully updated; core tools + <code>nfs-common</code> installed</li>
+  <li>Log rotation set in <code>/etc/docker/daemon.json</code></li>
+  <li><code>data-root</code> relocated off the OS disk</li>
+  <li>SSH hardened (keys only, no root); <code>ufw</code> enabled</li>
+  <li>Docker installed; host added to Portainer (agent)</li>
+  <li>Storage model chosen (NFS / local / hybrid)</li>
+  <li><code>/mnt/SSD/Containers</code> persistently mounted (fstab + automount)</li>
+  <li><code>RequiresMountsFor</code> drop-in makes Docker wait for the mount</li>
+  <li>First stateless stack migrated &amp; validated end-to-end</li>
+  <li>UID/GID &amp; permissions verified on migrated data</li>
+  <li>Data-heavy stacks (paperless, nextcloud) migrated</li>
+  <li>Alloy shipping <code>docker01</code> logs to Loki</li>
+  <li>Prometheus scraping <code>docker01</code> (node_exporter/cAdvisor)</li>
+  <li>Traefik/DNS repointed; old TrueNAS stacks decommissioned</li>
+  <li>Backups/snapshots configured for the new data path</li>
+</ul>
+
+<!-- ===================================================== -->
+<h2 class="section" id="refs">References</h2>
+<ul>
+  <li><a class="ext" href="https://www.virtuallyboring.com/ubuntu-2604-cloud-init-template-proxmox/">VirtuallyBoring — Ubuntu 26.04 Cloud-Init Template for Proxmox</a></li>
+  <li><a class="ext" href="https://www.virtualizationhowto.com/2026/05/the-first-5-things-i-change-on-every-docker-host/">VirtualizationHowto — The First 5 Things I Change on Every Docker Host</a></li>
+  <li><a class="ext" href="https://pve.proxmox.com/wiki/Cloud-Init_Support">Proxmox VE — Cloud-Init Support</a></li>
+  <li><a class="ext" href="https://docs.portainer.io/admin/environments/add/docker">Portainer — Add a Docker environment (Agent)</a></li>
+  <li><a class="ext" href="https://grafana.com/docs/alloy/latest/">Grafana Alloy documentation</a></li>
+  <li>This repo: <code>paperless-ngx/compose.yaml</code>, <code>loki/</code>, <code>prometheus/</code>, <code>alloy/</code> for the existing bind-mount + network conventions.</li>
+</ul>
+
+<footer>
+  Field guide generated for the <strong>DanielBoring/HomeLab</strong> environment. Local working document — not committed to Git.<br>
+  Adapt IPs, dataset paths, UIDs, and VMIDs to your environment before running any command.
+</footer>
+</main>
+</div>
+</body>
+</html>
