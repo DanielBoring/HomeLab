@@ -33,6 +33,28 @@ http:
       tls:
         certResolver: letsencrypt
 
+    truenas:
+      rule: "Host(`truenas.virtuallyboring.com`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers@file
+        - lan-only@file
+      service: truenas
+      tls:
+        certResolver: letsencrypt
+
+    portainer:
+      rule: "Host(`portainer.virtuallyboring.com`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers@file
+        - lan-only@file
+      service: portainer
+      tls:
+        certResolver: letsencrypt
+
   services:
     pmox1:
       loadBalancer:
@@ -51,3 +73,15 @@ http:
         serversTransport: insecureSkipVerify@file
         servers:
           - url: "https://10.0.5.23:8006"
+
+    truenas:
+      loadBalancer:
+        serversTransport: insecureSkipVerify@file
+        servers:
+          - url: "https://10.0.5.10"
+
+    portainer:
+      loadBalancer:
+        serversTransport: insecureSkipVerify@file
+        servers:
+          - url: "https://10.0.5.10:31015"
