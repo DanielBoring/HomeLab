@@ -1,6 +1,6 @@
 http:
   serversTransports:
-    # Used for backends that serve their own self-signed TLS (e.g. PegaProx).
+    # Used for backends that serve their own self-signed TLS.
     # Traefik still presents a valid Let's Encrypt cert to the browser — only
     # the Traefik-to-container leg skips verification.
     insecureSkipVerify:
