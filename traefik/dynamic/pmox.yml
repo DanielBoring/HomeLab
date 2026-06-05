@@ -1,0 +1,53 @@
+http:
+  routers:
+    pmox1:
+      rule: "Host(`pmox1.virtuallyboring.com`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers@file
+        - lan-only@file
+      service: pmox1
+      tls:
+        certResolver: letsencrypt
+
+    pmox2:
+      rule: "Host(`pmox2.virtuallyboring.com`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers@file
+        - lan-only@file
+      service: pmox2
+      tls:
+        certResolver: letsencrypt
+
+    pmox3:
+      rule: "Host(`pmox3.virtuallyboring.com`)"
+      entryPoints:
+        - websecure
+      middlewares:
+        - secure-headers@file
+        - lan-only@file
+      service: pmox3
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    pmox1:
+      loadBalancer:
+        serversTransport: insecureSkipVerify@file
+        servers:
+          - url: "https://10.0.5.21:8006"
+
+    pmox2:
+      loadBalancer:
+        serversTransport: insecureSkipVerify@file
+        servers:
+          - url: "https://10.0.5.22:8006"
+
+    pmox3:
+      loadBalancer:
+        serversTransport: insecureSkipVerify@file
+        servers:
+          - url: "https://10.0.5.23:8006"
