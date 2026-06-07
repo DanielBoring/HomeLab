@@ -1,0 +1,83 @@
+{
+  "groups": {
+    "Media": [
+      "audiobookshelf",
+      "bazarr",
+      "bookshelf",
+      "calibre",
+      "calibre-web",
+      "chromium",
+      "flaresolverr",
+      "lidarr",
+      "metube",
+      "prowlarr",
+      "qbittorrent",
+      "questarr",
+      "radarr",
+      "romm",
+      "sabnzbd",
+      "seerr",
+      "sonarr",
+      "tautulli",
+      "tdarr",
+      "unmanic"
+    ],
+    "Monitoring": [
+      "alloy",
+      "changedetection",
+      "grafana",
+      "loki",
+      "ntopng",
+      "prometheus",
+      "uptime-kuma",
+      "wud"
+    ],
+    "Infrastructure": [
+      "dashboard",
+      "dashboard_stripprefix",
+      "dozzle",
+      "heimdall",
+      "homarr",
+      "homepage",
+      "n8n",
+      "portainer",
+      "traefik-manager"
+    ],
+    "Home": [
+      "homeassistant"
+    ],
+    "Files & Data": [
+      "karakeep",
+      "linkwarden",
+      "nextcloud",
+      "nextcloud-dav",
+      "ocis",
+      "paperless",
+      "readeck"
+    ],
+    "Network": [
+      "pegaprox",
+      "phpipam",
+      "searxng",
+      "technitium"
+    ],
+    "Dev": [
+      "code-server",
+      "gitea",
+      "open-webui",
+      "retroassembly",
+      "semaphore",
+      "termix"
+    ],
+    "Servers": [
+      "pmox1",
+      "pmox2",
+      "pmox3",
+      "truenas"
+    ]
+  },
+  "intentional_skips": [
+    "api",
+    "web-to-websecure"
+  ]
+}
