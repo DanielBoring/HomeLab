@@ -48,6 +48,7 @@ Navigate to `https://<DOZZLE_DOMAIN>` to access the web UI.
 | `TZ` | `America/New_York` | Timezone |
 | `DOZZLE_HOSTNAME` | `homelab` | Display name for this host in the UI |
 | `DOZZLE_AUTH_PROVIDER` | `none` | Auth mode: `none`, `simple`, `forward-proxy` |
+| `DOZZLE_ENABLE_MCP` | `true` | Enable the read-only MCP endpoint at `/api/mcp` |
 | `DOZZLE_DOMAIN` | `dozzle.localhost` | Hostname Traefik routes to Dozzle |
 | `DOZZLE_PORT` | `8087` | Host port (direct access only — Traefik ignores this) |
 
@@ -67,6 +68,53 @@ Commented-out options in `compose.yaml`:
 | Data | Path |
 |---|---|
 | User settings and alert configs | `/mnt/SSD/Containers/dozzle` |
+
+## MCP Integration
+
+Dozzle exposes a Streamable HTTP MCP endpoint from the same container when `DOZZLE_ENABLE_MCP=true`.
+
+Use one of these URLs in MCP clients:
+
+```text
+https://<DOZZLE_DOMAIN>/api/mcp
+http://<DOCKER_HOST>:8087/api/mcp
+```
+
+The MCP tools are read-only and can list containers, list hosts, fetch container logs, and read container CPU/memory history.
+
+### Client examples
+
+VS Code MCP settings:
+
+```json
+{
+  "servers": {
+    "dozzle": {
+      "type": "http",
+      "url": "https://<DOZZLE_DOMAIN>/api/mcp"
+    }
+  }
+}
+```
+
+Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "dozzle": {
+      "type": "streamable-http",
+      "url": "https://<DOZZLE_DOMAIN>/api/mcp"
+    }
+  }
+}
+```
+
+### Authentication notes
+
+- With `DOZZLE_AUTH_PROVIDER=none`, clients do not need extra credentials.
+- With `DOZZLE_AUTH_PROVIDER=simple`, get a JWT from `/api/token` and send it as `Authorization: Bearer <token>`.
+- With `DOZZLE_AUTH_PROVIDER=forward-proxy`, connect through the same proxy path so the proxy can inject the expected auth headers.
 
 ## Monitoring Remote Hosts (Agent Mode)
 
