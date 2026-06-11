@@ -80,9 +80,22 @@ https://<DOZZLE_DOMAIN>/api/mcp
 http://<DOCKER_HOST>:8087/api/mcp
 ```
 
+For this Homelab's Codex config, use the direct LAN endpoint:
+
+```text
+http://10.0.5.10:8087/api/mcp
+```
+
 The MCP tools are read-only and can list containers, list hosts, fetch container logs, and read container CPU/memory history.
 
 ### Client examples
+
+Codex `config.toml`:
+
+```toml
+[mcp_servers.dozzle]
+url = "http://10.0.5.10:8087/api/mcp"
+```
 
 VS Code MCP settings:
 
