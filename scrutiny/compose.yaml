@@ -1,0 +1,64 @@
+
+services:
+  scrutiny:
+    image: ghcr.io/analogj/scrutiny:master-omnibus
+    container_name: scrutiny
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - SYS_RAWIO   # required for smartctl ATA passthrough (SATA/SAS drives)
+      - SYS_ADMIN   # required for NVMe IOCTL passthrough
+    networks:
+      - traefik
+    ports:
+      - "${SCRUTINY_PORT:-8096}:8080"
+    volumes:
+      - scrutiny-config:/opt/scrutiny/config
+      - scrutiny-influxdb:/opt/scrutiny/influxdb
+      - /run/udev:/run/udev:ro
+    devices:
+      - /dev/sda
+      - /dev/sdb
+      # Add every drive you want monitored. Check with: lsblk -d -o NAME,TYPE | grep disk
+      # SATA/SAS:  /dev/sda, /dev/sdb, /dev/sdc, ...
+      # NVMe:      /dev/nvme0n1, /dev/nvme1n1, ...
+    environment:
+      - TZ=${TZ:-America/New_York}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.scrutiny.rule=Host(`${SCRUTINY_DOMAIN}`)"
+      - "traefik.http.routers.scrutiny.entrypoints=websecure"
+      - "traefik.http.routers.scrutiny.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.scrutiny.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.scrutiny.service=scrutiny@docker"
+      - "traefik.http.services.scrutiny.loadbalancer.server.port=8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  scrutiny-config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/scrutiny/config
+      o: bind
+  scrutiny-influxdb:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/scrutiny/influxdb
+      o: bind
+
+networks:
+  traefik:
+    external: true
