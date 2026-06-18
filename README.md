@@ -58,6 +58,14 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Controller**: UniFi OS device at `https://<UNIFI_CONTROLLER_IP>`
 
+### ntopng
+Real-time network traffic monitoring and analysis. Receives NetFlow data from the UniFi gateway, then displays per-host and per-flow breakdowns in a web UI. Also joins the `monitoring` network for Prometheus integration.
+
+- **Location**: [`/ntopng`](ntopng/)
+- **Access**: `https://<NTOPNG_DOMAIN>` (via Traefik, LAN only)
+- **Ports**: 2055/udp (NetFlow ingest from UniFi), 3000 (internal web UI)
+- **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
+
 ### Prometheus Proxmox Exporter
 Exports Proxmox VE cluster and node metrics to Prometheus.
 
@@ -66,12 +74,27 @@ Exports Proxmox VE cluster and node metrics to Prometheus.
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Documentation**: See [prometheus-proxmox-exporter/README.md](prometheus-proxmox-exporter/README.md)
 
+### Prometheus TrueNAS Exporter
+Node Exporter instance running on the TrueNAS Docker host, exposing host-level CPU, memory, disk, and network metrics to Prometheus via the `monitoring` network.
+
+- **Location**: [`/prometheus-truenas-exporter`](prometheus-truenas-exporter/)
+- **Port**: 9100 (Prometheus scrape endpoint — monitoring network only)
+- **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
+
 ### Semaphore
 Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with scheduling and access control.
 
 - **Location**: [`/semaphore`](semaphore/)
 - **Port**: 3003
 - **Documentation**: See [semaphore/README.md](semaphore/README.md)
+
+### n8n
+Self-hosted workflow automation platform. Connects apps, APIs, and services via a node-based visual editor, with PostgreSQL for persistent workflow state.
+
+- **Location**: [`/n8n`](n8n/)
+- **Access**: `https://<N8N_DOMAIN>` (via Traefik, LAN only)
+- **Port**: 5678 (direct access)
+- **Documentation**: See [n8n/README.md](n8n/README.md)
 
 ### Uptime Kuma
 Self-hosted uptime monitoring for services via HTTP/HTTPS, TCP, DNS, and more.
@@ -80,12 +103,28 @@ Self-hosted uptime monitoring for services via HTTP/HTTPS, TCP, DNS, and more.
 - **Access**: `https://<UPTIME_KUMA_DOMAIN>` (via Traefik)
 - **Documentation**: See [uptime-kuma/README.md](uptime-kuma/README.md)
 
+### Scrutiny
+S.M.A.R.T. drive health monitoring with a web UI and historical trending. Bundles smartctl, an InfluxDB time-series store, and a dashboard into a single omnibus container. Requires raw device access and elevated capabilities (`SYS_RAWIO`, `SYS_ADMIN`) to issue ATA and NVMe passthrough commands.
+
+- **Location**: [`/scrutiny`](scrutiny/)
+- **Access**: `https://<SCRUTINY_DOMAIN>` (via Traefik, LAN only)
+- **Port**: 8096 (direct access)
+- **Documentation**: See [scrutiny/README.md](scrutiny/README.md)
+
 ### Unbound
 Validating, recursive, caching DNS resolver. Resolves queries by walking the DNS tree from root servers directly — no third-party DNS provider ever sees your queries. Used as the upstream recursive resolver for Pi-hole, replacing forwarders like 8.8.8.8 with a fully self-hosted DNS chain.
 
 - **Location**: [`/unbound`](unbound/)
 - **Port**: 5335 (UDP+TCP — DNS only, no web UI)
 - **Documentation**: See [unbound/README.md](unbound/README.md)
+
+### Technitium
+Feature-rich self-hosted DNS server with a web admin UI. Handles internal DNS resolution for the home lab and supports conditional forwarding, DNS-over-HTTPS/TLS, DNS blocking, and zone management.
+
+- **Location**: [`/technitium`](technitium/)
+- **Access**: `https://<TECHNITIUM_DOMAIN>` (via Traefik, LAN only)
+- **Ports**: 53 UDP+TCP (DNS), 5380 (internal web UI)
+- **Documentation**: See [technitium/README.md](technitium/README.md)
 
 ### Home Assistant
 Open-source home automation platform. Connects to thousands of devices and services — lights, sensors, locks, cameras, media players — and runs automations entirely locally without cloud dependency.
@@ -233,6 +272,13 @@ Simple application dashboard and service launcher.
 - **Access**: `https://<HEIMDALL_DOMAIN>` (via Traefik)
 - **Documentation**: See [heimdall/README.md](heimdall/README.md)
 
+### Homarr
+Modern application dashboard with live Docker integration. Auto-discovers running containers, displays service status, and integrates with Sonarr, Radarr, and other arr apps for media stats.
+
+- **Location**: [`/homarr`](homarr/)
+- **Access**: `https://<HOMARR_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [homarr/README.md](homarr/README.md)
+
 ### Karakeep
 Bookmark and read-it-later service with Meilisearch and browser capture support.
 
@@ -276,12 +322,28 @@ Self-hosted read-it-later service.
 - **Access**: `https://<READECK_DOMAIN>` (via Traefik)
 - **Documentation**: See [readeck/README.md](readeck/README.md)
 
+### SearXNG
+Privacy-respecting metasearch engine. Aggregates results from 70+ search engines without tracking or profiling. Backed by Redis for rate-limiting.
+
+- **Location**: [`/searxng`](searxng/)
+- **Access**: `https://<SEARXNG_DOMAIN>` (via Traefik, LAN only)
+- **Port**: 8092 (direct access)
+- **Documentation**: See [searxng/README.md](searxng/README.md)
+
 ### RetroArch
 Browser-accessible RetroArch desktop GUI via KasmVNC.
 
 - **Location**: [`/retroarch`](retroarch/)
 - **Access**: `https://<RETROARCH_DOMAIN>` (via Traefik, LAN only)
 - **Documentation**: See [retroarch/README.md](retroarch/README.md)
+
+### RomM
+ROM library manager and game metadata scraper. Organizes game files by platform, fetches cover art and metadata from ScreenScraper, RetroAchievements, SteamGridDB, and Hasheous, then serves a browsable web UI backed by MariaDB.
+
+- **Location**: [`/romm`](romm/)
+- **Access**: `https://<ROMM_DOMAIN>` (via Traefik, LAN only)
+- **Library**: `/mnt/Data/Media/ROMs`
+- **Documentation**: See [romm/README.md](romm/README.md)
 
 ### Traefik Manager
 Web UI for managing Traefik dynamic configuration.
@@ -294,10 +356,10 @@ Web UI for managing Traefik dynamic configuration.
 ### Unmanic
 Automated media library optimization and transcoding worker.
 
-- **Location**: [`/umanic`](umanic/)
+- **Location**: [`/unmanic`](unmanic/)
 - **Access**: `https://<UNMANIC_DOMAIN>` (via Traefik)
 - **Port**: 8095 (direct access)
-- **Documentation**: See [umanic/README.md](umanic/README.md)
+- **Documentation**: See [unmanic/README.md](unmanic/README.md)
 
 ## Quick Start
 
@@ -316,7 +378,7 @@ Each service follows a consistent structure:
 cd <service-name>
 
 # Copy environment template (if exists)
-cp .env.example .env  # Only for services requiring secrets
+cp example.env .env  # Only for services requiring secrets
 
 # Edit configuration
 nano .env  # Customize as needed
@@ -333,48 +395,56 @@ docker compose logs -f
 
 ```
 HomeLab/
-├── traefik/              # Reverse proxy and TLS termination
-├── prometheus/           # Metrics collection (creates monitoring network)
-├── grafana/              # Metrics dashboards and visualization
-├── loki/                 # Log aggregation backend
-├── alloy/                # Telemetry collector for logs, syslog, and OTLP
-├── unpoller/             # UniFi metrics exporter
-├── prometheus-proxmox-exporter/  # Proxmox VE metrics exporter
-├── dozzle/               # Real-time Docker log viewer
-├── uptime-kuma/          # Uptime monitoring (HTTP, TCP, DNS)
-├── wud/                  # What's Up Docker — container update notifications
-├── nextcloud/            # Self-hosted file sync and collaboration
-├── paperless-ngx/        # Document management with OCR
-├── calibre/              # Calibre + Calibre-Web ebook manager
-├── bambustudio/          # Browser-accessible Bambu Studio GUI
-├── retroarch/            # Browser-accessible RetroArch GUI
-├── changedetection/      # Website change detection and monitoring
-├── openwebui/            # Web UI for Ollama LLM models
-├── owncloud/             # ownCloud Infinite Scale
-├── linkwarden/           # Bookmark manager
-├── karakeep/             # Bookmark/read-it-later service
-├── readeck/              # Read-it-later service
-├── metube/               # yt-dlp web UI
-├── libation/             # Audible library downloader
-├── homeassistant/        # Home automation platform
-├── tdarr/                # Distributed media transcoding server
-├── tdarr-desktop-node/   # Tdarr GPU worker node (gaming desktop)
-├── netbox/               # Network documentation and IPAM
-├── phpipam/              # Lightweight IP address management
-├── unbound/              # Recursive DNS resolver (Pi-hole upstream)
-├── arcane/               # Application management platform
-├── termix/               # Web-based terminal emulator
-├── code-server/          # Browser-based VS Code
-├── gitea/                # Self-hosted Git service
-├── heimdall/             # Application dashboard
-├── semaphore/            # Ansible/Terraform/OpenTofu UI
-├── pegaprox/             # Proxmox VE web management UI
-├── traefik-manager/      # Traefik dynamic config manager
-├── tailscale/            # Tailscale VPN node (subnet router)
-├── umanic/               # Media optimization worker
-├── .gitignore            # Git ignore patterns (protects secrets)
-├── LICENSE               # MIT License
-└── README.md             # This file
+├── traefik/                        # Reverse proxy and TLS termination
+├── prometheus/                     # Metrics collection (creates monitoring network)
+├── grafana/                        # Metrics dashboards and visualization
+├── loki/                           # Log aggregation backend
+├── alloy/                          # Telemetry collector for logs, syslog, and OTLP
+├── unpoller/                       # UniFi metrics exporter
+├── ntopng/                         # Real-time network traffic monitoring
+├── prometheus-proxmox-exporter/    # Proxmox VE metrics exporter
+├── prometheus-truenas-exporter/    # TrueNAS host node exporter
+├── dozzle/                         # Real-time Docker log viewer
+├── uptime-kuma/                    # Uptime monitoring (HTTP, TCP, DNS)
+├── scrutiny/                       # S.M.A.R.T. drive health monitoring
+├── wud/                            # What's Up Docker — container update notifications
+├── nextcloud/                      # Self-hosted file sync and collaboration
+├── paperless-ngx/                  # Document management with OCR
+├── calibre/                        # Calibre + Calibre-Web ebook manager
+├── bambustudio/                    # Browser-accessible Bambu Studio GUI
+├── retroarch/                      # Browser-accessible RetroArch GUI
+├── romm/                           # ROM library manager and scraper
+├── changedetection/                # Website change detection and monitoring
+├── openwebui/                      # Web UI for Ollama LLM models
+├── owncloud/                       # ownCloud Infinite Scale
+├── linkwarden/                     # Bookmark manager
+├── karakeep/                       # Bookmark/read-it-later service
+├── readeck/                        # Read-it-later service
+├── searxng/                        # Privacy metasearch engine
+├── metube/                         # yt-dlp web UI
+├── libation/                       # Audible library downloader
+├── homeassistant/                  # Home automation platform
+├── tdarr/                          # Distributed media transcoding server
+├── tdarr-desktop-node/             # Tdarr GPU worker node (gaming desktop)
+├── unmanic/                        # Media optimization worker
+├── netbox/                         # Network documentation and IPAM
+├── phpipam/                        # Lightweight IP address management
+├── unbound/                        # Recursive DNS resolver (Pi-hole upstream)
+├── technitium/                     # Self-hosted DNS server with web UI
+├── arcane/                         # Application management platform
+├── termix/                         # Web-based terminal emulator
+├── code-server/                    # Browser-based VS Code
+├── gitea/                          # Self-hosted Git service
+├── heimdall/                       # Application dashboard
+├── homarr/                         # Modern dashboard with Docker integration
+├── semaphore/                      # Ansible/Terraform/OpenTofu UI
+├── n8n/                            # Workflow automation platform
+├── pegaprox/                       # Proxmox VE web management UI
+├── traefik-manager/                # Traefik dynamic config manager
+├── tailscale/                      # Tailscale VPN node (subnet router)
+├── .gitignore                      # Git ignore patterns (protects secrets)
+├── LICENSE                         # MIT License
+└── README.md                       # This file
 ```
 
 ## Security
@@ -384,7 +454,7 @@ HomeLab/
 This repository follows security best practices:
 
 - **Environment Variables**: Secrets are stored in `.env` files (gitignored)
-- **Templates**: `.env.example` files provide configuration templates
+- **Templates**: `example.env` files provide configuration templates
 - **Never Committed**: Actual secrets are never committed to version control
 - **Unique Per Service**: Each service manages its own secrets
 
@@ -488,6 +558,21 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Unmanic Config**: `/mnt/SSD/Containers/unmanic/config`
 - **Unmanic Cache**: `/mnt/SSD/Containers/unmanic/cache`
 - **Unbound Config**: `/mnt/SSD/Containers/unbound`
+- **Technitium Config**: `/mnt/SSD/Containers/technitium/config`
+- **Technitium Logs**: `/mnt/SSD/Containers/technitium/logs`
+- **Homarr Data**: `/mnt/SSD/Containers/homarr`
+- **n8n Data**: `/mnt/SSD/Containers/n8n/data`
+- **n8n Database**: `/mnt/SSD/Containers/n8n/postgres`
+- **ntopng Data**: `/mnt/SSD/Containers/ntopng`
+- **ntopng Redis**: `/mnt/SSD/Containers/ntopng/redis`
+- **RomM Resources**: `/mnt/SSD/Containers/romm/resources`
+- **RomM Redis**: `/mnt/SSD/Containers/romm/redis-data`
+- **RomM Assets**: `/mnt/SSD/Containers/romm/assets`
+- **RomM Config**: `/mnt/SSD/Containers/romm/config`
+- **RomM Database**: `/mnt/SSD/Containers/romm/db`
+- **Scrutiny Config**: `/mnt/SSD/Containers/scrutiny/config`
+- **Scrutiny InfluxDB**: `/mnt/SSD/Containers/scrutiny/influxdb`
+- **SearXNG Config**: `/mnt/SSD/Containers/searxng/config`
 
 Ensure this path exists and has appropriate permissions before deploying services.
 
