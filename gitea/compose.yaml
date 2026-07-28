@@ -51,6 +51,8 @@ services:
       - GITEA__server__ROOT_URL=https://${GITEA_DOMAIN}
       - GITEA__server__SSH_PORT=${GITEA_SSH_PORT:-2222}
       - GITEA__server__SSH_LISTEN_PORT=22
+      # Disable self-service accounts; create the administrator in the first-run wizard.
+      - GITEA__service__DISABLE_REGISTRATION=${GITEA_DISABLE_REGISTRATION:-true}
       # ── Security ──────────────────────────────────────────────────────────────
       - GITEA__security__SECRET_KEY=${GITEA_SECRET_KEY}
       - GITEA__security__INTERNAL_TOKEN=${GITEA_INTERNAL_TOKEN}
@@ -70,7 +72,7 @@ services:
       - "traefik.http.routers.gitea.rule=Host(`${GITEA_DOMAIN}`)"
       - "traefik.http.routers.gitea.entrypoints=websecure"
       - "traefik.http.routers.gitea.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.gitea.middlewares=secure-headers@file"
+      - "traefik.http.routers.gitea.middlewares=secure-headers@file,lan-only@file"
       - "traefik.http.routers.gitea.service=gitea@docker"
       - "traefik.http.services.gitea.loadbalancer.server.port=3000"
     logging:
