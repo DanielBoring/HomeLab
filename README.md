@@ -251,6 +251,15 @@ Browser-accessible Bambu Studio desktop GUI via KasmVNC.
 - **Access**: `https://<BAMBUSTUDIO_DOMAIN>` (via Traefik, LAN only)
 - **Documentation**: See [bambustudio/README.md](bambustudio/README.md)
 
+### Bambu Buddy
+LAN-only, self-hosted Bambu Lab printer management and print archive service.
+Printers are added manually by their DHCP-reserved IP address so the web UI can
+remain behind Traefik.
+
+- **Location**: [`/bambuddy`](bambuddy/)
+- **Access**: `https://<BAMBUDDY_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [bambuddy/README.md](bambuddy/README.md)
+
 ### code-server
 Browser-based VS Code development environment.
 
@@ -412,6 +421,7 @@ HomeLab/
 ├── paperless-ngx/                  # Document management with OCR
 ├── calibre/                        # Calibre + Calibre-Web ebook manager
 ├── bambustudio/                    # Browser-accessible Bambu Studio GUI
+├── bambuddy/                       # LAN-only Bambu Lab printer management
 ├── retroarch/                      # Browser-accessible RetroArch GUI
 ├── romm/                           # ROM library manager and scraper
 ├── changedetection/                # Website change detection and monitoring
@@ -509,6 +519,8 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
 - **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`
 - **Bambu Studio Data**: `/mnt/SSD/Containers/bambustudio`
+- **Bambu Buddy Data**: `/mnt/SSD/Containers/bambuddy/data`
+- **Bambu Buddy Logs**: `/mnt/SSD/Containers/bambuddy/logs`
 - **RetroArch Data**: `/mnt/SSD/Containers/retroarch`
 - **Changedetection Data**: `/mnt/SSD/Containers/changedetection`
 - **code-server Data**: `/mnt/SSD/Containers/code-server`
