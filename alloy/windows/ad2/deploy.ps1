@@ -11,16 +11,52 @@ function Get-AlloyServiceCommand {
         return $null
     }
 
-    $match = [regex]::Match(
+    $directCommandMatch = [regex]::Match(
         $service.PathName,
         '^\s*(?:"(?<executable>[^"]+)"|(?<executable>\S+))\s+run\s+(?:"(?<config>[^"]+)"|(?<config>\S+))'
     )
-    if (-not $match.Success) {
-        throw "The existing Alloy service command could not be interpreted: $($service.PathName)"
+    if ($directCommandMatch.Success) {
+        $executable = [Environment]::ExpandEnvironmentVariables($directCommandMatch.Groups["executable"].Value)
+        $config = [Environment]::ExpandEnvironmentVariables($directCommandMatch.Groups["config"].Value)
+    }
+    else {
+        $wrapperMatch = [regex]::Match(
+            $service.PathName,
+            '^\s*(?:"(?<executable>[^"]+)"|(?<executable>\S+))\s*$'
+        )
+        if (-not $wrapperMatch.Success) {
+            throw "The existing Alloy service command could not be interpreted: $($service.PathName)"
+        }
+
+        $wrapperExecutable = [Environment]::ExpandEnvironmentVariables($wrapperMatch.Groups["executable"].Value)
+        if ([IO.Path]::GetFileName($wrapperExecutable) -ne "alloy-service-windows-amd64.exe") {
+            throw "The existing Alloy service command does not include a run configuration: $($service.PathName)"
+        }
+        if (-not (Test-Path -LiteralPath $wrapperExecutable)) {
+            throw "The existing Alloy service references a missing service wrapper: $wrapperExecutable"
+        }
+
+        $registryPath = "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\GrafanaLabs\Alloy"
+        try {
+            $registryKey = Get-Item -LiteralPath $registryPath -ErrorAction Stop
+            $executable = [Environment]::ExpandEnvironmentVariables([string]$registryKey.GetValue($null))
+            $arguments = @($registryKey.GetValue("Arguments"))
+        }
+        catch {
+            throw "The Alloy service wrapper configuration could not be read from HKLM\SOFTWARE\GrafanaLabs\Alloy: $($_.Exception.Message)"
+        }
+
+        $runIndex = [Array]::IndexOf($arguments, "run")
+        if ([string]::IsNullOrWhiteSpace($executable) -or $runIndex -lt 0 -or $runIndex + 1 -ge $arguments.Count) {
+            throw "The Alloy service wrapper registry command does not contain an executable and run configuration."
+        }
+
+        $config = [Environment]::ExpandEnvironmentVariables([string]$arguments[$runIndex + 1])
+        if ([string]::IsNullOrWhiteSpace($config) -or $config.StartsWith("-")) {
+            throw "The Alloy service wrapper registry command has an invalid run configuration path."
+        }
     }
 
-    $executable = [Environment]::ExpandEnvironmentVariables($match.Groups["executable"].Value)
-    $config = [Environment]::ExpandEnvironmentVariables($match.Groups["config"].Value)
     if (-not (Test-Path -LiteralPath $executable)) {
         throw "The existing Alloy service references a missing executable: $executable"
     }
