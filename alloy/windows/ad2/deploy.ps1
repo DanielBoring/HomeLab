@@ -87,40 +87,16 @@ function Find-AlloyExecutable {
     return $null
 }
 
-$serviceCommand = Get-AlloyServiceCommand
-if (-not $serviceCommand) {
-    $alloyExe = Find-AlloyExecutable
-}
+function Install-AlloyRelease {
+    param(
+        [string] $Reason
+    )
 
-if (-not $serviceCommand -and -not $alloyExe) {
-    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
-        throw "Alloy is not installed and winget.exe is unavailable."
-    }
-
-    Write-Host "Alloy is not installed. Installing it with WinGet..."
-    & winget.exe install --id GrafanaLabs.Alloy --exact --silent --accept-package-agreements --accept-source-agreements
-    $wingetExitCode = $LASTEXITCODE
-    $serviceCommand = Get-AlloyServiceCommand
-    if (-not $serviceCommand) {
-        throw "WinGet did not make Alloy available (exit code $wingetExitCode)."
-    }
-}
-
-if (-not $serviceCommand) {
-    throw "Alloy is installed, but its Windows service is not registered."
-}
-
-$alloyExe = $serviceCommand.Executable
-$targetConfig = $serviceCommand.Config
-
-& $alloyExe --version
-$alloyStartExitCode = $LASTEXITCODE
-if ($alloyStartExitCode -eq -1073741515) {
     $alloyVersion = "1.19.2"
     $installerPath = Join-Path $env:TEMP "alloy-installer-windows-amd64-$alloyVersion.exe"
     $installerUrl = "https://github.com/grafana/alloy/releases/download/v$alloyVersion/alloy-installer-windows-amd64.exe"
 
-    Write-Host "The installed Alloy binary cannot start because of the v1.19.0 Windows DLL packaging issue. Installing Alloy $alloyVersion..."
+    Write-Host "$Reason Installing Alloy $alloyVersion..."
     try {
         Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
         $signature = Get-AuthenticodeSignature -LiteralPath $installerPath
@@ -136,7 +112,32 @@ if ($alloyStartExitCode -eq -1073741515) {
     finally {
         Remove-Item -LiteralPath $installerPath -Force -ErrorAction SilentlyContinue
     }
+}
 
+$serviceCommand = Get-AlloyServiceCommand
+if (-not $serviceCommand) {
+    $alloyExe = Find-AlloyExecutable
+}
+
+if (-not $serviceCommand -and -not $alloyExe) {
+    Install-AlloyRelease -Reason "Alloy is not installed."
+    $serviceCommand = Get-AlloyServiceCommand
+    if (-not $serviceCommand) {
+        throw "The Alloy installer did not register the Windows service."
+    }
+}
+
+if (-not $serviceCommand) {
+    throw "Alloy is installed, but its Windows service is not registered."
+}
+
+$alloyExe = $serviceCommand.Executable
+$targetConfig = $serviceCommand.Config
+
+& $alloyExe --version
+$alloyStartExitCode = $LASTEXITCODE
+if ($alloyStartExitCode -eq -1073741515) {
+    Install-AlloyRelease -Reason "The installed Alloy binary cannot start because of the v1.19.0 Windows DLL packaging issue."
     $serviceCommand = Get-AlloyServiceCommand
     if (-not $serviceCommand) {
         throw "The Alloy service was not available after the upgrade."
