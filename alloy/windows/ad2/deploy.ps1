@@ -116,14 +116,25 @@ $targetConfig = $serviceCommand.Config
 & $alloyExe --version
 $alloyStartExitCode = $LASTEXITCODE
 if ($alloyStartExitCode -eq -1073741515) {
-    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
-        throw "The installed Alloy binary is affected by the Windows DLL packaging issue fixed in Alloy 1.19.1, and winget.exe is unavailable to upgrade it."
-    }
+    $alloyVersion = "1.19.2"
+    $installerPath = Join-Path $env:TEMP "alloy-installer-windows-amd64-$alloyVersion.exe"
+    $installerUrl = "https://github.com/grafana/alloy/releases/download/v$alloyVersion/alloy-installer-windows-amd64.exe"
 
-    Write-Host "The installed Alloy binary cannot start because of the v1.19.0 Windows DLL packaging issue. Upgrading Alloy..."
-    & winget.exe upgrade --id GrafanaLabs.Alloy --exact --silent --force --accept-package-agreements --accept-source-agreements
-    if ($LASTEXITCODE -ne 0) {
-        throw "WinGet could not upgrade the broken Alloy installation (exit code $LASTEXITCODE)."
+    Write-Host "The installed Alloy binary cannot start because of the v1.19.0 Windows DLL packaging issue. Installing Alloy $alloyVersion..."
+    try {
+        Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath -UseBasicParsing
+        $signature = Get-AuthenticodeSignature -LiteralPath $installerPath
+        if ($signature.Status -ne "Valid" -or $signature.SignerCertificate.Subject -notlike "CN=Grafana Labs,*") {
+            throw "The downloaded Alloy installer does not have a valid Grafana Labs signature."
+        }
+
+        $installer = Start-Process -FilePath $installerPath -ArgumentList "/S" -Wait -PassThru
+        if ($installer.ExitCode -ne 0) {
+            throw "The Alloy $alloyVersion installer failed with exit code $($installer.ExitCode)."
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $installerPath -Force -ErrorAction SilentlyContinue
     }
 
     $serviceCommand = Get-AlloyServiceCommand
