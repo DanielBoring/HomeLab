@@ -1,0 +1,64 @@
+services:
+  bambuddy:
+    # Pin to a reviewed stable release. Review release notes before changing it.
+    image: ghcr.io/maziggy/bambuddy:${BAMBUDDY_VERSION:-v1.2.5.3}
+    container_name: bambuddy
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    # Required by Bambuddy's optional virtual-printer FTP/RTSP listeners.
+    cap_add:
+      - NET_BIND_SERVICE
+    environment:
+      - TZ=${TZ:-America/New_York}
+      - PUID=${PUID:-3001}
+      - PGID=${PGID:-3001}
+      - PORT=8000
+      - LOG_LEVEL=${BAMBUDDY_LOG_LEVEL:-INFO}
+      # Keep this stable: it encrypts MFA secrets stored in the database.
+      - MFA_ENCRYPTION_KEY=${BAMBUDDY_MFA_ENCRYPTION_KEY:?Set BAMBUDDY_MFA_ENCRYPTION_KEY in .env or Portainer}
+    volumes:
+      - bambuddy-data:/app/data
+      - bambuddy-logs:/app/logs
+    networks:
+      - traefik
+    healthcheck:
+      test:
+        ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.bambuddy.rule=Host(`${BAMBUDDY_DOMAIN}`)"
+      - "traefik.http.routers.bambuddy.entrypoints=websecure"
+      - "traefik.http.routers.bambuddy.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.bambuddy.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.bambuddy.service=bambuddy@docker"
+      - "traefik.http.services.bambuddy.loadbalancer.server.port=8000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bambuddy-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/bambuddy/data
+      o: bind
+  bambuddy-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/bambuddy/logs
+      o: bind
+
+networks:
+  traefik:
+    external: true

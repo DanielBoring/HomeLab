@@ -18,6 +18,7 @@ services:
       - DOZZLE_NO_ANALYTICS=true
       - DOZZLE_HOSTNAME=${DOZZLE_HOSTNAME:-homelab}
       - DOZZLE_AUTH_PROVIDER=${DOZZLE_AUTH_PROVIDER:-none}
+      - DOZZLE_ENABLE_MCP=${DOZZLE_ENABLE_MCP:-true}
       # - DOZZLE_AUTH_TTL=48h
       # - DOZZLE_ENABLE_ACTIONS=true   # requires docker.sock without :ro
       # - DOZZLE_ENABLE_SHELL=true     # requires docker.sock without :ro

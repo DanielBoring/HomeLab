@@ -75,7 +75,7 @@ Variables hardcoded in `compose.yaml` (rarely need changing):
 | `LOGGER_LEVEL` | changedetection | Log output level; set to `INFO` to suppress noisy per-watch debug console messages |
 | `DEFAULT_LAUNCH_ARGS` | changedetection-playwright | Chrome launch flags |
 
-The Playwright sidecar can emit Chrome stderr lines for DBus, GPU, WebGL, blocked resources, or site-specific `401` requests while still completing checks successfully. The stack sets `LOGGER_LEVEL=INFO` and disables GPU/rasterizer paths in the sidecar to reduce this noise in Loki without changing watch behavior.
+The Playwright sidecar can emit Chrome stderr lines for DBus, GPU, WebGL, blocked resources, or site-specific `401` requests while still completing checks successfully. The stack sets `LOGGER_LEVEL=INFO` and disables GPU, software rasterizer, WebGL, 3D API, and accelerated canvas paths in the sidecar to reduce this noise in Loki without changing watch behavior.
 
 ## FlareSolverr Integration
 

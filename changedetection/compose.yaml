@@ -46,7 +46,7 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080","--disable-gpu","--disable-software-rasterizer"]
+      - DEFAULT_LAUNCH_ARGS=["--window-size=1920,1080","--disable-gpu","--disable-software-rasterizer","--disable-webgl","--disable-3d-apis","--disable-accelerated-2d-canvas"]
     shm_size: 2g
     networks:
       - changedetection

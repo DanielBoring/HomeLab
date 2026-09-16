@@ -1,0 +1,14 @@
+http:
+  routers:
+    traefik-manager:
+      rule: Host(`traefik-manager.virtuallyboring.com`)
+      entryPoints:
+        - websecure
+      service: traefik-manager
+      tls:
+        certResolver: letsencrypt
+  services:
+    traefik-manager:
+      loadBalancer:
+        servers:
+          - url: http://traefik-manager:5000

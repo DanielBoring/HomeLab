@@ -67,6 +67,10 @@ desktop.ini
 *.log
 logs/
 
+# HTML guides (local reference only)
+*.html
+!gitea-masterclass.html
+
 # AI assistant local/private files
 .claude/
 CLAUDE.md

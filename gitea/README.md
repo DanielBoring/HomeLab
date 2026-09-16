@@ -1,4 +1,4 @@
-# Gitea
+# Gitea on TrueNAS (Portainer)
 
 Gitea is a self-hosted, lightweight Git service — think GitHub but running on your own hardware. It provides repository hosting, issue tracking, pull requests, CI/CD via Gitea Actions, a package registry, and a web-based code editor. It's written in Go, which means low memory usage (~150 MB at idle) and fast startup times.
 
@@ -30,6 +30,19 @@ Internet / LAN
 - SSH is port-forwarded directly from the host (not proxied through Traefik)
 - Both containers communicate over the internal `gitea` network; only `gitea` joins the external `traefik` network
 
+## What this stack does
+
+- Routes `https://gitea.virtuallyboring.com` through the existing Traefik
+  network, with the existing `secure-headers@file` and `lan-only@file`
+  middlewares. It is not Internet-accessible through Traefik.
+- Publishes Git-over-SSH on TrueNAS TCP port `2222`. This is separate from
+  Traefik and is reachable wherever the TrueNAS host is reachable; restrict it
+  with host firewall rules if SSH must also be LAN-only.
+- Stores Gitea repositories/configuration and PostgreSQL data on the SSD bind
+  paths below. Neither is a named Docker-managed volume.
+- Disables self-service registration. Create the administrator in the first-run
+  wizard, then use that account to invite users.
+
 ## Prerequisites
 
 Create the host directories before starting:
@@ -37,14 +50,26 @@ Create the host directories before starting:
 ```bash
 mkdir -p /mnt/SSD/Containers/gitea/data
 mkdir -p /mnt/SSD/Containers/gitea/db
-chown -R 3001:3001 /mnt/SSD/Containers/gitea
 ```
+
+The initial containers create the required ownership inside these directories.
+Do not populate either directory with files from another Gitea/PostgreSQL
+installation.
+
+Confirm that no non-Docker service owns the planned SSH port:
+
+```bash
+ss -ltnp '( sport = :2222 )'
+```
+
+At preparation time, Portainer reported that no running Docker container on
+`TrueNAS.virtuallyboring.com` publishes TCP port 2222.
 
 ## Quick Start
 
-1. Copy the env template and fill in your values:
+1. Copy the environment template and replace every `replace-with-...` value:
    ```bash
-   cp example.env .env
+   cp .env.example .env
    $EDITOR .env
    ```
 
@@ -57,44 +82,52 @@ chown -R 3001:3001 /mnt/SSD/Containers/gitea
    openssl rand -hex 64
    ```
 
-3. Start the stack:
+3. In Portainer, select the `TrueNAS.virtuallyboring.com` environment and
+   create a new **Git repository** stack from this repository. Set the Compose
+   path to `gitea/compose.yaml`, add the values from `.env` as stack environment
+   variables, then deploy. If deploying from the TrueNAS shell instead, run:
    ```bash
    docker compose up -d
    ```
 
-4. Open `https://<GITEA_DOMAIN>` in your browser. On first launch you'll see the **Installation** wizard. The database fields will be pre-filled from your env vars — scroll through and set the admin account, then click **Install Gitea**.
+4. Open `https://gitea.virtuallyboring.com` from the LAN. On first launch, use
+   the **Installation** wizard to create the administrator and click **Install
+   Gitea**. The database settings are supplied by Compose; do not expose port
+   5432 or change its host to `localhost`.
+
+5. Verify the Gitea container is healthy in Portainer, then clone a test
+   repository over HTTPS and SSH. With the configured non-standard SSH port:
+
+   ```bash
+   git clone ssh://git@gitea.virtuallyboring.com:2222/<owner>/<repo>.git
+   ```
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `GITEA_DOMAIN` | Yes | Hostname Traefik routes to the web UI (e.g. `gitea.yourdomain.com`) |
+| `GITEA_DOMAIN` | Yes | `gitea.virtuallyboring.com`; create a LAN DNS record pointing to Traefik |
 | `GITEA_SSH_PORT` | Yes | Host port for SSH (default `2222`; host port 22 is usually the host OS) |
 | `GITEA_DB_PASSWORD` | Yes | PostgreSQL password for the `gitea` user |
 | `GITEA_SECRET_KEY` | Yes | 64-char hex key for cookie/session signing |
 | `GITEA_INTERNAL_TOKEN` | Yes | 128-char hex token for internal API calls between Gitea processes |
+| `GITEA_DISABLE_REGISTRATION` | No | Defaults to `true`; prevents LAN users from self-registering |
 | `PUID` / `PGID` | No | UID/GID the Gitea process runs as (default `3001`) |
 | `TZ` | No | Timezone (default `America/New_York`) |
 
 ## SSH Clone URLs
 
-By default, clone URLs will look like:
+Clone URLs will look like:
 
 ```
-git clone git@gitea.yourdomain.com:user/repo.git   # SSH
-git clone https://gitea.yourdomain.com/user/repo.git  # HTTPS
+git clone ssh://git@gitea.virtuallyboring.com:2222/user/repo.git
+git clone https://gitea.virtuallyboring.com/user/repo.git
 ```
 
-If you changed `GITEA_SSH_PORT` from `22`, git will include the port:
+You can add an `~/.ssh/config` entry to keep the short SSH URL syntax:
 
 ```
-git clone ssh://git@gitea.yourdomain.com:2222/user/repo.git
-```
-
-You can add a `~/.ssh/config` entry to keep the short URL syntax:
-
-```
-Host gitea.yourdomain.com
+Host gitea.virtuallyboring.com
     Port 2222
 ```
 
@@ -107,6 +140,9 @@ docker compose up -d
 
 Gitea stores all repository data and configuration under `/mnt/SSD/Containers/gitea/data`, so the database and repos survive image upgrades. Always check the [Gitea changelog](https://github.com/go-gitea/gitea/releases) before upgrading across major versions.
 
-## Traefik Note
+## Backup and recovery
 
-The web UI is exposed publicly (no `lan-only` middleware) to allow remote git operations over HTTPS — pushing from a laptop off the LAN, webhooks from external CI runners, etc. If you only need LAN access, add `lan-only@file` to the middlewares label in `compose.yaml`. SSH bypasses Traefik entirely and is always reachable on `GITEA_SSH_PORT`.
+Back up both `/mnt/SSD/Containers/gitea/data` and
+`/mnt/SSD/Containers/gitea/db` together. Gitea repositories live in the data
+path, but issues, users, permissions, and settings live in PostgreSQL. A backup
+of only one path is not a complete restore point.
