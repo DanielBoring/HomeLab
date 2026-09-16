@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Active Directory health for AD1 and AD2 using Windows metrics from Prometheus and Event Viewer logs from Loki.",
+  "description": "Active Directory health for AD1 and AD2, with interpretation guidance, Windows metrics from Prometheus, and Event Viewer logs from Loki.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -23,6 +23,22 @@
   "links": [],
   "liveNow": false,
   "panels": [
+    {
+      "id": 16,
+      "type": "text",
+      "title": "How to read this dashboard",
+      "description": "Quick interpretation guide for the Active Directory health panels.",
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Active Directory health guide\nEach panel has an **info icon** beside its title with metric-specific good, warning, and bad guidance. Green generally means healthy; yellow means watch or investigate if sustained; red means action is recommended. Metrics without universal thresholds should be compared between AD1 and AD2 and against their normal baseline. **No data is not always healthy**—check Telemetry age first to confirm both controllers are reporting."
+      }
+    },
     {
       "datasource": {
         "type": "prometheus",
@@ -62,7 +78,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "id": 1,
       "options": {
@@ -93,7 +109,8 @@
         }
       ],
       "title": "Telemetry age",
-      "type": "stat"
+      "type": "stat",
+      "description": "How recently each domain controller delivered metrics. Good: under 45 seconds. Warning: 45-90 seconds. Bad: over 90 seconds or no telemetry. Stale data usually means Alloy stopped, the host is unreachable, or remote-write delivery is failing."
     },
     {
       "datasource": {
@@ -134,7 +151,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 4
       },
       "id": 2,
       "options": {
@@ -165,7 +182,8 @@
         }
       ],
       "title": "Core AD services running (of 6)",
-      "type": "stat"
+      "type": "stat",
+      "description": "Counts NTDS, DNS, DFSR, Netlogon, Kdc, and ADWS in the Running state. Good: 6. Warning: 5. Bad: fewer than 5. A stopped service can break authentication, name resolution, replication, or management."
     },
     {
       "datasource": {
@@ -204,7 +222,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 0
+        "y": 4
       },
       "id": 3,
       "options": {
@@ -235,7 +253,8 @@
         }
       ],
       "title": "Clock offset",
-      "type": "stat"
+      "type": "stat",
+      "description": "Absolute Windows time offset from the configured time source. Good: under 100 ms. Warning: 100-300 ms. Bad: over 300 ms. Accurate time is essential for Kerberos; offsets approaching five minutes can cause authentication failures."
     },
     {
       "datasource": {
@@ -270,7 +289,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 0
+        "y": 4
       },
       "id": 4,
       "options": {
@@ -301,7 +320,8 @@
         }
       ],
       "title": "Errors and critical events (1h)",
-      "type": "stat"
+      "type": "stat",
+      "description": "Error and Critical events from the Windows channels collected by Alloy during the last hour. Good: 0. Bad: any event should be reviewed in the log panel. This is not every Windows Event Viewer channel."
     },
     {
       "datasource": {
@@ -371,7 +391,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 4
+        "y": 8
       },
       "id": 5,
       "options": {
@@ -400,7 +420,8 @@
         }
       ],
       "title": "CPU usage",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Processor utilization averaged over five minutes. Good: sustained below 80%. Warning: 80-95%. Bad: sustained above 95%. Brief spikes are normal; prolonged saturation can delay DNS, LDAP, and authentication."
     },
     {
       "datasource": {
@@ -470,7 +491,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 4
+        "y": 8
       },
       "id": 6,
       "options": {
@@ -499,7 +520,8 @@
         }
       ],
       "title": "Memory usage",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Physical memory currently in use. Good: below 80%. Warning: 80-95%. Bad: above 95%. Sustained pressure can cause paging and slow AD DS, DNS, and other services."
     },
     {
       "datasource": {
@@ -569,7 +591,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 4
+        "y": 8
       },
       "id": 7,
       "options": {
@@ -598,7 +620,8 @@
         }
       ],
       "title": "C: drive usage",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Percentage of the system volume in use. Good: below 80%. Warning: 80-90%. Bad: above 90%. Low free space can prevent logs, updates, NTDS database growth, and normal Windows operation."
     },
     {
       "datasource": {
@@ -658,7 +681,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 12
+        "y": 16
       },
       "id": 8,
       "options": {
@@ -687,7 +710,8 @@
         }
       ],
       "title": "LDAP client sessions",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Current LDAP client sessions handled by each controller. There is no universal good/bad number; compare controllers and their normal baseline. An unexpected drop to zero or a sustained surge can indicate connectivity or workload problems."
     },
     {
       "datasource": {
@@ -751,7 +775,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 12
+        "y": 16
       },
       "id": 9,
       "options": {
@@ -780,7 +804,8 @@
         }
       ],
       "title": "AD replication pending",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Pending AD replication operations plus pending synchronizations. Good: 0. Bad: a persistent value above 0. A lasting backlog can mean a replication partner, network, DNS, or directory-service problem."
     },
     {
       "datasource": {
@@ -840,7 +865,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 12
+        "y": 16
       },
       "id": 10,
       "options": {
@@ -869,7 +894,8 @@
         }
       ],
       "title": "Inbound replicated objects",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Rate of directory objects updated through inbound replication. Activity is expected after directory changes; zero is normal when the domain is idle. Compare controllers and investigate long gaps when changes are known to be occurring."
     },
     {
       "datasource": {
@@ -929,7 +955,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 20
+        "y": 24
       },
       "id": 11,
       "options": {
@@ -958,7 +984,8 @@
         }
       ],
       "title": "DNS queries",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "DNS queries handled per second. There is no fixed good/bad rate; use this as a workload baseline. An unexpected drop to zero can indicate a DNS outage, while a sustained surge can indicate abnormal clients or load."
     },
     {
       "datasource": {
@@ -1022,7 +1049,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 20
+        "y": 24
       },
       "id": 12,
       "options": {
@@ -1051,7 +1078,8 @@
         }
       ],
       "title": "DNS failure rate",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Combined recursive-query, dynamic-update, and zone-transfer failures. Good: 0. Warning/Bad: persistent nonzero values; the panel marks 0.01 failures/second red. Failures can disrupt domain discovery, authentication, and replication."
     },
     {
       "datasource": {
@@ -1111,7 +1139,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 20
+        "y": 24
       },
       "id": 13,
       "options": {
@@ -1140,7 +1168,8 @@
         }
       ],
       "title": "DFSR received traffic",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Bytes per second received by DFS Replication. Traffic is expected during SYSVOL changes; zero is normal while idle. Compare controllers and investigate missing traffic when Group Policy or SYSVOL changes should be replicating."
     },
     {
       "datasource": {
@@ -1200,7 +1229,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 32
       },
       "id": 14,
       "options": {
@@ -1237,7 +1266,8 @@
         }
       ],
       "title": "Authentication failures and lockouts",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Security events for failed logons (4625) and account lockouts (4740). Good: 0 lockouts; occasional failed logons may be user error. Repeated failures or any unexpected lockout can indicate stale credentials, misconfiguration, or attack activity."
     },
     {
       "datasource": {
@@ -1248,7 +1278,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 32
       },
       "id": 15,
       "options": {
@@ -1272,7 +1302,8 @@
         }
       ],
       "title": "Recent warnings and errors",
-      "type": "logs"
+      "type": "logs",
+      "description": "Recent Warning, Error, and Critical events from the Windows channels selected in Alloy. Review recurring warnings and all Error/Critical events. Correlate timestamps with metric changes; not every warning requires action."
     }
   ],
   "refresh": "30s",
