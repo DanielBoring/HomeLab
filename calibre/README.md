@@ -22,7 +22,7 @@ chown -R 3001:3001 /mnt/SSD/Containers/calibre
 chown -R 3001:3001 /mnt/SSD/Containers/calibre-web
 ```
 
-Ensure your book library is accessible at `/mnt/Data/Media/Books` (mounted read-write into Calibre-Web at `/books`).
+Ensure your book library is accessible at `/mnt/Data/Media/Books`. It is mounted read-write into both containers at `/books`.
 
 ## Quick Start
 
@@ -46,8 +46,10 @@ Navigate to `https://<CALIBRE_DOMAIN>` for the Calibre desktop GUI or `https://<
 ### Calibre (first run)
 
 1. Open `http://<host-ip>:8085` in your browser.
-2. When prompted for a library location, set it to `/config/Calibre Library`.
+2. When prompted for a library location, set it to `/books`.
 3. Optionally enable the content server: **Preferences → Sharing → Content server → Start**.
+
+For an existing installation, use **Calibre Library → Switch/create library**, select **Use the previously existing library at the new location**, and set the location to `/books`.
 
 ### Calibre-Web (first run)
 
@@ -77,9 +79,9 @@ Navigate to `https://<CALIBRE_DOMAIN>` for the Calibre desktop GUI or `https://<
 
 | Data | Path |
 |---|---|
-| Calibre config and library | `/mnt/SSD/Containers/calibre` |
+| Calibre config | `/mnt/SSD/Containers/calibre` |
 | Calibre-Web config and database | `/mnt/SSD/Containers/calibre-web` |
-| Book library (shared, read-write) | `/mnt/Data/Media/Books` |
+| Book library (shared by Calibre and Calibre-Web, read-write) | `/mnt/Data/Media/Books` |
 
 ## Maintenance
 
