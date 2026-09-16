@@ -5,15 +5,33 @@ $ErrorActionPreference = "Stop"
 $sourceConfig = Join-Path $PSScriptRoot "config.alloy"
 $bookmarkDirectory = Join-Path $env:ProgramData "GrafanaLabs\Alloy\data\bookmarks"
 
-function Find-AlloyExecutable {
+function Get-AlloyServiceCommand {
     $service = Get-CimInstance -ClassName Win32_Service -Filter "Name='Alloy'" -ErrorAction SilentlyContinue
-    if ($service) {
-        $match = [regex]::Match($service.PathName, '^(?:"(?<path>[^"]+)"|(?<path>\S+))')
-        if ($match.Success -and (Test-Path -LiteralPath $match.Groups["path"].Value)) {
-            return $match.Groups["path"].Value
-        }
+    if (-not $service) {
+        return $null
     }
 
+    $match = [regex]::Match(
+        $service.PathName,
+        '^\s*(?:"(?<executable>[^"]+)"|(?<executable>\S+))\s+run\s+(?:"(?<config>[^"]+)"|(?<config>\S+))'
+    )
+    if (-not $match.Success) {
+        throw "The existing Alloy service command could not be interpreted: $($service.PathName)"
+    }
+
+    $executable = [Environment]::ExpandEnvironmentVariables($match.Groups["executable"].Value)
+    $config = [Environment]::ExpandEnvironmentVariables($match.Groups["config"].Value)
+    if (-not (Test-Path -LiteralPath $executable)) {
+        throw "The existing Alloy service references a missing executable: $executable"
+    }
+
+    return @{
+        Executable = $executable
+        Config     = $config
+    }
+}
+
+function Find-AlloyExecutable {
     foreach ($candidate in @(
         (Join-Path $env:ProgramFiles "GrafanaLabs\Alloy\alloy-windows-amd64.exe"),
         (Join-Path $env:ProgramFiles "GrafanaLabs\Alloy\alloy.exe")
@@ -33,8 +51,12 @@ function Find-AlloyExecutable {
     return $null
 }
 
-$alloyExe = Find-AlloyExecutable
-if (-not $alloyExe) {
+$serviceCommand = Get-AlloyServiceCommand
+if (-not $serviceCommand) {
+    $alloyExe = Find-AlloyExecutable
+}
+
+if (-not $serviceCommand -and -not $alloyExe) {
     if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
         throw "Alloy is not installed and winget.exe is unavailable."
     }
@@ -42,13 +64,18 @@ if (-not $alloyExe) {
     Write-Host "Alloy is not installed. Installing it with WinGet..."
     & winget.exe install --id GrafanaLabs.Alloy --exact --silent --accept-package-agreements --accept-source-agreements
     $wingetExitCode = $LASTEXITCODE
-    $alloyExe = Find-AlloyExecutable
-    if (-not $alloyExe) {
+    $serviceCommand = Get-AlloyServiceCommand
+    if (-not $serviceCommand) {
         throw "WinGet did not make Alloy available (exit code $wingetExitCode)."
     }
 }
 
-$targetConfig = Join-Path (Split-Path -Parent $alloyExe) "config.alloy"
+if (-not $serviceCommand) {
+    throw "Alloy is installed, but its Windows service is not registered."
+}
+
+$alloyExe = $serviceCommand.Executable
+$targetConfig = $serviceCommand.Config
 
 if (-not (Test-Path -LiteralPath $sourceConfig)) {
     throw "Configuration file not found at $sourceConfig."
