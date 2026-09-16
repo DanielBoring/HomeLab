@@ -6,12 +6,15 @@ Dashboard and visualization layer for the homelab. Connects to Prometheus (and o
 
 **Deploy the [prometheus](../prometheus/) stack first** — it creates the `monitoring` Docker network this stack requires.
 
-Create the persistent storage directories and set ownership:
+Create the persistent storage directory and set ownership:
 
 ```bash
-mkdir -p /mnt/SSD/Containers/grafana/provisioning/{datasources,dashboards}
+mkdir -p /mnt/SSD/Containers/grafana
 chown -R 3001:3001 /mnt/SSD/Containers/grafana
 ```
+
+Datasources and dashboards are provisioned directly from this repository's
+[`provisioning`](provisioning/) directory.
 
 ## Quick Start
 
@@ -66,6 +69,7 @@ The following plugins are pre-installed at startup:
 | Data | Path |
 |---|---|
 | Dashboards, users, settings | `/mnt/SSD/Containers/grafana` |
+| Provisioned datasources and dashboards | [`provisioning`](provisioning/) |
 
 ## Maintenance
 
