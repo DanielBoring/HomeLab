@@ -1,0 +1,124 @@
+// AD2 Windows Event Logs -> Loki
+loki.write "homelab" {
+  endpoint {
+    url = "http://10.0.5.10:3100/loki/api/v1/push"
+  }
+}
+
+// Avoid replaying Event Log entries older than Loki's seven-day ingest limit.
+loki.process "drop_old" {
+  stage.drop {
+    older_than          = "168h"
+    drop_counter_reason = "too_old"
+  }
+  forward_to = [loki.write.homelab.receiver]
+}
+
+loki.source.windowsevent "system" {
+  eventlog_name          = "System"
+  bookmark_path          = "C:\\ProgramData\\GrafanaLabs\\Alloy\\data\\bookmarks\\system.xml"
+  use_incoming_timestamp = true
+  labels = {
+    job     = "windows-eventlog",
+    host    = "AD2",
+    channel = "System",
+  }
+  forward_to = [loki.process.drop_old.receiver]
+}
+
+loki.source.windowsevent "application" {
+  eventlog_name          = "Application"
+  bookmark_path          = "C:\\ProgramData\\GrafanaLabs\\Alloy\\data\\bookmarks\\application.xml"
+  use_incoming_timestamp = true
+  labels = {
+    job     = "windows-eventlog",
+    host    = "AD2",
+    channel = "Application",
+  }
+  forward_to = [loki.process.drop_old.receiver]
+}
+
+loki.source.windowsevent "dns_server" {
+  eventlog_name          = "DNS Server"
+  bookmark_path          = "C:\\ProgramData\\GrafanaLabs\\Alloy\\data\\bookmarks\\dns-server.xml"
+  use_incoming_timestamp = true
+  labels = {
+    job     = "windows-eventlog",
+    host    = "AD2",
+    channel = "DNS Server",
+  }
+  forward_to = [loki.process.drop_old.receiver]
+}
+
+loki.source.windowsevent "directory_service" {
+  eventlog_name          = "Directory Service"
+  bookmark_path          = "C:\\ProgramData\\GrafanaLabs\\Alloy\\data\\bookmarks\\directory-service.xml"
+  use_incoming_timestamp = true
+  labels = {
+    job     = "windows-eventlog",
+    host    = "AD2",
+    channel = "Directory Service",
+  }
+  forward_to = [loki.process.drop_old.receiver]
+}
+
+loki.source.windowsevent "dfsr" {
+  eventlog_name          = "DFS Replication"
+  bookmark_path          = "C:\\ProgramData\\GrafanaLabs\\Alloy\\data\\bookmarks\\dfsr.xml"
+  use_incoming_timestamp = true
+  labels = {
+    job     = "windows-eventlog",
+    host    = "AD2",
+    channel = "DFS Replication",
+  }
+  forward_to = [loki.process.drop_old.receiver]
+}
+
+// Keep high-value security events without ingesting the entire high-volume log.
+loki.source.windowsevent "security" {
+  eventlog_name          = "Security"
+  xpath_query            = "*[System[(EventID=1102 or EventID=4625 or EventID=4720 or EventID=4722 or EventID=4723 or EventID=4724 or EventID=4725 or EventID=4726 or EventID=4732 or EventID=4733 or EventID=4740 or EventID=4768 or EventID=4769 or EventID=4771 or EventID=4776)]]"
+  bookmark_path          = "C:\\ProgramData\\GrafanaLabs\\Alloy\\data\\bookmarks\\security.xml"
+  use_incoming_timestamp = true
+  labels = {
+    job     = "windows-eventlog",
+    host    = "AD2",
+    channel = "Security",
+  }
+  forward_to = [loki.process.drop_old.receiver]
+}
+
+// AD, DNS, DFSR, OS, service, and per-process metrics -> Prometheus.
+prometheus.exporter.windows "local" {
+  enabled_collectors = [
+    "ad",
+    "cpu",
+    "dfsr",
+    "dns",
+    "logical_disk",
+    "memory",
+    "net",
+    "os",
+    "physical_disk",
+    "process",
+    "service",
+    "system",
+    "tcp",
+    "time",
+  ]
+}
+
+prometheus.scrape "windows" {
+  targets         = prometheus.exporter.windows.local.targets
+  forward_to      = [prometheus.remote_write.homelab.receiver]
+  scrape_interval = "15s"
+}
+
+prometheus.remote_write "homelab" {
+  endpoint {
+    url = "http://10.0.5.10:9999/api/v1/metrics/write"
+  }
+  external_labels = {
+    host = "AD2",
+  }
+}

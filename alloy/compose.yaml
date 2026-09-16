@@ -29,6 +29,8 @@ services:
       # OTLP — host-bound so external services can push telemetry directly
       - "${OTLP_GRPC_PORT:-4317}:4317"
       - "${OTLP_HTTP_PORT:-4318}:4318"
+      # Prometheus remote write — Windows Alloy agents send metrics here
+      - "${PROMETHEUS_RECEIVER_PORT:-9999}:9999"
     networks:
       - monitoring
       - traefik
