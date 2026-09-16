@@ -6,15 +6,12 @@ Dashboard and visualization layer for the homelab. Connects to Prometheus (and o
 
 **Deploy the [prometheus](../prometheus/) stack first** — it creates the `monitoring` Docker network this stack requires.
 
-Create the persistent storage directory and set ownership:
+Create the persistent storage directories and set ownership:
 
 ```bash
-mkdir -p /mnt/SSD/Containers/grafana
+mkdir -p /mnt/SSD/Containers/grafana/provisioning/{datasources,dashboards}
 chown -R 3001:3001 /mnt/SSD/Containers/grafana
 ```
-
-Datasources and dashboards are provisioned directly from this repository's
-[`provisioning`](provisioning/) directory.
 
 ## Quick Start
 
@@ -40,8 +37,8 @@ The Loki datasource is provisioned via [provisioning/datasources/loki.yml](provi
 
 ## Dashboards
 
-The **Active Directory Status** dashboard is provisioned from
-[`provisioning/dashboards/json/active-directory.json`](provisioning/dashboards/json/active-directory.json).
+The **Active Directory Status** dashboard can be imported in Grafana from
+[`dashboards/active-directory.json`](dashboards/active-directory.json).
 It combines AD1 and AD2 metrics from Prometheus with selected Windows Event Viewer
 warnings, errors, authentication failures, and account lockouts from Loki.
 
@@ -69,7 +66,6 @@ The following plugins are pre-installed at startup:
 | Data | Path |
 |---|---|
 | Dashboards, users, settings | `/mnt/SSD/Containers/grafana` |
-| Provisioned datasources and dashboards | [`provisioning`](provisioning/) |
 
 ## Maintenance
 
