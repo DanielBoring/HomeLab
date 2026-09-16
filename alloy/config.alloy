@@ -145,3 +145,14 @@ prometheus.remote_write "local" {
     url = "http://prometheus:9090/api/v1/write"
   }
 }
+
+// ── Prometheus remote-write receiver ─────────────────────────────────────────
+// Windows Alloy agents push metrics here; central Alloy forwards them to the
+// Prometheus container over the internal monitoring network.
+prometheus.receive_http "windows" {
+  http {
+    listen_address = "0.0.0.0"
+    listen_port    = 9999
+  }
+  forward_to = [prometheus.remote_write.local.receiver]
+}
