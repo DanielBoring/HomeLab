@@ -113,6 +113,35 @@ if (-not $serviceCommand) {
 $alloyExe = $serviceCommand.Executable
 $targetConfig = $serviceCommand.Config
 
+& $alloyExe --version
+$alloyStartExitCode = $LASTEXITCODE
+if ($alloyStartExitCode -eq -1073741515) {
+    if (-not (Get-Command winget.exe -ErrorAction SilentlyContinue)) {
+        throw "The installed Alloy binary is affected by the Windows DLL packaging issue fixed in Alloy 1.19.1, and winget.exe is unavailable to upgrade it."
+    }
+
+    Write-Host "The installed Alloy binary cannot start because of the v1.19.0 Windows DLL packaging issue. Upgrading Alloy..."
+    & winget.exe upgrade --id GrafanaLabs.Alloy --exact --silent --force --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) {
+        throw "WinGet could not upgrade the broken Alloy installation (exit code $LASTEXITCODE)."
+    }
+
+    $serviceCommand = Get-AlloyServiceCommand
+    if (-not $serviceCommand) {
+        throw "The Alloy service was not available after the upgrade."
+    }
+
+    $alloyExe = $serviceCommand.Executable
+    $targetConfig = $serviceCommand.Config
+    & $alloyExe --version
+    if ($LASTEXITCODE -ne 0) {
+        throw "Alloy still cannot start after the upgrade (exit code $LASTEXITCODE)."
+    }
+}
+elseif ($alloyStartExitCode -ne 0) {
+    throw "The installed Alloy executable could not start (exit code $alloyStartExitCode)."
+}
+
 if (-not (Test-Path -LiteralPath $sourceConfig)) {
     throw "Configuration file not found at $sourceConfig."
 }
@@ -127,9 +156,11 @@ foreach ($endpoint in @(
     }
 }
 
-& $alloyExe validate $sourceConfig
-if ($LASTEXITCODE -ne 0) {
-    throw "Alloy rejected the configuration."
+$validationOutput = & $alloyExe validate $sourceConfig 2>&1
+$validationExitCode = $LASTEXITCODE
+$validationOutput | ForEach-Object { Write-Host $_ }
+if ($validationExitCode -ne 0) {
+    throw "Alloy rejected the configuration (exit code $validationExitCode)."
 }
 
 New-Item -ItemType Directory -Path $bookmarkDirectory -Force | Out-Null
