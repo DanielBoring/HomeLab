@@ -40,7 +40,9 @@ The Loki datasource is provisioned via [provisioning/datasources/loki.yml](provi
 The **Active Directory Status** dashboard can be imported in Grafana from
 [`dashboards/active-directory.json`](dashboards/active-directory.json).
 It combines AD1 and AD2 metrics from Prometheus with selected Windows Event Viewer
-warnings, errors, authentication failures, and account lockouts from Loki.
+warnings, errors, authentication failures, and account lockouts from Loki. A
+reading guide and each panel's information tooltip explain healthy, warning, and
+problem conditions.
 
 Import dashboards by ID from [grafana.com/grafana/dashboards](https://grafana.com/grafana/dashboards). Useful starting points:
 
