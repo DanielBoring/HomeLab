@@ -106,6 +106,10 @@ prometheus.exporter.windows "local" {
     "tcp",
     "time",
   ]
+
+  dns {
+    enabled_list = ["metrics"]
+  }
 }
 
 prometheus.scrape "windows" {

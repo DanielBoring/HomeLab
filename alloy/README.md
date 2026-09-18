@@ -138,6 +138,8 @@ Ready-to-deploy Windows configurations are in [`windows/ad1`](windows/ad1) and [
 - A curated set of authentication and account-management Security events to Loki.
 - Windows, Active Directory, DNS, DFSR, service, and per-process metrics to Prometheus.
 
+The DNS collector uses its Perflib `metrics` subcollector only. The `wmi_stats` subcollector is disabled because the `MicrosoftDNS_Statistic` provider intermittently stalls on both Windows Server 2025 domain controllers, causing the entire Windows exporter scrape to exceed its deadline. Core DNS counters remain available as `windows_dns_*` metrics.
+
 Both destinations use the observability host at `10.0.5.10`. Loki listens on TCP `3100`; central Alloy receives Prometheus remote-write traffic on TCP `9999` and forwards it to Prometheus over the internal monitoring network. Restrict both host ports to trusted LAN clients.
 
 Copy the matching directory to each server and run its deployment script from an elevated PowerShell prompt:
