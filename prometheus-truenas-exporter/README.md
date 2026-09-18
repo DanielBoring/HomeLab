@@ -55,8 +55,35 @@ No `.env` file is needed — there are no configurable environment variables.
 Verify the exporter is reachable from within Prometheus:
 
 ```sh
-docker exec prometheus wget -qO- http://prometheus-truenas-exporter:9100/metrics | head -20
+docker exec prometheus wget -q -O /dev/null http://prometheus-truenas-exporter:9100/metrics
 ```
+
+This reads the complete response without printing it. Avoid piping `/metrics`
+through `head`: closing the connection early can generate hundreds of
+`error encoding and sending metric family` / `connection reset by peer` errors
+per request. The container healthcheck also reads the full response and preserves
+`wget`'s exit status.
+
+## TrueNAS exporter troubleshooting
+
+- **Filesystem permission errors under `/mnt/.ix-apps/docker/`:** these are
+  Docker's internal mounts, often duplicate views of datasets already monitored
+  at `/mnt/Data` and `/mnt/SSD`. The Compose configuration excludes these paths
+  while retaining Node Exporter's default mount exclusions. It does not exclude
+  the datasets' primary mountpoints or require changes to their ACLs. The `$$`
+  in the regex is Compose's escape for a literal `$` passed to Node Exporter.
+- **`node_scrape_collector_success` is zero:** this can mean that a collector
+  found no applicable data, not just that it encountered an operational failure.
+  Check exporter logs for `collector failed` before disabling collectors or
+  granting additional privileges. No-data results are logged at debug level.
+- **Exporter is up but filesystem metrics are incomplete:** check
+  `node_filesystem_device_error` independently of `up`; a successful HTTP scrape
+  does not guarantee that every filesystem was accessible.
+
+After updating the stack, redeploy it through your usual Compose or Portainer
+workflow. Verify that the encoding-error counter stops increasing and that
+filesystem sizes remain available at the primary dataset mountpoints. The image
+is pinned to `v1.12.1`, matching the version observed during troubleshooting.
 
 ## Prometheus scrape config
 

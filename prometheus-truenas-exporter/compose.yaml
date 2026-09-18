@@ -1,6 +1,6 @@
 services:
   prometheus-truenas-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.12.1
     container_name: prometheus-truenas-exporter
     restart: unless-stopped
     pid: host
@@ -12,13 +12,15 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9100/metrics | head -1 || exit 1"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9100/metrics"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
     command:
       - "--path.rootfs=/host"
+      # Preserve default exclusions and skip TrueNAS Docker's duplicate mounts.
+      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|mnt/\.ix-apps/docker/.+)($$|/)'
     volumes:
       - /:/host:ro,rslave
     networks:
