@@ -19,6 +19,7 @@ services:
       start_period: 30s
     command:
       - "--path.rootfs=/host"
+      - "--path.udev.data=/host/run/udev/data"
       # Preserve default exclusions and skip TrueNAS Docker's duplicate mounts.
       - '--collector.filesystem.mount-points-exclude=^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|mnt/\.ix-apps/docker/.+)($$|/)'
     volumes:

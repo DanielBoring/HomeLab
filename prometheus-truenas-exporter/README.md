@@ -37,7 +37,11 @@ Node Exporter runs without Traefik exposure — Prometheus reaches it directly b
 By default, a container only sees its own namespace. Two settings correct this:
 
 - **`pid: host`** — shares the host's process namespace, so CPU and memory metrics cover all TrueNAS processes, not just the container's own PID tree.
-- **`--path.rootfs=/host`** with `/:/host:ro` — Node Exporter reads `/host/proc`, `/host/sys`, and `/host/dev` instead of the container's virtual equivalents. This gives accurate disk I/O, filesystem, and network stats for the real hardware.
+- **`--path.rootfs=/host`** with `/:/host:ro,rslave` — lets filesystem collectors inspect the host's mountpoints through `/host`. It does not automatically change the separate procfs, sysfs, or udev paths.
+
+The separate `--path.udev.data=/host/run/udev/data` argument uses the existing
+read-only host mount to expose udev device metadata, such as disk models and
+serial numbers, without an additional mount or elevated privileges.
 
 ## Prerequisites
 
@@ -66,6 +70,13 @@ per request. The container healthcheck also reads the full response and preserve
 
 ## TrueNAS exporter troubleshooting
 
+- **`Failed to open directory, disabling udev device properties`:** the default
+  `/run/udev/data` points inside the container. The Compose configuration sets
+  `--path.udev.data=/host/run/udev/data` to read the host's database instead.
+  If the error persists after redeployment, verify that `/run/udev/data` exists
+  on TrueNAS and is readable through the container's host mount. Confirm the
+  startup error disappears and `node_disk_info` includes model/serial metadata
+  for supported disks; basic disk I/O metrics work independently of udev.
 - **Filesystem permission errors under `/mnt/.ix-apps/docker/`:** these are
   Docker's internal mounts, often duplicate views of datasets already monitored
   at `/mnt/Data` and `/mnt/SSD`. The Compose configuration excludes these paths
