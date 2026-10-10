@@ -1,0 +1,71 @@
+services:
+  printventory:
+    # Pin to a reviewed release. Review release notes before changing it.
+    image: printventory/printventory:${PRINTVENTORY_VERSION:-2.2.22}
+    container_name: printventory
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # Electron + headless Chromium render thumbnails; large libraries need headroom.
+    # V8 heap size auto-scales from this limit.
+    mem_limit: ${PRINTVENTORY_MEM_LIMIT:-4g}
+    mem_reservation: 1g
+    environment:
+      - TZ=${TZ:-America/New_York}
+      # Headless display / Chromium settings expected by the upstream image
+      - DISPLAY=:99
+      - PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+      - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - DCONF_DISABLE=1
+      - GIO_USE_VFS=local
+      - GIO_USE_VOLUME_MONITOR=unix
+      - DBUS_FATAL_WARNINGS=0
+      # Keep 3MF preview workers well below mem_limit — an OOM kills the whole process
+      - PRINTVENTORY_PREVIEW_3MF_WORKER_MEMORY_MB=${PRINTVENTORY_PREVIEW_3MF_WORKER_MEMORY_MB:-512}
+      - PRINTVENTORY_PREVIEW_3MF_MAX_FILE_SIZE_MB=${PRINTVENTORY_PREVIEW_3MF_MAX_FILE_SIZE_MB:-200}
+      - PRINTVENTORY_GPU=${PRINTVENTORY_GPU:-swiftshader}
+      # Seeds the library folder list on first start only (UI settings win afterwards)
+      - STL_HOME=/mnt/models
+      - STL_HOME_EXCLUDE=${PRINTVENTORY_STL_HOME_EXCLUDE:-}
+    volumes:
+      - printventory-data:/root/.config/printventory
+      - printventory-models:/mnt/models:ro
+    networks:
+      - traefik
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.printventory.rule=Host(`${PRINTVENTORY_DOMAIN}`)"
+      - "traefik.http.routers.printventory.entrypoints=websecure"
+      - "traefik.http.routers.printventory.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.printventory.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.printventory.service=printventory@docker"
+      - "traefik.http.services.printventory.loadbalancer.server.port=5000"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  printventory-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/SSD/Containers/printventory/data
+      o: bind
+  printventory-models:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PRINTVENTORY_MODELS_PATH:?Set PRINTVENTORY_MODELS_PATH in .env or Portainer}
+      o: bind
+
+networks:
+  traefik:
+    external: true
