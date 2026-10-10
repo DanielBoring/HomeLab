@@ -24,7 +24,7 @@ services:
       - manager-config:/app/config
       - manager-backups:/app/backups
       - /mnt/SSD/Containers/traefik/certs/acme.json:/app/acme.json:ro
-      - /mnt/SSD/Containers/traefik/traefik.yml:/app/traefik.yml:ro
+      - /mnt/SSD/Containers/traefik/traefik.yml:/app/traefik.yml:rw
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik-manager.rule=Host(`${TRAEFIK_MANAGER_DOMAIN}`)"

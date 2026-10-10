@@ -8,7 +8,7 @@ https://doc.traefik.io/traefik/getting-started/docker/
 
 | Setting | Value |
 |---|---|
-| Image | `traefik:v3.6` |
+| Image | `traefik:v3.7.13` |
 | IP | `10.0.5.5` (macvlan — dedicated LAN IP) |
 | HTTP port | 80 |
 | HTTPS port | 443 |
@@ -279,10 +279,14 @@ Shared middlewares and non-Docker routes live in `dynamic/middlewares.yml`, load
 
 ### Update image
 
+The image is pinned to `v3.7.13`. Change the tag in `compose.yaml` before upgrading to another release, and review the [v3 migration guide](https://doc.traefik.io/traefik/v3.7/migrate/v3/).
+
 ```bash
-docker compose pull
-docker compose up -d
+docker compose pull traefik
+docker compose up -d --no-deps traefik
 ```
+
+For a Git-backed Portainer stack, publish the updated Compose file to the configured branch before redeploying; local edits alone do not update the running stack. Recreating Traefik briefly interrupts proxied traffic but preserves its mounted configuration and certificates.
 
 ### Update config files
 

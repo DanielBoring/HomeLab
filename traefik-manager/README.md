@@ -7,7 +7,7 @@ A self-hosted web UI for managing Traefik reverse proxy configuration without ed
 traefik-manager runs as a single container that:
 
 - **Reads and writes** the Traefik dynamic config directory (`/mnt/SSD/Containers/traefik/dynamic`) — changes are picked up live by Traefik's `watch: true` file provider, so routes go active immediately without a Traefik restart.
-- **Reads (read-only)** the static config (`traefik.yml`) to display plugins and the ACME `acme.json` to display certificate expiry.
+- **Reads and writes** the static config (`traefik.yml`) for the Static Config and Plugins editors. The ACME `acme.json` remains read-only for displaying certificate expiry.
 - **Queries the Traefik API** at `http://traefik:8080` to show live router counts and service health — this requires `api.insecure: true` in `traefik.yml` (see Prerequisites).
 
 ```
@@ -41,7 +41,7 @@ mkdir -p /mnt/SSD/Containers/traefik-manager/{config,backups}
 ## Deployment
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # edit .env with your domain
 docker compose up -d
 ```
@@ -69,6 +69,7 @@ The following are hardcoded in `compose.yaml` since they are environment-wide co
 | `TRAEFIK_API_URL` | `http://traefik:8080` | Traefik API endpoint (requires `api.insecure: true`) |
 | `COOKIE_SECURE` | `true` | Required for HTTPS session cookies |
 | `CONFIG_DIR` | `/traefik-dynamic` | Maps to `/mnt/SSD/Containers/traefik/dynamic` |
+| `STATIC_CONFIG_PATH` | `/app/traefik.yml` | Writable host static configuration for the Static Config and Plugins editors |
 
 ## Volumes
 
@@ -78,4 +79,12 @@ The following are hardcoded in `compose.yaml` since they are environment-wide co
 | `/mnt/SSD/Containers/traefik-manager/config` | `/app/config` | rw | Manager settings and state |
 | `/mnt/SSD/Containers/traefik-manager/backups` | `/app/backups` | rw | Timestamped config backups |
 | `/mnt/SSD/Containers/traefik/certs/acme.json` | `/app/acme.json` | ro | Certificate data for the Certs tab |
-| `/mnt/SSD/Containers/traefik/traefik.yml` | `/app/traefik.yml` | ro | Static config for the Plugins tab |
+| `/mnt/SSD/Containers/traefik/traefik.yml` | `/app/traefik.yml` | rw | Static Config and Plugins editors |
+
+## Static Configuration Writes
+
+Manager needs write access to the static configuration file. A read-only mount triggers its "Storage is not writable" banner even when the settings and backup volumes are writable. Changing host file permissions cannot override a read-only Docker mount.
+
+After publishing this Compose change, redeploy the Manager stack to recreate the container with the writable mount; a container restart alone does not change mount permissions. Keep Traefik's own static-config mount and Manager's certificate mount read-only.
+
+Edits made in Manager change `/mnt/SSD/Containers/traefik/traefik.yml`, not the copy in this repository. Copy intentional changes back into the repository to keep them in sync. Static configuration changes require restarting Traefik; this stack does not configure a Manager restart method, so restart Traefik separately after saving.
