@@ -36,7 +36,7 @@ Do not rotate `SECRET_ENCRYPTION_KEY` unless you are intentionally resetting enc
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 $EDITOR .env
 docker compose up -d
 ```

@@ -27,7 +27,7 @@ mkdir -p /mnt/SSD/Containers/n8n/{data,postgres}
 ### 1. Configure environment
 
 ```bash
-cp example.env .env
+cp .env.example .env
 ```
 
 Generate the encryption key before starting — this value encrypts all credentials stored in workflows and **cannot be changed after first run** without making every saved credential unreadable:

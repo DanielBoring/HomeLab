@@ -70,7 +70,7 @@ Scrutiny will only see drives explicitly listed here. Drives not listed are sile
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set SCRUTINY_DOMAIN at minimum
 docker compose up -d
 ```

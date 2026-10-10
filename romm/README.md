@@ -65,7 +65,7 @@ Paste the output into `ROMM_AUTH_SECRET_KEY` in your `.env`.
 
 ```bash
 # 1. Fill in your secrets
-cp example.env .env
+cp .env.example .env
 $EDITOR .env
 
 # 2. Start the stack

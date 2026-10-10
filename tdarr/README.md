@@ -47,7 +47,7 @@ A second node on the gaming desktop connects to port 8266 over the LAN — see [
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set TDARR_DOMAIN
 docker compose up -d
 ```

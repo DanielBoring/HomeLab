@@ -39,7 +39,7 @@ mkdir -p /mnt/SSD/Containers/pegaprox/logs
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env with your domain
 docker compose up -d
 ```

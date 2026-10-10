@@ -46,7 +46,7 @@ sed -i "s/REPLACE_WITH_GENERATED_SECRET/$SECRET/" /mnt/SSD/Containers/searxng/co
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set SEARXNG_DOMAIN at minimum
 nano .env
 

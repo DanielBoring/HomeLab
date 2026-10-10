@@ -38,7 +38,7 @@ Both `traefik` and `monitoring` must already exist. Deploy `traefik/` and `prome
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set NTOPNG_DOMAIN and NTOPNG_ADMIN_PASSWORD
 docker compose up -d
 ```

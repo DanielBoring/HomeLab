@@ -41,7 +41,7 @@ The `traefik` external network must exist (deploy Traefik first).
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — fill in secrets and domain
 docker compose up -d
 ```

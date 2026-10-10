@@ -26,7 +26,7 @@ Heimdall is a standard nginx + PHP-FPM app. No external dependencies. Configurat
 ## Quick Start
 
 ```sh
-cp example.env .env
+cp .env.example .env
 docker compose up -d
 ```
 

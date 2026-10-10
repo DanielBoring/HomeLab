@@ -86,7 +86,7 @@ chown -R 3001:3001 /mnt/SSD/Containers/libation/config
 ### Step 5 — Start the Container
 
 ```bash
-cp example.env .env   # defaults are fine; adjust SLEEP_TIME if desired
+cp .env.example .env   # defaults are fine; adjust SLEEP_TIME if desired
 docker compose up -d
 docker compose logs -f
 ```

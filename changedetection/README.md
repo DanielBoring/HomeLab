@@ -50,7 +50,7 @@ Browser
 ## Quick Start
 
 ```sh
-cp example.env .env
+cp .env.example .env
 # Edit .env as needed
 docker compose up -d
 ```

@@ -57,7 +57,7 @@ chown -R 1000:1000 /mnt/SSD/Containers/unbound
 ### 1. Copy the environment template
 
 ```bash
-cp example.env .env
+cp .env.example .env
 ```
 
 ### 2. Edit .env if needed

@@ -25,7 +25,7 @@ mkdir -p /mnt/SSD/Containers/openwebui
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set OLLAMA_BASE_URL and OPENWEBUI_DOMAIN
 docker compose up -d
 ```

@@ -26,7 +26,7 @@ code-server listens on port 8443 internally. Traefik terminates TLS, so the brow
 ## Quick Start
 
 ```sh
-cp example.env .env
+cp .env.example .env
 # Fill in CODESERVER_PASSWORD and optionally CODESERVER_SUDO_PASSWORD
 docker compose up -d
 ```

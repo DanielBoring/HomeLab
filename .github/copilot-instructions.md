@@ -11,11 +11,11 @@ Every service directory follows this layout:
 ```
 service-name/
 ├── compose.yaml          # Docker Compose definition (required)
-├── .env.example          # Environment variable template (required, use this name for new services)
+├── .env.example           # Environment variable template (required, use this name for new services)
 └── README.md             # Service-specific documentation (required)
 ```
 
-Some services have additional config files (e.g., `traefik.yml`, `prometheus.yml`, `config.alloy`). The `.env.example` naming is preferred for new services — some older services still use `example.env`.
+Some services have additional config files (e.g., `traefik.yml`, `prometheus.yml`, `config.alloy`). Every service uses `.env.example` as its committed template (copy to `.env`, which is gitignored).
 
 ## Compose File Standards
 

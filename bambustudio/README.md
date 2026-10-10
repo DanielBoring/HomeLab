@@ -28,7 +28,7 @@ The container runs Bambu Studio inside a KasmVNC session and streams it to the b
 ## Quick Start
 
 ```sh
-cp example.env .env
+cp .env.example .env
 # Fill in BAMBUSTUDIO_USER and BAMBUSTUDIO_PASSWORD
 docker compose up -d
 ```

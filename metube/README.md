@@ -31,7 +31,7 @@ chown -R 3001:3001 /mnt/Data/Media/Downloads/Untube /mnt/SSD/Containers/metube
 ## Quick start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set METUBE_DOMAIN at minimum
 docker compose up -d
 ```

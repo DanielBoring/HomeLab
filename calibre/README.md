@@ -27,7 +27,7 @@ Ensure your book library is accessible at `/mnt/Data/Media/Books`. It is mounted
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set CALIBRE_DOMAIN and CALIBRE_WEB_DOMAIN
 docker compose up -d
 ```

@@ -51,7 +51,7 @@ Paste the outputs into `.env`.
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — fill in LINKWARDEN_DOMAIN, POSTGRES_PASSWORD, NEXTAUTH_SECRET
 docker compose up -d
 docker compose logs -f app

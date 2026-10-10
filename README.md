@@ -260,6 +260,15 @@ remain behind Traefik.
 - **Access**: `https://<BAMBUDDY_DOMAIN>` (via Traefik, LAN only)
 - **Documentation**: See [bambuddy/README.md](bambuddy/README.md)
 
+### Printventory
+LAN-only library manager for 3D-printable files (STL, 3MF, OBJ, STEP) with
+thumbnails, search, tagging, and print/filament tracking. The model library is
+mounted read-only.
+
+- **Location**: [`/printventory`](printventory/)
+- **Access**: `https://<PRINTVENTORY_DOMAIN>` (via Traefik, LAN only)
+- **Documentation**: See [printventory/README.md](printventory/README.md)
+
 ### code-server
 Browser-based VS Code development environment.
 
@@ -387,7 +396,7 @@ Each service follows a consistent structure:
 cd <service-name>
 
 # Copy environment template (if exists)
-cp example.env .env  # Only for services requiring secrets
+cp .env.example .env  # Only for services requiring secrets
 
 # Edit configuration
 nano .env  # Customize as needed
@@ -422,6 +431,7 @@ HomeLab/
 ├── calibre/                        # Calibre + Calibre-Web ebook manager
 ├── bambustudio/                    # Browser-accessible Bambu Studio GUI
 ├── bambuddy/                       # LAN-only Bambu Lab printer management
+├── printventory/                   # 3D model library manager
 ├── retroarch/                      # Browser-accessible RetroArch GUI
 ├── romm/                           # ROM library manager and scraper
 ├── changedetection/                # Website change detection and monitoring
@@ -464,14 +474,14 @@ HomeLab/
 This repository follows security best practices:
 
 - **Environment Variables**: Secrets are stored in `.env` files (gitignored)
-- **Templates**: `example.env` files provide configuration templates
+- **Templates**: `.env.example` files provide configuration templates
 - **Never Committed**: Actual secrets are never committed to version control
 - **Unique Per Service**: Each service manages its own secrets
 
 ### Protected Files
 
 The following files are automatically excluded from version control:
-- `.env`, `.env.local`, `.env.*.local` - Environment files with secrets
+- `.env` and every `.env.*` variant (`.env.local`, `.env.prod`, `.env.bak`, …) - Environment files with secrets. The one exception is `.env.example`, the committed template (`!.env.example`, GitHub's standard dotenv pattern)
 - `compose.override.yaml` - Docker override files that may contain secrets
 - `*.log` - Log files that might contain sensitive information
 - IDE and OS-specific files
@@ -521,6 +531,7 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Bambu Studio Data**: `/mnt/SSD/Containers/bambustudio`
 - **Bambu Buddy Data**: `/mnt/SSD/Containers/bambuddy/data`
 - **Bambu Buddy Logs**: `/mnt/SSD/Containers/bambuddy/logs`
+- **Printventory Data**: `/mnt/SSD/Containers/printventory/data`
 - **RetroArch Data**: `/mnt/SSD/Containers/retroarch`
 - **Changedetection Data**: `/mnt/SSD/Containers/changedetection`
 - **code-server Data**: `/mnt/SSD/Containers/code-server`
@@ -599,6 +610,19 @@ Services are deployed and managed via **Portainer GitOps**:
 Environment variables are stored per-stack in Portainer — not in `.env` files on the host.
 
 ## Maintenance
+
+### Image Updates
+
+Two tools cover image updates, depending on how a stack tags its image:
+
+| Tag style | Example | Tool | What happens |
+|---|---|---|---|
+| **Pinned** | `traefik:v3.7.13`, `grafana/grafana:11.6.1` | **Dependabot** ([.github/dependabot.yml](.github/dependabot.yml)) | Weekly PR bumping the tag. One `docker-compose` entry with `directories: ["/*"]` covers every service directory, including new ones |
+| **Floating** | `:latest` | **WUD** ([wud/](wud/)) | Notification that a newer image exists; nothing changes in git |
+
+> **Merging a Dependabot PR deploys it.** Portainer polls `main` and redeploys changed stacks within about 5 minutes (see [Deployment](#deployment)). Read the release notes and take any pre-upgrade backup (e.g. a database dump) **before** merging. Postgres major-version bumps need a dump and restore, not a plain merge.
+
+Pin a stack's image when an unreviewed upgrade could break it, for example when the upgrade runs database migrations. That's how a stack gets Dependabot coverage. Image refs built from `${VARIABLES}` aren't detected, so hardcode the tag.
 
 ### Backing Up Data
 

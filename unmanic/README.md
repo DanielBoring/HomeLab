@@ -44,7 +44,7 @@ Then install the VAAPI plugin in the Unmanic UI and set the encoder to `hevc_vaa
 
 ## Quick Start
 
-1. `cp example.env .env` and set `UNMANIC_DOMAIN`
+1. `cp .env.example .env` and set `UNMANIC_DOMAIN`
 2. Create host directories (see Prerequisites)
 3. `docker compose up -d`
 4. Open `https://<UNMANIC_DOMAIN>` — complete the setup wizard

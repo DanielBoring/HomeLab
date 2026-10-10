@@ -41,7 +41,7 @@ Add a record for `retroarch.yourdomain.com` → `10.0.5.5` (Traefik).
 ## Quick Start
 
 ```sh
-cp example.env .env
+cp .env.example .env
 # Fill in RETROARCH_USER, RETROARCH_PASSWORD, verify INTEL_DRI_NODE
 docker compose up -d
 ```

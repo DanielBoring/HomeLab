@@ -42,7 +42,7 @@ chown -R 1000:1000 /mnt/SSD/Containers/ocis
 ## Quick Start
 
 1. Create host directories and set ownership (see above).
-2. Copy `example.env` → `.env` and fill in all values.
+2. Copy `.env.example` → `.env` and fill in all values.
 3. Generate secrets if you want them pre-set:
    ```bash
    openssl rand -hex 32  # run three times — JWT, transfer, machine auth

@@ -38,7 +38,7 @@ Media files are accessed via NFS mount from TrueNAS. Transcode scratch space is 
 ## Quick Start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # Edit .env — set TDARR_SERVER_IP and TRUENAS_IP to the TrueNAS LAN IP
 docker compose up -d
 ```

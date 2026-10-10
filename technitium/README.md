@@ -48,7 +48,7 @@ The container is on the `traefik` network so the web UI is proxied by Traefik. D
 ## Quick start
 
 ```bash
-cp example.env .env
+cp .env.example .env
 # edit .env — set TECHNITIUM_ADMIN_PASSWORD and TECHNITIUM_DOMAIN
 docker compose up -d
 ```

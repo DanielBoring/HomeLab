@@ -1,7 +1,9 @@
-# Environment files with secrets
+# Environment files with secrets (GitHub's standard dotenv pattern):
+# ignore .env and every .env.* variant (.env.local, .env.prod, .env.bak, ...),
+# but keep the committed .env.example template.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 *.env.local
 
 # SSL/TLS private keys and certificates
