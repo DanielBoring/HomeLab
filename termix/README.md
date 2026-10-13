@@ -4,6 +4,8 @@
 
 Run it when you want a quick way to reach your homelab hosts from any browser (a phone, a borrowed laptop, a tablet) without setting up a full bastion or VPN client.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

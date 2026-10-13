@@ -1,5 +1,7 @@
 # Technitium DNS Server
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## What it is
 
 Technitium DNS Server is a self-hosted, authoritative and recursive DNS server with a full web-based admin UI. It replaces the Pi-hole + Unbound combination with a single service that handles:

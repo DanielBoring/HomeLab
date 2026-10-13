@@ -4,6 +4,8 @@ Prometheus Node Exporter exposes hardware and OS-level metrics from the TrueNAS 
 
 [https://github.com/prometheus/node_exporter](https://github.com/prometheus/node_exporter)
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## What it exposes
 
 | Metric group | Examples |

@@ -4,6 +4,8 @@ Website change monitoring with automatic alerts. Point it at any URL and it noti
 
 When to run this over alternatives like Visualping or built-in browser features: ChangeDetection is self-hosted, stores full history, supports complex filtering (XPath, CSS selectors, regex), and integrates with nearly every notification service via Apprise. It also handles JavaScript-heavy sites that simpler HTTP-polling tools can't reach.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

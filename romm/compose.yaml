@@ -1,6 +1,6 @@
 services:
   romm:
-    image: rommapp/romm:latest
+    image: rommapp/romm:5.4.0@sha256:03295f95a6290e752641f9553ac4198b0e5b71b879d57f7b2371b98f608feb54
     container_name: romm
     restart: unless-stopped
     user: "3001:3001"
@@ -20,7 +20,7 @@ services:
     volumes:
       - romm-resources:/romm/resources
       - romm-redis-data:/redis-data
-      - romm-library:/romm/library
+      - romm-library:/romm/library:ro
       - romm-assets:/romm/assets
       - romm-config:/romm/config
     networks:
@@ -45,7 +45,7 @@ services:
         max-file: "3"
 
   romm-db:
-    image: mariadb:lts
+    image: mariadb:12.3.3@sha256:2bdff1534a7e569fecaf4b10b66ad0d410806e382d9db29ba305448addda97c4
     container_name: romm-db
     restart: unless-stopped
     security_opt:

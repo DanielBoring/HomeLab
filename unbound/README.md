@@ -4,6 +4,8 @@ A validating, recursive, caching DNS resolver. Unbound resolves DNS queries by w
 
 Used in this homelab as the upstream recursive resolver for Pi-hole, replacing the default forwarders (8.8.8.8, 1.1.1.1) with a fully self-hosted DNS chain.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Why run a recursive resolver?
 
 When Pi-hole forwards queries to 8.8.8.8 or 1.1.1.1, Google or Cloudflare sees every domain you look up. Unbound eliminates that:
@@ -31,7 +33,7 @@ Root DNS servers → TLD servers → Authoritative servers
 
 | Setting | Value |
 |---|---|
-| Image | `mvance/unbound:latest` |
+| Image | `mvance/unbound`, digest-pinned in [compose.yaml](compose.yaml) |
 | Access | DNS only — no web UI |
 | Host port | `${UNBOUND_PORT:-5335}` (UDP + TCP) |
 | Config | `/mnt/SSD/Containers/unbound` |

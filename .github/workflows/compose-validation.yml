@@ -1,0 +1,38 @@
+name: Compose validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose-validation:
+    name: Validate Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out proposed changes
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install checker dependency
+        run: python3 -m pip install --disable-pip-version-check -r .github/scripts/requirements.txt
+
+      - name: Test the checker
+        run: python3 -B -m unittest discover -s .github/scripts -p 'test_*.py' -v
+
+      - name: Validate all stacks and summarize image changes
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: python3 -B .github/scripts/validate_compose.py --base-ref "$BASE_REF"

@@ -4,6 +4,8 @@ ntopng is a web-based network traffic analysis and monitoring tool by [ntop](htt
 
 **Why you'd use it over UniFi's built-in stats:** UniFi reports aggregate bandwidth per device; ntopng shows individual flows, application breakdown (e.g., "which app on which host used 4 GB last night"), and historical trend data. It complements UniFi-Poller's device-health metrics with deep per-flow visibility.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

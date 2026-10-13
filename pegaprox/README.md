@@ -6,6 +6,8 @@ A web-based management interface for Proxmox VE clusters. It gives you a single 
 
 **When it makes sense:** If you have a Proxmox cluster (even a single node) and want a lightweight management UI that's accessible via a standard HTTPS domain on your LAN.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

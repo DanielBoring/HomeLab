@@ -4,6 +4,8 @@ Self-hosted bookmark manager. Saves links with full-page snapshots, PDFs, and re
 
 Run it when you want bookmarks that outlast the pages they point to and don't live in a browser profile tied to one machine.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```
@@ -102,10 +104,14 @@ docker compose up -d
 
 ### Restore
 
+Restore first to an isolated host with the same application and PostgreSQL versions. Verify the archive and encrypted environment backup before downtime. Do not delete the current database or archived content; preserve it for rollback. On the Linux host, replace the backup filename below with your verified archive:
+
 ```bash
+tar -tzf /path/to/linkwarden-backup.tar.gz
 docker compose down
-# Remove existing data, restore from backup
-rm -rf /mnt/SSD/Containers/linkwarden/{db,data}
-tar -xzf linkwarden-backup-<date>.tar.gz -C /
+mv /mnt/SSD/Containers/linkwarden "/mnt/SSD/Containers/linkwarden.pre-restore-$(date +%Y%m%d-%H%M%S)"
+tar -xzf /path/to/linkwarden-backup.tar.gz -C /
 docker compose up -d
 ```
+
+Preserve numeric ownership from the archive, verify login and archived content, and retain the old directory until recovery is confirmed. If extraction fails, leave the stack stopped rather than initializing a new empty instance.

@@ -7,6 +7,8 @@ Tdarr is a distributed media transcoding automation platform. It scans a media l
 - You want Plex to Direct Play more often (fewer transcodes = less CPU/GPU load at watch time)
 - You have idle GPU cycles that could be doing useful work overnight
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

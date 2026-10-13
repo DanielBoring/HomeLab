@@ -2,6 +2,8 @@
 
 Exports Proxmox VE cluster and node metrics to Prometheus via a `/pve` endpoint on port `9221`.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Prerequisites
 
 - `prometheus` deployed first — the exporter joins the `monitoring` Docker network it creates

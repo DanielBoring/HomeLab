@@ -4,6 +4,8 @@ OwnCloud Infinite Scale is the modern, ground-up rewrite of OwnCloud — built i
 
 **Why run OCIS instead of Nextcloud?** OCIS is significantly lighter, starts faster, and has lower operational overhead (no DB to manage). The trade-off is a smaller app ecosystem — OCIS does not have Nextcloud's breadth of first-party apps. It's a strong fit if you want self-hosted file sync/share without the complexity.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

@@ -4,6 +4,8 @@ RomM (ROM Manager) is a self-hosted game library manager with a slick web UI. It
 
 Run it when you want a Plex-style experience for your game collection: clean cover art, descriptions, release dates, and the ability to browse by platform, genre, or franchise from any device on your LAN.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```
@@ -20,6 +22,8 @@ romm-db:3306  (MariaDB LTS)
 ```
 
 RomM ships with an embedded Redis/Valkey instance for session management and caching — no separate Redis container is needed. The Redis data volume must be mounted at `/redis-data`, which is where the current RomM image writes its embedded Redis snapshots. The ROM library at `/mnt/Data/Media/ROMs` is mounted read-only from RomM's perspective but can be written to by other processes on the host.
+
+Read-only library mounting prevents RomM uploads, deletion, or reorganization of ROM files. Manage those files on the host, then rescan. Existing deployments become read-only when this Compose change is explicitly redeployed.
 
 ## Prerequisites
 
@@ -51,7 +55,7 @@ RomM expects ROMs grouped into platform folders using RetroArch-style slugs:
 └── ...
 ```
 
-See the [full platform slug list](https://docs.romm.app/latest/ROMs-Management/Folder-Structure/) in the RomM docs. Folders that don't match a known slug are shown as "unknown platform" and can be manually mapped in the UI.
+Consult the [official RomM documentation](https://docs.romm.app/latest/) for the folder structure supported by your selected release. Folders that don't match a known slug can require manual platform mapping in the UI.
 
 ### 3. Generate an auth secret key
 
@@ -118,7 +122,7 @@ Add keys to `.env` and `docker compose up -d` to reload — no rebuild needed.
 
 ## Notes
 
-- **mariadb:lts** is used instead of `mariadb:latest` — pinning to the LTS tag avoids surprise major-version upgrades that require manual data migration steps. Update intentionally with `docker compose pull` when you're ready.
+- **RomM `5.4.0` and MariaDB `12.3.3` are pinned with verified digests to the already-running images.** Replacing the old `mariadb:lts` reference does not select a newer database. Before future updates, review migrations and back up the complete restore set. Never change an existing database major without its supported migration procedure.
 - **Port 8080** is RomM's internal container port — no host port is exposed, Traefik handles all routing.
-- **`restart: true`** in `depends_on` means Docker will restart RomM if MariaDB restarts, re-establishing the DB connection automatically.
+- **`restart: true`** in `depends_on` restarts RomM after explicit Compose-controlled database updates/restarts; it does not propagate automatic container-runtime restarts.
 - **Redis/Valkey writes to `/redis-data`**. If this is mounted elsewhere, Docker may create an anonymous volume at `/redis-data`; the embedded Redis process can then fail snapshot persistence and raise `MISCONF` / `stop-writes-on-bgsave-error` errors.

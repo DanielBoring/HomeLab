@@ -4,6 +4,8 @@ Grafana Alloy is a vendor-neutral OpenTelemetry collector and observability pipe
 
 [https://grafana.com/docs/alloy/latest/](https://grafana.com/docs/alloy/latest/)
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## What it collects
 
 | Source | How | Destination |
@@ -53,15 +55,16 @@ Or paste the contents directly in a TrueNAS shell: `nano /mnt/SSD/Containers/all
 
 ### Docker socket access
 
-Alloy runs as the `alloy` user inside the container. It reads `/var/run/docker.sock` for container log discovery. If logs from Docker containers are not appearing, the socket permissions on the host may need adjustment:
+Alloy reads `/var/run/docker.sock` for container log discovery. The Compose file does not override the image's user; verify the selected image's effective UID/GID before changing access:
 
 ```sh
 # Check current permissions
 ls -la /var/run/docker.sock
 
-# If needed, add the alloy user's GID (473) to the docker group, or run:
-chmod 666 /var/run/docker.sock
+docker compose exec alloy id
 ```
+
+Do not make the socket world-writable. A `:ro` socket mount does not restrict Docker API operations; daemon access is privileged. If a non-root image user cannot connect, grant only the verified socket group using an explicit `group_add` configuration, or use a restricted Docker API proxy that supports the required discovery/log endpoints.
 
 ### DNS
 
@@ -70,18 +73,16 @@ Add a record for `alloy.yourdomain.com` → `10.0.5.5` (Traefik).
 ## Quick Start
 
 ```sh
-# 1. Bring down the loki stack first (Promtail is being replaced)
-cd loki && docker compose down
-
-# 2. Start Alloy
-cd alloy && docker compose up -d
-
-# 3. Restart the loki stack (without Promtail)
-cd loki && docker compose up -d
-
-# 4. Restart Prometheus to pick up the remote-write-receiver flag and new scrape job
-cd prometheus && docker compose up -d
+# Run on the Linux host from the repository root after completing each stack's prerequisites.
+# Deploy Traefik, then Prometheus, then Loki using their README instructions.
+cd alloy
+cp .env.example .env
+nano .env
+docker compose config --quiet
+docker compose up -d
 ```
+
+The `traefik` and `monitoring` networks must already exist, and Loki/Prometheus must be available. There is no Promtail service in the current repository; a fresh Alloy deployment does not require stopping Loki. For an older installation, retire its old log shipper separately after verifying Alloy delivery.
 
 Navigate to `https://alloy.yourdomain.com` for the debug UI. The **Graph** tab shows the live pipeline and whether each component is healthy.
 
@@ -149,7 +150,7 @@ Set-Location C:\path\to\ad2
 .\deploy.ps1
 ```
 
-If Alloy is missing, the script installs it silently with WinGet. It then verifies both network endpoints, validates the Alloy configuration, creates the Event Log bookmark directory, installs the configuration, and restarts the Alloy service.
+If Alloy is missing, the script downloads and installs the pinned signed Alloy installer directly. It then verifies both network endpoints, validates the Alloy configuration, creates the Event Log bookmark directory, installs the configuration, and restarts the Alloy service. Review the script and its installer version before running it.
 
 Verify logs in Grafana with:
 

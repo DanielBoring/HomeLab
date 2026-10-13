@@ -2,6 +2,8 @@
 
 Homarr is a self-hosted dashboard for organizing homelab apps and services. It provides a drag-and-drop UI, built-in Docker integration, health/status widgets, and app tiles without maintaining a large YAML dashboard by hand.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```
@@ -52,5 +54,5 @@ Access Homarr at `https://${HOMARR_DOMAIN}`.
 
 ## Notes
 
-- The Docker socket is mounted read-only so Homarr can discover containers without giving it write access to the Docker daemon.
+- The Docker socket has a read-only filesystem mount, but that does not prevent Docker API writes. Treat Homarr's socket access as privileged; restrict who can use its Docker integration or provide a suitably restricted API proxy.
 - The healthcheck uses `/api/health/live`, not `/`. Hitting `/` as an unauthenticated healthcheck can trigger repeated `No home board found` errors in Homarr logs because the homepage route tries to resolve a default board.

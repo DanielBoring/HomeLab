@@ -1,6 +1,6 @@
 services:
   semaphore:
-    image: semaphoreui/semaphore:v2.17.26
+    image: semaphoreui/semaphore:v2.17.26@sha256:c1014fb19f816a8cce37fc5fea4c8e8917ca9775a4fa8ab68231f2556ce7eea9
     container_name: semaphore
     restart: unless-stopped
     security_opt:

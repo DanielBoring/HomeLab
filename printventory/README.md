@@ -8,6 +8,8 @@ Spoolman integration), and "open in slicer" shortcuts. Printventory started as
 an Electron desktop app. This stack runs its **Server Mode** Docker image, so
 any browser on the LAN can browse the library.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Why and when to use it
 
 Use it if your models are spread across years of downloads and project folders
@@ -111,7 +113,6 @@ Docker fails to start the container if it doesn't.
 | Variable | Default | Purpose |
 |---|---|---|
 | `PRINTVENTORY_DOMAIN` | — (required) | Hostname for the Traefik router. |
-| `PRINTVENTORY_VERSION` | `2.2.22` | Image tag on Docker Hub (`printventory/printventory`). Pinned on purpose: upstream releases very frequently. |
 | `PRINTVENTORY_MODELS_PATH` | — (required) | Host path of your model library, bind-mounted read-only at `/mnt/models`. |
 | `PRINTVENTORY_STL_HOME_EXCLUDE` | empty | Comma-separated container paths to skip during scans, e.g. `/mnt/models/cache`. Applied only while the exclude list in the UI is empty. |
 | `PRINTVENTORY_MEM_LIMIT` | `4g` | Container memory cap. The app's V8 heap auto-sizes from it. |
@@ -168,5 +169,8 @@ docker start printventory
 ```
 
 To upgrade, read the [release notes](https://github.com/TechJeeper/Printventory/releases)
-and take a backup. Then bump `PRINTVENTORY_VERSION` and redeploy the stack.
+and take a backup. Then review an image-update PR or update both the tag and
+digest in `compose.yaml` before redeploying the stack. Existing
+`PRINTVENTORY_VERSION` values in `.env` or Portainer no longer select the image
+and can be removed during your next planned settings update.
 Don't use the in-app updater with this Git-managed stack.

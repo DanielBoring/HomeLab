@@ -2,6 +2,8 @@
 
 A self-hosted web UI for managing Traefik reverse proxy configuration without editing YAML files by hand. Supports adding/editing/removing HTTP routes, building middlewares from templates, viewing TLS certificate status, and creating timestamped backups of your dynamic config.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 traefik-manager runs as a single container that:

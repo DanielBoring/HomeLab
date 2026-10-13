@@ -1,6 +1,6 @@
 services:
   changedetection:
-    image: lscr.io/linuxserver/changedetection.io:latest
+    image: lscr.io/linuxserver/changedetection.io:0.60.9-ls318@sha256:67bd3ffea040c456465f3d12677acfc9c63a48eb062a9df131b9dc9e9bbae332
     container_name: changedetection
     hostname: changedetection
     security_opt:
@@ -40,7 +40,7 @@ services:
         max-file: "3"
 
   playwright-chrome:
-    image: dgtlmoon/sockpuppetbrowser:latest
+    image: dgtlmoon/sockpuppetbrowser@sha256:1d8f72d2ce2085faed4232e5ae1e65c02efe5b831a18e127829b267c260b4fb2
     container_name: changedetection-playwright
     hostname: changedetection-playwright
     security_opt:

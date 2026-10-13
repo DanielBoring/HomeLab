@@ -9,6 +9,8 @@ Gitea is a self-hosted, lightweight Git service — think GitHub but running on 
 - You're running a homelab CI/CD pipeline and want an on-prem trigger source
 - You want to host packages (npm, Docker images, PyPI, etc.) alongside your code
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

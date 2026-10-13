@@ -2,11 +2,13 @@
 
 Self-hosted uptime monitoring with a clean web UI. Monitors services via HTTP/HTTPS, TCP, DNS, and more, with alerting via a wide range of notification providers.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Overview
 
 | Setting | Value |
 |---|---|
-| Image | `louislam/uptime-kuma:2` |
+| Image | `louislam/uptime-kuma`, digest-pinned in [compose.yaml](compose.yaml) |
 | Access | `https://<UPTIME_KUMA_DOMAIN>` (via Traefik) |
 | Config | `/mnt/SSD/Containers/uptime-kuma` |
 

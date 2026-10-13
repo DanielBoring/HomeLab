@@ -35,11 +35,11 @@ Web-based terminal emulator for remote system access.
 - **Documentation**: See [termix/README.md](termix/README.md)
 
 ### Prometheus
-Metrics collection and storage. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and proxmox-exporter attach to.
+Metrics collection and storage with 30-day retention. Prometheus scrapes monitoring services through the `monitoring` Docker network and Traefik through the `traefik` network. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and proxmox-exporter attach to.
 
 - **Location**: [`/prometheus`](prometheus/)
 - **Access**: `https://<PROMETHEUS_DOMAIN>` (via Traefik, LAN only)
-- **Deploy before Grafana, Unpoller, and proxmox-exporter** — it creates the `monitoring` network
+- **Deploy after Traefik and before monitoring consumers**: it joins `traefik` and creates `monitoring` for Grafana, Loki, Alloy, Unpoller, and exporters.
 - **Documentation**: See [prometheus/README.md](prometheus/README.md)
 
 ### Grafana
@@ -132,13 +132,6 @@ Open-source home automation platform. Connects to thousands of devices and servi
 - **Location**: [`/homeassistant`](homeassistant/)
 - **Access**: `https://<HOMEASSISTANT_DOMAIN>` (via Traefik) and `http://<host-ip>:8123` (direct, for companion app)
 - **Documentation**: See [homeassistant/README.md](homeassistant/README.md)
-
-### What's Up Docker (WUD)
-Watches running containers and notifies you when a newer image is available. Passive by default — it won't touch your containers; it sends Discord notifications and shows a dashboard of what's outdated and by how much.
-
-- **Location**: [`/wud`](wud/)
-- **Access**: `https://<WUD_DOMAIN>` (via Traefik, LAN only)
-- **Documentation**: See [wud/README.md](wud/README.md)
 
 ### phpIPAM
 Open-source IP address management tool. Tracks subnet allocations, individual IP assignments, VLANs, VRFs, and devices — a searchable source of truth for network addressing. Lighter-weight than NetBox and purpose-built for IP management.
@@ -384,8 +377,13 @@ Automated media library optimization and transcoding worker.
 ### Prerequisites
 
 - Docker Engine 20.10+
-- Docker Compose V2
+- Docker Compose 2.23.1 or later (Loki uses inline `configs.content`)
 - Linux host with sufficient storage for container volumes
+
+Prepare each stack's host files and environment before deployment. Start Traefik
+first to create `traefik`, then Prometheus to create `monitoring`, then the
+monitoring consumers. Traefik does not depend on `monitoring`; Prometheus reaches
+its metrics endpoint at `traefik:8082` through their shared `traefik` bridge.
 
 ### General Deployment Pattern
 
@@ -395,8 +393,8 @@ Each service follows a consistent structure:
 # Navigate to service directory
 cd <service-name>
 
-# Copy environment template (if exists)
-cp .env.example .env  # Only for services requiring secrets
+# Copy the environment template, including domain and port settings
+cp .env.example .env
 
 # Edit configuration
 nano .env  # Customize as needed
@@ -425,7 +423,6 @@ HomeLab/
 ├── dozzle/                         # Real-time Docker log viewer
 ├── uptime-kuma/                    # Uptime monitoring (HTTP, TCP, DNS)
 ├── scrutiny/                       # S.M.A.R.T. drive health monitoring
-├── wud/                            # What's Up Docker — container update notifications
 ├── nextcloud/                      # Self-hosted file sync and collaboration
 ├── paperless-ngx/                  # Document management with OCR
 ├── calibre/                        # Calibre + Calibre-Web ebook manager
@@ -523,7 +520,6 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Semaphore Config**: `/mnt/SSD/Containers/semaphore/config`
 - **Semaphore Tmp**: `/mnt/SSD/Containers/semaphore/tmp`
 - **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
-- **WUD Store**: `/mnt/SSD/Containers/wud`
 - **Dozzle Data**: `/mnt/SSD/Containers/dozzle`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
@@ -613,16 +609,100 @@ Environment variables are stored per-stack in Portainer — not in `.env` files 
 
 ### Image Updates
 
-Two tools cover image updates, depending on how a stack tags its image:
+Dependabot opens weekly pull requests for image version updates through
+[.github/dependabot.yml](.github/dependabot.yml). The `docker-compose` entry uses
+`directories: ["/*"]` to cover every top-level service directory, including new
+ones. GitHub Actions dependencies have a separate weekly update entry.
 
-| Tag style | Example | Tool | What happens |
-|---|---|---|---|
-| **Pinned** | `traefik:v3.7.13`, `grafana/grafana:11.6.1` | **Dependabot** ([.github/dependabot.yml](.github/dependabot.yml)) | Weekly PR bumping the tag. One `docker-compose` entry with `directories: ["/*"]` covers every service directory, including new ones |
-| **Floating** | `:latest` | **WUD** ([wud/](wud/)) | Notification that a newer image exists; nothing changes in git |
+On October 12, 2026, image references for 48 services in 32 stacks were frozen
+to registry manifests verified against their running TrueNAS images. This
+selects the already-running software, not a newer release. The remaining 26
+services in 16 stacks were absent from that inventory; their references remain
+unchanged and must not be treated as verified pins.
+
+An image **digest** (`@sha256:...`) is an exact content fingerprint. For 35
+services, a release tag was also verified and recorded as
+`repository:version@sha256:...`. For 13 services without a verified release
+tag, the reference is `repository@sha256:...`; do not invent a version from a
+build label. Registry manifest digests are pullable references; local Docker
+image IDs are not interchangeable with them.
+
+Dependabot reads the files in GitHub, not the images running on TrueNAS. Its
+Compose parser supports version tags and digest references, but a digest alone
+does not identify a release number or whether an update is breaking. For a
+digest-only proposal, verify the upstream release and update stream before
+approving it. Unpinned moving tags still need a separate running-image inventory
+and version-selection plan.
+
+Keep image references literal in Compose. Even where Dependabot parses a
+`${VARIABLE:-default}` reference, an override in `.env` or Portainer can make
+an updated default ineffective. Printventory's image is now managed directly
+in Compose, not through `PRINTVENTORY_VERSION`.
 
 > **Merging a Dependabot PR deploys it.** Portainer polls `main` and redeploys changed stacks within about 5 minutes (see [Deployment](#deployment)). Read the release notes and take any pre-upgrade backup (e.g. a database dump) **before** merging. Postgres major-version bumps need a dump and restore, not a plain merge.
 
-Pin a stack's image when an unreviewed upgrade could break it, for example when the upgrade runs database migrations. That's how a stack gets Dependabot coverage. Image refs built from `${VARIABLES}` aren't detected, so hardcode the tag.
+To update a pinned image, review the upstream release notes, migration
+requirements, and backups, then review a Dependabot PR or change the image
+reference in Compose. Update both the version tag and digest when both are
+present; changing only the tag leaves the old digest in control. Keep Nextcloud
+and its cron service on the same image reference. `docker compose pull` alone
+does not advance a pin to a newer release.
+
+Local file edits do not deploy anything. A later Portainer redeployment can
+recreate containers and apply other configuration changes in the same revision,
+so review the complete change before publishing. Neither image pinning nor a
+passing PR check establishes application compatibility or migration safety.
+
+#### Pull request checks
+
+[Compose validation](.github/workflows/compose-validation.yml) runs the
+**Validate Compose** job on every pull request, including Dependabot PRs, on
+pushes to `main`, and on manual workflow dispatch. It:
+
+- Tests the checker, then validates every Git-tracked or new, non-ignored
+  Compose stack with Docker Compose, including all profiles.
+- Uses dummy settings, bypasses default `.env` loading and service `env_file`
+  resolution, and isolates Docker configuration from local credentials.
+- Checks digest syntax and matching Nextcloud application/cron images.
+- Adds a PR run summary comparing images with the base commit, including
+  database-major, repository-change, and unclassifiable-version warnings.
+
+Image warnings require human review; they do not fail the job. The check does
+not pull images, contact HomeLab infrastructure, deploy services, run application
+health checks, or test database migrations. It cannot establish that an image
+exists in its registry or that a tag agrees with its digest.
+
+The workflow uses GitHub-hosted runners, read-only repository permissions, and
+no HomeLab secrets. It does not configure merge protection or auto-merge. To
+prevent merges with failing checks, a repository owner must separately require
+the **Validate Compose** check in a branch protection rule or ruleset after
+the workflow is published. A direct push to `main` can be redeployed by
+Portainer before its push checks finish.
+
+For a local check, use Python 3.10+ with the pinned dependency in
+[requirements.txt](.github/scripts/requirements.txt) and Docker Compose with
+`config --no-env-resolution` and `--no-path-resolution` support. The checker
+supports independent stack files; `include` and `extends` are rejected to avoid
+loading additional settings sources. New required settings may need a typed
+dummy value in the checker; a passing dummy check is not a check of actual
+Portainer settings. Dependabot also reviews the checker dependency weekly.
+
+From the repository root on **Windows/PowerShell**:
+
+```powershell
+python -B -m unittest discover -s .github\scripts -p "test_*.py" -v
+python -B .github\scripts\validate_compose.py --base-ref HEAD
+```
+
+On **Linux**, use `python3` and `.github/scripts` paths instead. Without
+`--base-ref`, the checker validates all current stacks but skips image comparison.
+
+### Retired update monitor
+
+WUD is retired in favor of Dependabot review through GitHub. Its old named volume
+`wud_wud-store` and host data at `/mnt/SSD/Containers/wud` are intentionally
+preserved for rollback. They are not part of an active stack; do not delete them
+or include them in volume-pruning cleanup without a separate retention decision.
 
 ### Backing Up Data
 

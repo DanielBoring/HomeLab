@@ -2,15 +2,17 @@
 
 Real-time Docker log viewer. Streams container logs to a browser UI via the Docker socket — stateless, no log storage.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Services
 
 | Service | Port | Description |
 |---|---|---|
-| dozzle | 8087 | Web UI (proxied via Traefik) |
+| dozzle | 8080 internal / 8087 host default | Web UI; Traefik uses internal port 8080 |
 
 ## Prerequisites
 
-No persistent storage directory needed — Dozzle is stateless. The `/data` volume only stores user settings and alert configs. It is created automatically by Docker as a named volume bound to:
+Dozzle does not retain container logs, but `/data` persists user settings and alert configuration. Its named volume binds to an existing host directory:
 
 ```
 /mnt/SSD/Containers/dozzle
@@ -45,7 +47,7 @@ Navigate to `https://<DOZZLE_DOMAIN>` to access the web UI.
 
 | Variable | Default | Description |
 |---|---|---|
-| `TZ` | `America/New_York` | Timezone |
+| `TZ` | `UTC` in Compose; `America/New_York` in template | Timezone |
 | `DOZZLE_HOSTNAME` | `homelab` | Display name for this host in the UI |
 | `DOZZLE_AUTH_PROVIDER` | `none` | Auth mode: `none`, `simple`, `forward-proxy` |
 | `DOZZLE_ENABLE_MCP` | `true` | Enable the read-only MCP endpoint at `/api/mcp` |
@@ -57,11 +59,13 @@ Commented-out options in `compose.yaml`:
 | Variable | Description |
 |---|---|
 | `DOZZLE_AUTH_TTL` | Persist auth sessions (e.g. `48h`) — requires `DOZZLE_AUTH_PROVIDER=simple` |
-| `DOZZLE_ENABLE_ACTIONS` | Allow start/stop/restart from UI — requires removing `:ro` from socket mount |
-| `DOZZLE_ENABLE_SHELL` | Allow shell access to containers — requires removing `:ro` from socket mount |
+| `DOZZLE_ENABLE_ACTIONS` | Allow start/stop/restart from UI; disabled unless deliberately configured |
+| `DOZZLE_ENABLE_SHELL` | Allow shell access to containers; disabled unless deliberately configured |
 | `DOZZLE_REMOTE_AGENT` | Connect to remote Dozzle agents (e.g. `host1:7007,host2:7007`) |
 | `DOZZLE_FILTER` | Limit visible containers by name or label (e.g. `name=myapp*`) |
 | `DOZZLE_LEVEL` | Log verbosity: `debug`, `info`, `warn`, `error` |
+
+A read-only socket mount does not restrict Docker API methods. Socket access is privileged even with actions/shell disabled. The direct host port also bypasses Traefik middleware; with `DOZZLE_AUTH_PROVIDER=none`, restrict all access paths to trusted clients.
 
 ## Storage
 
@@ -143,7 +147,7 @@ docker run -d \
   --restart unless-stopped \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -p 7007:7007 \
-  amir20/dozzle:latest agent
+  amir20/dozzle:v11.3.1@sha256:ba65da5af3d2147cfc2ee68ea5a6e35b75d2dff7eeff226151a65c9d77831c02 agent
 ```
 
 Or as a compose service if you prefer:
@@ -151,7 +155,7 @@ Or as a compose service if you prefer:
 ```yaml
 services:
   dozzle-agent:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v11.3.1@sha256:ba65da5af3d2147cfc2ee68ea5a6e35b75d2dff7eeff226151a65c9d77831c02
     container_name: dozzle-agent
     command: agent
     restart: unless-stopped

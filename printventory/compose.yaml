@@ -1,7 +1,7 @@
 services:
   printventory:
     # Pin to a reviewed release. Review release notes before changing it.
-    image: printventory/printventory:${PRINTVENTORY_VERSION:-2.2.22}
+    image: printventory/printventory:2.2.22@sha256:45129d4af41b443b30743f1462e65fc3b9ecb5524c398642d55ddebb9db2fd80
     container_name: printventory
     restart: unless-stopped
     security_opt:

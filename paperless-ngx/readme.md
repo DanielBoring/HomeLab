@@ -2,6 +2,8 @@
 
 Self-hosted document management system. OCRs, indexes, and archives documents — making them full-text searchable with automatic classification by correspondent, document type, and tags.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Services
 
 | Service | Port | Description |

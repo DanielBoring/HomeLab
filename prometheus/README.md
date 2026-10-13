@@ -1,22 +1,27 @@
 # Prometheus
 
-Metrics collection and storage for the homelab. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and proxmox-exporter attach to.
+Metrics collection and storage for the homelab with 30-day retention. Prometheus joins `traefik` for its web route and the Traefik scrape target. This stack **owns and creates** the shared `monitoring` network used by Grafana, Loki, Alloy, Unpoller, and exporters.
+
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
 
 ## Architecture
 
 ```
-[traefik :8082]   [unpoller :9130]   [proxmox-exporter :9221]
-        \                |                  /
-         └──────── prometheus:9090 ─────────
-                         │
-                   monitoring network
-                         │
-                [grafana, unpoller, ...]
+[traefik :8082] -------- traefik bridge ------+
+                                            |
+                                     prometheus:9090
+                                            |
+                                      monitoring bridge
+                                        /         \
+                         [unpoller :9130]     [proxmox-exporter :9221]
+                         [grafana, loki, alloy, ...]
 ```
 
-Prometheus scrapes all targets via the `monitoring` bridge network. The OTLP receiver is also enabled, accepting push-based metrics at `/api/v1/otlp/v1/metrics`.
+Prometheus scrapes monitoring services through the `monitoring` bridge and Traefik through the shared `traefik` bridge. The OTLP receiver is also enabled, accepting push-based metrics at `/api/v1/otlp/v1/metrics`.
 
 ## Prerequisites
+
+Deploy [Traefik](../traefik/README.md) first to create `traefik`. Run the commands below from this repository's `prometheus` directory on the Linux host.
 
 Create the persistent storage directory, copy the config, and set ownership:
 
@@ -53,7 +58,7 @@ scrape_configs:
       - targets: ["my-container:port"]
 ```
 
-The target container must be on the `monitoring` Docker network. Reload from a shell that can reach the Prometheus container:
+The target container must share a Docker network with Prometheus. Use `monitoring` for monitoring services; Traefik's existing `traefik:8082` target uses the shared `traefik` bridge. Neither scrape path requires a published host port. Reload from a shell that can reach the Prometheus container:
 
 ```bash
 docker exec prometheus wget --quiet --method=POST -O- http://localhost:9090/-/reload

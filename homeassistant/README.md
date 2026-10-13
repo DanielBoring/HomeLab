@@ -83,10 +83,10 @@ Point your subdomain at the Traefik macvlan IP:
 
 ### 5. Configure trusted proxies (required for Traefik)
 
-After the container starts, edit `/mnt/SSD/Containers/homeassistant/configuration.yaml` and add:
+After the container starts, merge the settings below into the existing `http:` section of `/mnt/SSD/Containers/homeassistant/configuration.yaml`; do not overwrite the complete configuration or create a duplicate section. The repository's `configuration.yaml` is a reference, not an automatically installed file. Check the configuration mechanism supported by your selected Home Assistant version.
 
 ```yaml
-homeassistant:
+http:
   use_x_forwarded_for: true
   trusted_proxies:
     - 172.16.0.0/12   # Docker bridge networks
@@ -100,6 +100,8 @@ docker compose restart homeassistant
 ```
 
 Without this, HA will see the Traefik container IP as every client's address. This causes false IP ban triggers and breaks Lovelace WebSocket connections.
+
+Trust only the actual proxy address or required Docker subnet in production; the example ranges are broad. Direct host-port access bypasses Traefik middleware and must be restricted separately.
 
 ### 6. Access
 

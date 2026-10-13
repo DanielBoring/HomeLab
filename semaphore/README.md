@@ -4,6 +4,8 @@
 
 Run it when you want to trigger Ansible playbooks from a browser or schedule them on a cron, share automation access with others without giving them SSH access to your hosts, or just keep a history of what ran and what it output.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

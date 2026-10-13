@@ -2,6 +2,8 @@
 
 Open WebUI running as a Docker container on TrueNAS, connected to a remote Ollama instance.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```

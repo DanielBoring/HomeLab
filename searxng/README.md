@@ -2,6 +2,8 @@
 
 SearXNG is a privacy-respecting, self-hosted metasearch engine. It aggregates results from dozens of search engines (Google, Bing, DuckDuckGo, etc.) without tracking you, storing queries, or serving ads. Use it as your default browser search engine to get broad results without the surveillance.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Why SearXNG
 
 - No query logging, no user profiles, no ads

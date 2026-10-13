@@ -2,6 +2,8 @@
 
 Dashboard and visualization layer for the homelab. Connects to Prometheus (and optionally Loki) over the shared `monitoring` Docker network. The Prometheus datasource is provisioned automatically — no manual setup needed after first login.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Prerequisites
 
 **Deploy the [prometheus](../prometheus/) stack first** — it creates the `monitoring` Docker network this stack requires.

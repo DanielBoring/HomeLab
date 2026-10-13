@@ -4,6 +4,8 @@
 
 Run it when you want to automate between internal services (Grafana alerts → Gotify, Gitea webhooks → Semaphore runs, NAS events → notifications), integrate with external APIs without building a custom app, or replace a paid automation SaaS with something you control.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```
@@ -73,7 +75,10 @@ On first access n8n will prompt you to create an owner account. Complete this im
 
 ## Updating
 
-n8n is pinned to `latest`. To update to a new release:
+n8n is pinned to the verified running `2.42.7` image plus its digest. Before
+updating, review release notes and backups, then update the reviewed tag and
+digest in `compose.yaml` (or review a Dependabot PR). From this directory,
+deploy the selected image:
 
 ```bash
 docker compose pull

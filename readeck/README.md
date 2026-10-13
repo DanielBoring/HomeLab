@@ -4,6 +4,8 @@ Self-hosted read-later app. Save articles, pages, and links from any device; Rea
 
 Run it when you want a Pocket/Instapaper replacement that keeps your reading list on your own infrastructure.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
 ```
@@ -92,9 +94,14 @@ docker compose up -d
 
 ### Restore
 
+Verify the archive and securely retained environment settings first. Restore the same image version on an isolated host where possible. The following Linux-host commands preserve the existing instance instead of deleting it; run each step only after the preceding step succeeds:
+
 ```bash
+tar -tzf /path/to/readeck-backup.tar.gz
 docker compose down
-rm -rf /mnt/SSD/Containers/readeck/data
-tar -xzf readeck-backup-<date>.tar.gz -C /
+mv /mnt/SSD/Containers/readeck "/mnt/SSD/Containers/readeck.pre-restore-$(date +%Y%m%d-%H%M%S)"
+tar -xzf /path/to/readeck-backup.tar.gz -C /
 docker compose up -d
 ```
+
+Preserve archived numeric ownership, verify bookmarks and article content, and keep the preserved directory until recovery is confirmed. Do not start the stack if extraction failed.

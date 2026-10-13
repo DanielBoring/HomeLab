@@ -90,10 +90,13 @@ docker compose up -d
 
 ### Re-authenticate
 
-If the node loses authentication, delete the state directory and redeploy:
+First inspect the node's status and follow the supported Tailscale reauthentication flow. Do not routinely delete state: it contains the node identity and registration.
+
+If a deliberate identity reset is necessary, arrange alternative host access first. Stop the stack and preserve the complete directory in a protected backup rather than deleting it. Recreate the required directory with its original ownership before redeployment, then reauthenticate and review the new identity's approvals/routes in the admin console. The reset can interrupt remote access and may register a different node.
 
 ```bash
 docker compose down
-rm -rf /mnt/SSD/Containers/tailscale/*
-docker compose up -d
+mv /mnt/SSD/Containers/tailscale "/mnt/SSD/Containers/tailscale.pre-reset-$(date +%Y%m%d-%H%M%S)"
 ```
+
+Do not start the stack until directory preparation, an appropriate authentication method, and a rollback/access plan are ready. Keep the preserved state private.

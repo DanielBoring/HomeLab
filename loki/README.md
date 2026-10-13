@@ -2,6 +2,8 @@
 
 Log aggregation backend. Loki stores and indexes logs; Grafana queries it as a datasource. Log shipping is handled by **Grafana Alloy** (`alloy/`) which replaced Promtail — deploy Alloy separately after this stack is up.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Prerequisites
 
 ### 1. Create storage directory

@@ -7,13 +7,22 @@ updates:
     schedule:
       interval: "weekly"
 
+  # Dependency used by the read-only Compose validation checker.
+  - package-ecosystem: "pip"
+    directory: "/.github/scripts"
+    schedule:
+      interval: "weekly"
+
   # Docker Compose — every top-level service directory's compose.yaml.
   # "docker-compose" (not "docker") is the ecosystem that reads compose files;
   # "docker" only reads Dockerfiles, which this repo doesn't have.
   # The glob picks up new service directories automatically — no entry to add.
-  # Dependabot only opens PRs for pinned image tags (e.g. grafana:11.6.1).
-  # Images using :latest or other floating tags are silently skipped (WUD
-  # covers those), as are image refs built from ${VARIABLES}.
+  # Prefer verified version+digest references; verified digest-only pins freeze
+  # running images whose release tag cannot be established.
+  # Dependabot reads repository files, not running containers. Digest-only
+  # proposals need upstream release/update-stream review; a digest is not a
+  # release number or a compatibility guarantee. Keep image references literal
+  # so runtime environment overrides cannot defeat a reviewed update.
   - package-ecosystem: "docker-compose"
     directories:
       - "/*"
