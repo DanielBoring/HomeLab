@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16.15-alpine@sha256:3c5c8892d184f738f4fe282d14ddaa613a38f00f4189d2d94725ebe6f2909ddb
+    image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     container_name: linkwarden-db
     restart: unless-stopped
     security_opt:
