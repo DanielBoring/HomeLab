@@ -28,7 +28,7 @@ services:
       - postgres
 
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     container_name: arcane-postgres
     restart: unless-stopped
     networks:
