@@ -17,7 +17,7 @@ Most smart home ecosystems require a cloud account and send your usage data to a
 
 ## Architecture
 
-```
+```text
 Companion app / browser
         │
         ▼
@@ -77,7 +77,7 @@ docker compose up -d
 
 Point your subdomain at the Traefik macvlan IP:
 
-```
+```text
 <HOMEASSISTANT_DOMAIN>  A  10.0.5.5
 ```
 
@@ -105,7 +105,7 @@ Trust only the actual proxy address or required Docker subnet in production; the
 
 ### 6. Access
 
-```
+```text
 https://<HOMEASSISTANT_DOMAIN>
 ```
 
@@ -136,9 +136,16 @@ devices:
 
 ### Network mode note
 
-This compose file uses the `traefik` Docker network (bridge mode) for Traefik integration. Bridge mode works for all USB-based integrations. However, **if you need mDNS, Bluetooth, or broadcast-based device discovery** (e.g. Matter, Thread, some smart TV integrations), you will need `network_mode: host` instead.
+This stack uses bridge networking. Discovery and Bluetooth depend on the
+integration and additional device/D-Bus requirements; host networking is not a
+universal USB/Bluetooth fix. Review the selected integration before redesigning
+network access.
 
-With `network_mode: host`, Traefik labels stop working — remove them and access HA on the direct port only. The `trusted_proxies` block in `configuration.yaml` also becomes unnecessary.
+Host mode changes direct exposure and published-port behavior. If adopted,
+review Traefik provider reachability or configure an explicit file-provider
+route; labels are not automatically a working route. Keep trusted-proxy settings
+whenever any reverse proxy remains in use. Do not remove proxy safeguards merely
+because the network mode changed.
 
 ## Maintenance
 
@@ -149,20 +156,20 @@ docker compose pull
 docker compose up -d
 ```
 
-Pin to a specific release tag in `compose.yaml` to prevent surprise breaking changes:
-
-```yaml
-image: lscr.io/linuxserver/homeassistant:2025.4.4
-```
+This un-inventoried image still needs deployed-build evidence or an explicit
+release selection before it can be frozen. Do not copy an arbitrary old release
+tag as a downgrade. Review the selected version and its integration migrations,
+then use a verified literal tag/digest.
 
 HA releases monthly (e.g. `2025.4.x`). Review the [release notes](https://www.home-assistant.io/blog/categories/release-notes/) before updating — integrations occasionally have breaking changes.
 
 ### Backup
 
-```bash
-docker compose down
-tar -czf homeassistant-backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/homeassistant
-docker compose up -d
-```
+Preserve the entire config directory (including hidden credentials, recorder
+database and custom components), original image/settings and any external
+integration recovery keys. Stop writers before the
+[shared cold backup/restore procedure](../README.md#backing-up-data). Restore
+at the same version and test login, history and devices with automations
+disabled; do not actuate lights/locks/heating merely to prove recovery.
 
 HA also has a built-in backup tool under **Settings → System → Backups** that can be automated via an automation.

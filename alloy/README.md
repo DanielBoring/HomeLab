@@ -21,7 +21,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Docker socket ──────────────────────────────────┐
 /var/log/journal ────────────────────────────── Alloy ──→ Loki
 Network devices (UDP/TCP :514) ─────────────────┤
@@ -46,6 +46,9 @@ mkdir -p /mnt/SSD/Containers/alloy
 ```
 
 Copy `config.alloy` from this repo to TrueNAS before deploying — the container bind-mounts it from an absolute path, so it must exist on the host first:
+The transfer example runs from the checkout root on the source machine;
+host-directory preparation runs on Linux. Preserve an existing host config
+before replacing it.
 
 ```sh
 scp alloy/config.alloy truenas:/mnt/SSD/Containers/alloy/config.alloy
@@ -180,3 +183,17 @@ otelcol.exporter.otlp "tempo" {
 ```
 
 Then wire `traces = [otelcol.exporter.otlp.tempo.input]` in the `otelcol.receiver.otlp` output block.
+
+## Operations and recovery
+
+Restrict all published syslog/OTLP/remote-write listeners to trusted senders;
+Traefik's UI middleware does not protect ingestion ports. Verify components,
+recent logs and delivery of a harmless log/metric in the backend, not just the
+debug UI.
+
+Preserve host config, original images/settings and Alloy's persistent positions
+state if replay continuity matters. Stop Alloy before archiving that state with
+the [shared recovery procedure](../README.md#backing-up-data); restore at the
+same version/ownership after Loki/Prometheus exist. Retain Windows agents'
+configs/bookmarks separately. Replaying from changed positions can duplicate or
+miss records; review component/config changes before updating the digest.

@@ -4,11 +4,11 @@ Bambu Studio is the official slicing software for Bambu Lab 3D printers, providi
 
 **When to use this over the desktop app:** If you want a single always-available slicing environment with your profiles and filament libraries in one place, or if you need to slice from a tablet, thin client, or any machine without a local install.
 
-[https://docs.linuxserver.io/images/docker-bambustudio/]
+[LinuxServer image documentation](https://docs.linuxserver.io/images/docker-bambustudio/)
 
 ## Architecture
 
-```
+```text
 Browser (HTTPS) → Traefik (TLS termination) → bambustudio:3000 (KasmVNC HTTP)
 ```
 
@@ -47,7 +47,11 @@ Navigate to `https://bambustudio.yourdomain.com` and log in with your configured
 | `BAMBUSTUDIO_PASSWORD` | — | KasmVNC basic auth password |
 | `DARK_MODE` | `true` | Enable dark mode in the web UI |
 
-### Optional variables (add to `.env` as needed)
+### Optional upstream settings (Compose changes required)
+
+These are not passed by the base stack. Adding them to `.env` alone does
+nothing: deliberately merge the corresponding environment entries into the
+service, then recreate it. GPU device exposure needs a separate reviewed mount.
 
 | Variable | Description |
 |---|---|
@@ -65,3 +69,22 @@ devices:
 environment:
   - DRINODE=/dev/dri/renderD128
 ```
+
+Merge these keys into the existing service; do not replace its environment
+block and lose credentials/PUID settings. No GPU devices are exposed by default.
+
+## Operations and recovery
+
+Run shell examples on Linux from `bambustudio/`. Give the selected PUID/PGID
+access to the fresh config path; preserve existing ACLs rather than recursively
+changing a restored tree. Check `docker compose ps` and
+`docker compose logs --tail 100 bambustudio`; successful deployment means the
+authenticated desktop opens and saved profiles load, not merely that it runs.
+Restrict this interactive desktop to trusted users.
+
+Close Studio and stop the container before preserving the whole config path
+(profiles, projects and stored printer/account credentials), original
+images/settings and separately stored models. Follow the
+[shared recovery procedure](../README.md#backing-up-data). Restore at the same
+version, test opening a saved project without sending a print, and review
+profile/config migrations before image changes.

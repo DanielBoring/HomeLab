@@ -18,6 +18,9 @@ services:
       - SUDO_PASSWORD=${CODESERVER_SUDO_PASSWORD}
       - PROXY_DOMAIN=${CODESERVER_DOMAIN}
       - DEFAULT_WORKSPACE=/config/workspace
+      - HASHED_PASSWORD=${HASHED_PASSWORD:-}
+      - SUDO_PASSWORD_HASH=${SUDO_PASSWORD_HASH:-}
+      - PWA_APPNAME=${PWA_APPNAME:-code-server}
     volumes:
       - code-server-data:/config
     networks:

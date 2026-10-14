@@ -8,6 +8,17 @@ Self-hosted application management platform for homelabs. Provides a web UI for 
 
 This setup follows security best practices by using **environment variables** for secrets instead of hardcoding them in the compose file. This prevents sensitive credentials from being exposed in version control.
 
+It does not hide settings from Docker administrators. Arcane mounts the Docker
+socket with write access; anyone controlling Arcane can gain powerful host
+control. Host port 3552 bypasses Traefik and must be restricted to trusted
+clients. Read the [shared safeguards](../README.md#shared-operational-safeguards).
+
+Commands below are for Bash on the Linux host, from `arcane/`. Before a new
+deployment, create `/mnt/SSD/Containers/arcane` and
+`/mnt/SSD/Containers/arcane-postgres`; grant the app path to the configured
+`PUID:PGID` (default `3001:3001`) and leave database ownership to PostgreSQL.
+Do not recursively change restored database ownership.
+
 ## Quick Start
 
 ### 1. Copy the environment template
@@ -28,7 +39,7 @@ openssl rand -hex 32
 openssl rand -hex 32
 
 # Generate database password (strong random password)
-openssl rand -base64 32
+openssl rand -hex 32
 ```
 
 ### 3. Edit the .env file
@@ -40,6 +51,9 @@ nano .env  # or vim, code, etc.
 ```
 
 Replace the placeholder values with the secrets you generated above.
+Set `DATABASE_URL` separately to the PostgreSQL connection URL using the same
+user, password and database settings and host `postgres:5432`. A hex password is
+URL-safe; otherwise URL-encode it in the URL, not in `POSTGRES_PASSWORD`.
 
 ### 4. Start the services
 
@@ -70,7 +84,8 @@ These **MUST** be set in your `.env` file before starting:
 |----------|-------------|-----------------|
 | `ENCRYPTION_KEY` | Used to encrypt sensitive data at rest | `openssl rand -hex 32` |
 | `JWT_SECRET` | Used to sign authentication tokens | `openssl rand -hex 32` |
-| `POSTGRES_PASSWORD` | Database password | `openssl rand -base64 32` |
+| `POSTGRES_PASSWORD` | Database initialization password | `openssl rand -hex 32` |
+| `DATABASE_URL` | App connection URL; must match the database account | Construct privately with matching settings |
 
 ### Optional Configuration
 
@@ -103,7 +118,7 @@ When secrets are hardcoded in configuration files:
 Using environment variables for secrets provides:
 - ✅ Secrets stored **outside version control**
 - ✅ **Different secrets** per environment
-- ✅ **Easy rotation** (just update `.env` and restart)
+- ✅ **Separate credential configuration** (rotation still needs the application's supported account/key procedure)
 - ✅ **Access control** (only deployment systems need production secrets)
 - ✅ **Industry standard** security practice
 
@@ -133,10 +148,10 @@ Using environment variables for secrets provides:
    - 64 hex characters for encryption keys and JWT secrets
    - Never use dictionary words or predictable patterns
 
-4. **Rotate secrets regularly**
-   - Change passwords quarterly
-   - Especially after team member changes
-   - After any suspected security incident
+4. **Rotate credentials through supported procedures**
+   - Revoke access after team member changes or suspected compromise.
+   - Keep encryption keys backed up; do not replace them as routine rotation.
+   - Update database accounts and matching connection settings together.
 
 ### File Permissions
 
@@ -163,15 +178,18 @@ gpg --symmetric --cipher-algo AES256 .env
 To restore:
 
 ```bash
-# Decrypt the backup
-gpg --decrypt .env.gpg > .env
-
-# Verify contents
-cat .env
-
-# Start services
-docker compose up -d
+# Decrypt privately; preserve the current .env if decryption fails
+(
+  set -eu
+  umask 077
+  test ! -e .env.restored
+  gpg --output .env.restored --decrypt .env.gpg
+  docker compose --env-file .env.restored config --quiet
+)
 ```
+
+Review the restored settings privately before substituting them for the deployed
+settings; do not print them. A valid Compose model does not verify credentials.
 
 ## Upgrading Security
 
@@ -211,10 +229,8 @@ For enterprise or cloud deployments:
 Check if environment variables are loaded correctly:
 
 ```bash
-# View the final configuration with variables substituted
-docker compose config
-
-# Look for empty or ${VARIABLE} values which indicate missing .env variables
+# Validate without printing resolved secrets
+docker compose config --quiet
 ```
 
 ### Database Connection Errors
@@ -222,19 +238,23 @@ docker compose config
 Verify the DATABASE_URL is correctly constructed:
 
 ```bash
-# Check the DATABASE_URL in your .env file
-grep DATABASE_URL .env
+# Confirm the setting is assigned without printing it
+grep -q '^DATABASE_URL=.' .env
 
 # Should look like: postgresql://arcane:your_password@postgres:5432/arcane
 ```
 
 Make sure the password doesn't contain special characters that need URL encoding. If it does, either:
-- Generate a new password without special characters
+- For a new installation, generate a URL-safe hex password
 - URL-encode the special characters
+
+For an existing database, do not generate a replacement merely to fix URL
+encoding: keep the actual account password and encode it correctly in the URL.
 
 ### Permission Errors
 
-The PUID/PGID should match your user:
+The app path must grant access to the configured `PUID:PGID`, normally
+`3001:3001`; this is not necessarily your interactive login user:
 
 ```bash
 # Find your user ID
@@ -243,7 +263,8 @@ id -u
 # Find your group ID
 id -g
 
-# Update .env if needed
+# Compare app directory permissions with the configured IDs.
+# Do not change database data ownership to these IDs.
 ```
 
 ### Verifying .env is Ignored by Git
@@ -267,34 +288,35 @@ If `.env` appears in `git status`, check that:
 
 ### Rotating Secrets
 
-To change your secrets (recommended quarterly):
+`POSTGRES_PASSWORD` initializes an **empty** PostgreSQL data directory; changing
+it in `.env` does not change the existing role's password.
 
-1. Generate new secrets:
-   ```bash
-   openssl rand -hex 32  # For ENCRYPTION_KEY
-   openssl rand -hex 32  # For JWT_SECRET
-   openssl rand -base64 32  # For POSTGRES_PASSWORD
-   ```
+For database rotation, first take a consistent backup of both state paths and
+the original keys/settings. Pause automation and app writes, use a trusted
+interactive PostgreSQL administrator session to change the existing role's
+password (the `psql` `\password` command avoids putting a password in a command
+argument), then update **both** `POSTGRES_PASSWORD` and the password in
+`DATABASE_URL`. Recreate the app with matching settings and verify authenticated
+use before resuming automation. Plan rollback of both the role and settings;
+do not delete the database to force initialization.
 
-2. Update `.env` file with new values
+Do **not** replace `ENCRYPTION_KEY` without an Arcane-version-specific migration
+that preserves/re-encrypts stored secrets. No such migration has been verified
+for this un-inventoried image. Preserve the original key with every backup.
+Changing `JWT_SECRET` may invalidate sessions; verify the deployed version's
+supported procedure and plan a login interruption rather than rotating all keys
+blindly.
 
-3. Restart services:
-   ```bash
-   docker compose down
-   docker compose up -d --force-recreate
-   ```
-
-4. Verify application works:
-   ```bash
-   docker compose logs -f
-   ```
+PostgreSQL initialization behavior is documented by the
+[official image](https://hub.docker.com/_/postgres) (checked 2026-10-13).
 
 ### Updating Arcane
 
-To update to the latest version:
+Select a reviewed compatible exact release first; this stack still needs
+running-image evidence before its floating references can be frozen safely.
 
 ```bash
-# Pull the latest image
+# Pull only after reviewing image changes and migrations
 docker compose pull
 
 # Recreate containers with new image
@@ -310,22 +332,13 @@ Your data is stored in:
 - Arcane data: `/mnt/SSD/Containers/arcane`
 - PostgreSQL data: `/mnt/SSD/Containers/arcane-postgres`
 
-Back these up regularly:
-
-```bash
-# Stop containers first
-docker compose down
-
-# Backup (example using tar)
-tar -czf arcane-backup-$(date +%Y%m%d).tar.gz \
-  /mnt/SSD/Containers/arcane \
-  /mnt/SSD/Containers/arcane-postgres
-
-# Restart containers
-docker compose up -d
-```
-
-Don't forget to backup your `.env` file securely (encrypted)!
+Use the [cold backup and isolated restore procedure](../README.md#backing-up-data)
+for **both paths together**, with original Compose/image versions and encrypted
+settings including `ENCRYPTION_KEY`, `JWT_SECRET`, and database credentials.
+Stop both app and database before filesystem snapshots; a live PostgreSQL data
+copy is not a backup. On recovery preserve the old tree, restore both paths with
+numeric ownership and original settings, and start PostgreSQL before Arcane.
+Verify login, projects and access to saved encrypted credentials before reopening.
 
 ## Additional Resources
 

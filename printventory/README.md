@@ -23,7 +23,7 @@ and where is it?"; Bambu Buddy answers "what is the printer doing?"
 
 ## Architecture
 
-```
+```text
 Browser on LAN
     |
     v HTTPS
@@ -162,11 +162,12 @@ Everything that matters is in `/mnt/SSD/Containers/printventory/data`: the
 SQLite DB, generated thumbnails, and settings. Your model files stay on their
 own dataset. Back them up separately.
 
-```sh
-docker stop printventory
-tar czf printventory-backup.tar.gz -C /mnt/SSD/Containers/printventory/data .
-docker start printventory
-```
+Stop the app before a consistent SQLite/files backup and follow the
+[shared recovery procedure](../README.md#backing-up-data), retaining original
+pins/settings. Restore to a fresh destination with original ownership (the
+image uses root), confirm collections/thumbnails and model paths, and retain the
+old state until accepted. Checksums alone do not prove recovery. Do not drop the
+read-only model mount during a restore drill.
 
 To upgrade, read the [release notes](https://github.com/TechJeeper/Printventory/releases)
 and take a backup. Then review an image-update PR or update both the tag and
