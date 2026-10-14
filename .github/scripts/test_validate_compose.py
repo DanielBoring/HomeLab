@@ -132,6 +132,30 @@ class ImageTests(unittest.TestCase):
 
 
 class ComposeInvocationTests(unittest.TestCase):
+    @patch.object(checker, "run")
+    def test_service_env_sources_are_neutralized_without_losing_schema(self, run):
+        run.return_value = '{"services": {"app": {"image": "app:1"}}}'
+        with tempfile.TemporaryDirectory(prefix="compose-env-isolation-") as directory:
+            config = Path(directory)
+            checker.render_images(Path.cwd(), "app/compose.yaml", """
+services:
+  app:
+    image: app:1
+    env_file:
+      - private-runtime.env
+      - path: another-private.env
+        required: false
+        format: raw
+""", config)
+            model = checker.parse_document(run.call_args.kwargs["text"])
+            sources = model["services"]["app"]["env_file"]
+            self.assertEqual(sources, [
+                str((config / "empty-service.env").resolve()),
+                {"path": str((config / "empty-service.env").resolve()),
+                 "required": False, "format": "raw"},
+            ])
+            self.assertEqual((config / "empty-service.env").read_text(), "")
+
     @patch.object(checker.subprocess, "run")
     def test_commands_use_utf8_on_windows_and_linux(self, run):
         run.return_value = checker.subprocess.CompletedProcess([], 0, stdout="ok", stderr="")
@@ -220,6 +244,19 @@ services:
     image: example/app:1.0
     unsupported_setting: true
 """)
+
+    def test_invalid_service_env_file_schema_fails(self):
+        for source in ("42", "{required: false}", "{path: 42}", "{path: private.env, unsupported: true}"):
+            with self.subTest(source=source), self.assertRaises(checker.ValidationError):
+                self.render(f"services:\n  app:\n    image: example/app:1.0\n    env_file: [{source}]\n")
+
+    def test_long_and_short_env_file_forms_are_not_loaded(self):
+        for source in ("private-runtime.env", "[{path: private-runtime.env, required: true}]"):
+            with self.subTest(source=source):
+                self.assertEqual(
+                    self.render(f"services:\n  app:\n    image: example/app:1.0\n    env_file: {source}\n"),
+                    {"app": "example/app:1.0"},
+                )
 
 
 class ReportingTests(unittest.TestCase):
