@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # Existing PostgreSQL 16 data requires the README dump/restore procedure.
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
     container_name: netbox-db
     restart: unless-stopped
     security_opt:
@@ -8,7 +9,8 @@ services:
     networks:
       - netbox
     volumes:
-      - netbox-db:/var/lib/postgresql/data
+      # PostgreSQL 18 stores its versioned cluster below this parent directory.
+      - netbox-db:/var/lib/postgresql
     environment:
       - POSTGRES_DB=netbox
       - POSTGRES_USER=netbox
@@ -70,7 +72,7 @@ services:
         max-file: "3"
 
   netbox:
-    image: netboxcommunity/netbox:latest
+    image: netboxcommunity/netbox:v4.7.4-5.1.1@sha256:69cd72d0b0e4928a90940a7011954aaa7060c75fddd8dc6cea2f19407bae45b1
     container_name: netbox
     restart: unless-stopped
     security_opt:
@@ -135,7 +137,7 @@ services:
         max-file: "3"
 
   netbox-worker:
-    image: netboxcommunity/netbox:latest
+    image: netboxcommunity/netbox:v4.7.4-5.1.1@sha256:69cd72d0b0e4928a90940a7011954aaa7060c75fddd8dc6cea2f19407bae45b1
     container_name: netbox-worker
     restart: unless-stopped
     security_opt:
