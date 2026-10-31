@@ -244,7 +244,7 @@ for path in /mnt/SSD/Containers/gitea /mnt/SSD/Containers/gitea/data /mnt/SSD/Co
   findmnt -T "$path" -n -o TARGET,SOURCE,FSTYPE
 done
 findmnt -rn -o TARGET,SOURCE,FSTYPE | awk '$1 ~ "^/mnt/SSD/Containers/gitea(/|$)"'
-zfs list -H -o name,mountpoint | awk '$2 == "/" || $2 == "/mnt" || $2 == "/mnt/SSD" || $2 == "/mnt/SSD/Containers" || $2 ~ "^/mnt/SSD/Containers/gitea(/|$)"' 
+zfs list -H -o name,mountpoint | awk '$2 == "/" || $2 == "/mnt" || $2 == "/mnt/SSD" || $2 == "/mnt/SSD/Containers" || $2 ~ "^/mnt/SSD/Containers/gitea(/|$)"'
 ```
 
 Confirm the DB is the inventoried `postgres:17.11` digest, app digest matches,
@@ -281,7 +281,7 @@ output does not itself authorize database changes.
    done
    # Review all child mounts/datasets; abort on any within these data trees.
    findmnt -rn -o TARGET,SOURCE,FSTYPE | awk '$1 ~ "^/mnt/SSD/Containers/gitea(/|$)"'
-   zfs list -H -o name,mountpoint | awk '$2 == "/" || $2 == "/mnt" || $2 == "/mnt/SSD" || $2 == "/mnt/SSD/Containers" || $2 ~ "^/mnt/SSD/Containers/gitea(/|$)"' 
+   zfs list -H -o name,mountpoint | awk '$2 == "/" || $2 == "/mnt" || $2 == "/mnt/SSD" || $2 == "/mnt/SSD/Containers" || $2 ~ "^/mnt/SSD/Containers/gitea(/|$)"'
    stamp=$(date -u +%Y%m%dT%H%M%SZ)
    backup="/mnt/SSD/Backups/gitea-pg18-$stamp"
    old_db_dir="$root/db.pg17-$stamp"
