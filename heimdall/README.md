@@ -1,14 +1,14 @@
 # Heimdall
 
-Heimdall is a browser homepage and application dashboard — a single page of tiles linking to all your self-hosted services, with optional live status checks and API integrations for supported apps (called "Enhanced" apps). It's intentionally minimal: no agents, no Docker socket access, no database — just a PHP/nginx app that stores everything in a flat SQLite file.
+Heimdall is a browser homepage and application dashboard — a single page of tiles linking to all your self-hosted services, with optional live status checks and API integrations for supported apps (called "Enhanced" apps). It's intentionally minimal: no agents, no Docker socket access, no separate database server — just a PHP/nginx app with SQLite persistence.
 
 **When to use this over alternatives like Homepage or Homarr:** Heimdall is the lowest-friction option. If you want tiles on a page and nothing more, it's the right choice. Homepage is better if you want live stats pulled directly from service APIs (Sonarr queue depth, Grafana metrics, etc.) and are comfortable writing YAML config files. Homarr sits in the middle with a drag-and-drop UI and more integrations.
 
-[https://docs.linuxserver.io/images/docker-heimdall/]
+[LinuxServer image documentation](https://docs.linuxserver.io/images/docker-heimdall/)
 
 ## Architecture
 
-```
+```text
 Browser (HTTPS) → Traefik (TLS termination) → heimdall:80 (nginx/PHP-FPM)
 ```
 
@@ -48,7 +48,7 @@ Heimdall's Enhanced app integrations (e.g. Sonarr, Radarr, Pi-hole) make server-
 
 ## Password Protection
 
-Heimdall has no built-in login UI. Optional HTTP basic auth is handled by nginx and configured after first start:
+Optional additional HTTP basic auth is handled by nginx and configured after first start:
 
 ```sh
 # Create the htpasswd file inside the container
@@ -64,4 +64,20 @@ auth_basic_user_file /config/nginx/.htpasswd;
 
 Restart the container to apply: `docker compose restart heimdall`.
 
-Note: since this stack already sits behind Traefik's `lan-only` IP allowlist, basic auth is optional — it adds a credential prompt but the service is already inaccessible from the internet.
+The `lan-only` route limits allowed source addresses, not application identity;
+verify actual ingress/firewall behavior rather than assuming internet isolation.
+`htpasswd -c` creates/replaces the password file: preserve an existing file and
+omit `-c` when adding another user.
+
+## Operations and recovery
+
+Run Linux commands from `heimdall/`; give PUID/PGID access to fresh storage and
+retain existing ACLs. Verify `docker compose ps`, recent `heimdall` logs and
+dashboard tiles. Enabling `ALLOW_INTERNAL_REQUESTS` permits server-side LAN
+requests; only trusted users should configure integrations.
+
+Stop writers before preserving the complete config path (SQLite, tiles, nginx
+auth config and integration credentials) with original images/settings. Follow
+the [shared recovery procedure](../README.md#backing-up-data), restore privately
+at the same version and check tiles/auth before enabling API integrations.
+Review the selected release's migrations before replacing the moving image.

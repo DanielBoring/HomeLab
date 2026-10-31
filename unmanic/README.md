@@ -11,7 +11,7 @@ Unmanic is an automated media library optimiser. It scans a directory for media 
 
 ## Architecture
 
-```
+```text
 Browser → Traefik (TLS) → Unmanic :8888
                                   ├── /config  → /mnt/SSD/Containers/unmanic/config
                                   ├── /library → /mnt/Data/Media   (scanned + processed in-place)
@@ -21,6 +21,10 @@ Browser → Traefik (TLS) → Unmanic :8888
 Unmanic runs a single worker process (configurable) that picks tasks off the queue, processes them through the plugin pipeline into the cache directory, then atomically replaces the source file on success.
 
 ## Prerequisites
+
+Deploy Traefik first. Run Linux/Bash examples from `unmanic/`; give the selected
+PUID/PGID access through existing config/media ACLs. Direct host port 8095 must
+be restricted separately from Traefik.
 
 Create the host directories before starting:
 
@@ -58,4 +62,19 @@ Then install the VAAPI plugin in the Unmanic UI and set the encoder to `hevc_vaa
 | `PUID` | `3001` | User ID for file ownership |
 | `PGID` | `3001` | Group ID for file ownership |
 | `UNMANIC_DOMAIN` | — | Traefik hostname (required) |
-| `UNMANIC_PORT` | `8888` | Host port (optional override) |
+| `UNMANIC_PORT` | `8095` | Host port (container listens on `8888`); bypasses Traefik |
+
+## Operations and recovery
+
+This stack can replace original media. Before enabling plugins, preserve source
+media and test the pipeline on an isolated disposable copy, not the production
+library. Check status/logs and plugin/queue configuration without dispatching
+transcodes as a health test.
+
+Pause workers and all other media writers before preserving config, original
+images/settings and irreplaceable media. Cache is working space, not a backup;
+retain it only if investigating interrupted jobs. Use the
+[shared recovery procedure](../README.md#backing-up-data), restore privately at
+the same version with original ACLs, verify configuration, then enable workers.
+Review plugin migrations and choose a verified image before replacing its
+unresolved moving tag.
