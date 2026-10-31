@@ -183,9 +183,9 @@ The pinned application stays at the existing
 (Gitea 1.27.3). The [Gitea 1.27 database requirements](https://docs.gitea.com/1.27/installation/database-prep/)
 include PostgreSQL 12 and newer. The documented range includes 18; it is not an
 explicit vendor certification of this deployment. The selected PostgreSQL
-`18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336`
-was pulled and verified locally as 18.6 on 2026-10-31. The moving `18.6` tag now
-resolves to a newer build; this PR deliberately retains its reviewed digest.
+`18.6@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4`
+was pulled and verified locally as 18.6 on 2026-10-31. Dependabot refreshed this digest during review; the rehearsal was rerun against
+that exact final content, rather than relying on the moving tag.
 The [official image](https://hub.docker.com/_/postgres) mounts
 `/var/lib/postgresql` with `PGDATA=/var/lib/postgresql/18/docker` in 18.
 Do not override `PGDATA` to open 17 files or merely move them into `18/docker`.
@@ -223,14 +223,14 @@ Use PostgreSQL's [logical major-version migration](https://www.postgresql.org/do
   privileges/password. Custom roles/grants/settings must be restored explicitly
   before restoring their objects, and required PG18 extensions installed first.
 
-**First operator checkpoint — read-only host preflight:** these commands do not
+**First operator checkpoint - read-only host preflight:** these commands do not
 stop containers, read secret values, dump/query the database or change storage.
 Run them on the TrueNAS host and check the service/project identity and mounts
 against stack 195 / environment 35 before preparing any write commands.
 
 ```bash
 hostname
-for cmd in docker findmnt zfs mountpoint git cp mv tar; do command -v "$cmd"; done
+for cmd in docker findmnt zfs mountpoint curl cp mv tar; do command -v "$cmd"; done
 docker context show
 docker info --format 'Name={{.Name}} OS={{.OperatingSystem}} Swarm={{.Swarm.LocalNodeState}}'
 for container in gitea gitea-db; do
@@ -240,8 +240,11 @@ for container in gitea gitea-db; do
     docker volume inspect --format 'Name={{.Name}} Type={{index .Options "type"}} Device={{index .Options "device"}} Options={{index .Options "o"}}' "$volume"
   done
 done
-findmnt -rn -o TARGET,SOURCE,FSTYPE
-zfs list -o name,mountpoint
+for path in /mnt/SSD/Containers/gitea /mnt/SSD/Containers/gitea/data /mnt/SSD/Containers/gitea/db; do
+  findmnt -T "$path" -n -o TARGET,SOURCE,FSTYPE
+done
+findmnt -rn -o TARGET,SOURCE,FSTYPE | awk '$1 ~ "^/mnt/SSD/Containers/gitea(/|$)"'
+zfs list -H -o name,mountpoint | awk '$2 == "/" || $2 == "/mnt" || $2 == "/mnt/SSD" || $2 == "/mnt/SSD/Containers" || $2 ~ "^/mnt/SSD/Containers/gitea(/|$)"' 
 ```
 
 Confirm the DB is the inventoried `postgres:17.11` digest, app digest matches,
@@ -277,8 +280,8 @@ output does not itself authorize database changes.
      fi
    done
    # Review all child mounts/datasets; abort on any within these data trees.
-   findmnt -rn -o TARGET,SOURCE,FSTYPE
-   zfs list -o name,mountpoint
+   findmnt -rn -o TARGET,SOURCE,FSTYPE | awk '$1 ~ "^/mnt/SSD/Containers/gitea(/|$)"'
+   zfs list -H -o name,mountpoint | awk '$2 == "/" || $2 == "/mnt" || $2 == "/mnt/SSD" || $2 == "/mnt/SSD/Containers" || $2 ~ "^/mnt/SSD/Containers/gitea(/|$)"' 
    stamp=$(date -u +%Y%m%dT%H%M%SZ)
    backup="/mnt/SSD/Backups/gitea-pg18-$stamp"
    old_db_dir="$root/db.pg17-$stamp"
@@ -354,12 +357,21 @@ output does not itself authorize database changes.
    ```bash
    # Fill this with the exact tested full PR head supplied in the review result.
    reviewed_commit=REPLACE_WITH_TESTED_40_CHARACTER_PR_HEAD
-   test "${#reviewed_commit}" -eq 40
+   [[ "$reviewed_commit" =~ ^[0-9a-f]{40}$ ]]
    staged="$backup/reviewed-source"
    test ! -e "$staged"
-   git clone --no-checkout https://github.com/DanielBoring/HomeLab.git "$staged"
-   git -C "$staged" checkout --detach "$reviewed_commit"
-   test "$(git -C "$staged" rev-parse HEAD)" = "$reviewed_commit"
+   if command -v git >/dev/null; then
+     git clone --no-checkout https://github.com/DanielBoring/HomeLab.git "$staged"
+     git -C "$staged" checkout --detach "$reviewed_commit"
+     test "$(git -C "$staged" rev-parse HEAD)" = "$reviewed_commit"
+   else
+     # No package installation on TrueNAS; this Compose has no relative files.
+     command -v curl >/dev/null
+     mkdir -p "$staged/gitea"
+     curl --fail --show-error --location \
+       "https://raw.githubusercontent.com/DanielBoring/HomeLab/$reviewed_commit/gitea/compose.yaml" \
+       --output "$staged/gitea/compose.yaml"
+   fi
    pg18() {
      docker compose -p "$project" --env-file "$backup/settings.env" \
        -f "$staged/gitea/compose.yaml" "$@"
