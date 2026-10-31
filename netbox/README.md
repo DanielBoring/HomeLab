@@ -8,7 +8,7 @@ NetBox is an open-source IPAM (IP Address Management) and DCIM (Data Center Infr
 
 ## Architecture
 
-```
+```text
 Browser / API client
         │
     [Traefik]  ← TLS termination, lan-only middleware
@@ -21,7 +21,7 @@ Browser / API client
 [netbox-worker]   ← RQ worker for background jobs
 ```
 
-Four containers total:
+Five containers total:
 
 | Container | Image | Role |
 |---|---|---|
@@ -31,13 +31,14 @@ Four containers total:
 | `netbox-redis` | `redis:7-alpine` | Task queue (RQ) |
 | `netbox-redis-cache` | `redis:7-alpine` | Django page cache |
 
-The worker and housekeeping containers share the same image as the main app — they just run different entry points (`manage.py rqworker` and `housekeeping.sh`). Volumes for media, reports, and scripts are shared across all three so uploaded files and custom scripts are available wherever the app runs them.
+The web app and RQ worker share an image and media/reports/scripts volumes.
+No separate housekeeping container is configured in this stack.
 
 ---
 
 ## Prerequisites
 
-- `traefik` network already created (`docker network create traefik`)
+- Traefik deployed first to own/create the external `traefik` network
 - Host directories created before first `docker compose up`:
 
 ```bash
@@ -117,7 +118,9 @@ Log in with the credentials from `NETBOX_ADMIN_USER` / `NETBOX_ADMIN_PASSWORD`.
 
 ## Upgrading
 
-NetBox releases frequently. To upgrade:
+Back up the complete restore set below and review app/database migrations first.
+These un-inventoried images need verified literal version/digest selection;
+`pull` against moving tags is not a reviewed upgrade. After updating references:
 
 ```bash
 docker compose pull
@@ -145,13 +148,23 @@ By default NetBox allows unauthenticated read access to everything. To require l
 LOGIN_REQUIRED = True
 ```
 
-Then add this volume to the `netbox`, and `netbox-worker` services in `compose.yaml`:
+Create the host file first, then merge this **single-file** mount into the
+existing volumes of both `netbox` and `netbox-worker`. Do not mount an empty host
+directory over `/etc/netbox/config` and hide the image's required config:
 
 ```yaml
-- /mnt/SSD/Containers/netbox/config:/etc/netbox/config:ro
+- type: bind
+  source: /mnt/SSD/Containers/netbox/config/extra.py
+  target: /etc/netbox/config/extra.py
+  read_only: true
+  bind:
+    create_host_path: false
 ```
 
-Restart the stack to apply.
+Validate the model and recreate both services to apply the new mount; a restart
+does not change mounts. The separate override-file pattern is documented in
+[netbox-docker 3.2.0 configuration](https://github.com/netbox-community/netbox-docker/blob/3.2.0/configuration/configuration.py)
+(checked 2026-10-13); confirm the selected image's matching loader before use.
 
 ### 3. Create a Site
 
@@ -241,3 +254,19 @@ NetBox can POST a JSON payload to any URL when objects are created, updated, or 
 - Keep an external DNS provider in sync
 
 Configure under Integrations → Event Rules.
+
+## Recovery and operational safeguards
+
+Run Linux/Bash examples from `netbox/`. Restrict direct host port 8060 separately
+from Traefik. Preserve DB/Redis image-specific ownership; give the app user
+appropriate media/reports/scripts access rather than blanket-chowning the tree.
+Check all five services/logs plus authenticated API/UI access and worker status.
+Readiness logs alone do not verify jobs.
+
+Pause clients and background automation, stop all writers, and preserve the
+whole NetBox tree (`db`, both Redis paths, `media`, `reports`, `scripts` and any
+host config), original `NETBOX_SECRET_KEY`, private settings and image versions.
+Use the [shared recovery procedure](../README.md#backing-up-data). Restore to
+empty compatible storage with original owners, start databases/cache before the
+app, and keep workers/webhooks isolated until records, uploads and login pass.
+Changing initialization password variables does not rotate existing DB roles.

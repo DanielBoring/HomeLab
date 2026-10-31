@@ -10,7 +10,7 @@ yt-dlp from the command line works, but MeTube gives you a persistent queue, for
 
 ## Architecture
 
-```
+```text
 Browser → Traefik (HTTPS, lan-only) → MeTube :8081
                                           │
                           /downloads → /mnt/Data/Media/Metube            (HDD)
@@ -67,3 +67,15 @@ Full list of yt-dlp options: <https://github.com/yt-dlp/yt-dlp#usage-and-options
 - `UMASK=002` matches the arr stack convention so downloaded files are group-writable.
 - Audio-only downloads go to the same folder as video; set `AUDIO_DOWNLOAD_DIR` in compose.yaml if you want a separate path.
 - Subscriptions and queue history live in `/mnt/SSD/Containers/metube/` — back this up if you use subscriptions heavily.
+
+## Recovery and updates
+
+Run Linux/Bash commands from `metube/`. Ownership examples are for fresh paths;
+preserve existing media ACLs. Check `docker compose ps`, recent `metube` logs and
+queue/history in the UI without adding a bulk download.
+
+Pause downloads and stop the app before preserving config/queue state and
+irreplaceable downloads together with original images/settings. Follow the
+[shared recovery procedure](../README.md#backing-up-data), restore at the same
+version, check paths/history and keep subscriptions paused until accepted.
+Review yt-dlp/application compatibility before changing tag/digest and pulling.

@@ -12,7 +12,7 @@ traefik-manager runs as a single container that:
 - **Reads and writes** the static config (`traefik.yml`) for the Static Config and Plugins editors. The ACME `acme.json` remains read-only for displaying certificate expiry.
 - **Queries the Traefik API** at `http://traefik:8080` to show live router counts and service health — this requires `api.insecure: true` in `traefik.yml` (see Prerequisites).
 
-```
+```text
 Browser → Traefik (websecure:443) → traefik-manager:5000
                                           ↕ read/write
                          /mnt/SSD/Containers/traefik/dynamic/
@@ -32,7 +32,16 @@ api:
   insecure: true   # exposes API on port 8080 — LAN-accessible via macvlan IP
 ```
 
-Port 8080 will be reachable on the macvlan LAN IP (`10.0.5.5:8080`) and from other containers on the `traefik` Docker bridge network. It is not exposed to the internet.
+Port 8080 is reachable on the macvlan LAN IP (`10.0.5.5:8080`) and shared
+bridge. The API has no authentication there: restrict it to trusted clients.
+Internet reachability depends on the actual firewall; it has not been checked.
+Deploy Traefik first and run Linux/Bash commands from `traefik-manager/`.
+
+If installing `traefik/dynamic/traefik-manager-self.yml`, its file-provider route
+must retain `secure-headers@file` and `lan-only@file` just like the Compose route.
+It is an optional alternate route with a literal hostname; avoid deploying
+duplicate same-host routes unnecessarily. Repository edits do not change an
+already-copied host file.
 
 ### Create host directories
 
@@ -48,11 +57,9 @@ cp .env.example .env
 docker compose up -d
 ```
 
-On first start, a temporary admin password is printed to the container logs:
-
-```bash
-docker logs traefik-manager | grep -i password
-```
+On first start, retrieve the temporary admin password from a private container
+log view. Do not paste it into shared transcripts or diagnostic output; change
+it through the application's supported account flow after first login.
 
 Navigate to `https://${TRAEFIK_MANAGER_DOMAIN}` and complete the setup wizard.
 
@@ -90,3 +97,17 @@ Manager needs write access to the static configuration file. A read-only mount t
 After publishing this Compose change, redeploy the Manager stack to recreate the container with the writable mount; a container restart alone does not change mount permissions. Keep Traefik's own static-config mount and Manager's certificate mount read-only.
 
 Edits made in Manager change `/mnt/SSD/Containers/traefik/traefik.yml`, not the copy in this repository. Copy intentional changes back into the repository to keep them in sync. Static configuration changes require restarting Traefik; this stack does not configure a Manager restart method, so restart Traefik separately after saving.
+
+## Recovery and verification
+
+Manager can change live ingress/security rules. Restrict administrators and
+retain `lan-only`/secure headers when editing routes. Verify status/logs and a
+read-only route inventory; do not create a public route merely as a health test.
+
+Pause Manager and other config writers before preserving its `config` and
+`backups`, the host Traefik static/dynamic files and certificate recovery material,
+original images and private settings. Coordinate with Traefik's own recovery
+procedure; Manager's local config copies alone are not a complete proxy backup.
+Use the [shared recovery procedure](../README.md#backing-up-data), restore
+privately at the same versions/ownership, verify login/routes and permissions,
+then permit writes. Review app migrations before changing the digest.

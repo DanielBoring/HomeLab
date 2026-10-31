@@ -6,7 +6,7 @@ This deployment uses the **omnibus** image, which bundles the web/API server, th
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────────────────────────┐
 │  scrutiny (omnibus container)            │
 │                                          │
@@ -25,9 +25,14 @@ This deployment uses the **omnibus** image, which bundles the web/API server, th
   /dev/sda, /dev/sdb, ...  (host drives passed in)
 ```
 
-The collector runs on a schedule (default: 6 hours) and sends SMART data to the internal InfluxDB. The web UI reads from InfluxDB and serves the dashboard.
+The collector runs on the omnibus image's cron schedule. Current upstream
+defaults to **daily at midnight**, not every six hours; confirm your selected
+image because this stack still uses an un-inventoried moving tag. The web UI
+reads historical data from InfluxDB.
 
 ## Prerequisites
+
+Deploy Traefik first. Run Bash commands from `scrutiny/` on the Linux host.
 
 ### 1. Create storage directories on the host
 
@@ -82,7 +87,9 @@ docker compose ps
 docker compose logs -f
 ```
 
-Wait 30–60 seconds for InfluxDB to initialize, then navigate to `https://<SCRUTINY_DOMAIN>`. The first SMART scan runs immediately on container start; subsequent scans follow the 6-hour schedule.
+Allow InfluxDB to initialize, then open `https://<SCRUTINY_DOMAIN>`. Check logs
+and the last collection timestamp; container readiness does not prove a scan
+ran or that every drive was included.
 
 ## Configuration
 
@@ -92,21 +99,25 @@ Wait 30–60 seconds for InfluxDB to initialize, then navigate to `https://<SCRU
 |---|---|---|
 | `TZ` | `America/New_York` | Timezone (controls cron schedule display) |
 | `SCRUTINY_DOMAIN` | — | Hostname Traefik routes to Scrutiny |
-| `SCRUTINY_PORT` | `8096` | Host port (direct LAN access only — Traefik ignores this) |
+| `SCRUTINY_PORT` | `8096` | Published host port; bypasses Traefik, so restrict it separately |
 
 ### `scrutiny.yaml` (optional advanced config)
 
-For advanced configuration (collector schedule, notification webhooks, alert thresholds), drop a `scrutiny.yaml` in `/mnt/SSD/Containers/scrutiny/config/`. Scrutiny reads it on startup.
-
-Example — change the collector schedule to every 12 hours:
+For notification webhooks and alert settings, use the version-matching
+`scrutiny.yaml`. The omnibus **cron schedule** is instead set through
+`COLLECTOR_CRON_SCHEDULE` in the container environment. It is not passed from
+`.env` by this stack. To request a twelve-hour schedule, merge this into the
+existing service environment and recreate it during planned maintenance:
 
 ```yaml
-# /mnt/SSD/Containers/scrutiny/config/scrutiny.yaml
-collector:
-  cron: "0 */12 * * *"
+environment:
+  - COLLECTOR_CRON_SCHEDULE=0 */12 * * *
 ```
 
 Full config reference: https://github.com/AnalogJ/scrutiny/blob/master/example.scrutiny.yaml
+
+Schedule source checked 2026-10-13:
+[omnibus cron setup](https://github.com/AnalogJ/scrutiny/blob/master/rootfs/etc/cont-init.d/50-cron-config).
 
 ## Capabilities
 
@@ -159,3 +170,11 @@ docker compose up -d
 ```bash
 docker exec scrutiny influx ping
 ```
+
+## Backup and recovery
+
+Preserve `config`, `influxdb`, original Compose/device mappings and private
+settings with the [shared stopped-writer procedure](../README.md#backing-up-data).
+Restore at the same image version, verify historical drive records and settings,
+then verify current drive identities before scheduling scans. Backups of SMART
+history do not protect the contents of the disks being monitored.

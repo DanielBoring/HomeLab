@@ -10,7 +10,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Browser
   │
   └── HTTPS :443 → Traefik → PegaProx :5000  (web UI, API, and all WebSocket traffic)
@@ -30,6 +30,8 @@ The upstream docs mention a `PEGAPROX_BEHIND_PROXY` env var — do not set it. W
 **Default credentials:** `pegaprox` / `admin` — change immediately after first login.
 
 ## Prerequisites
+
+Deploy Traefik first; run Linux/Bash examples from `pegaprox/`.
 
 Create the host directories before starting:
 
@@ -67,3 +69,16 @@ Navigate to `https://<PEGAPROX_DOMAIN>` and log in with the default credentials.
 |---|---|
 | `/mnt/SSD/Containers/pegaprox/config` | Configuration database |
 | `/mnt/SSD/Containers/pegaprox/logs` | Application logs |
+
+## Operations and recovery
+
+This interface can alter VMs and open host terminals. Protect accounts, stored
+credentials and allowed source networks; a dashboard is not read-only.
+Check `docker compose ps`, recent `pegaprox` logs and a harmless cluster inventory
+view, not a VM power operation.
+
+Stop the app before preserving both paths, original images and encrypted private
+settings using the [shared recovery procedure](../README.md#backing-up-data).
+Restore privately at the same version/ownership, verify login and saved clusters,
+then reconnect with least-privilege credentials. These are app-state backups,
+not Proxmox VM backups. Review upstream migrations before changing the digest.

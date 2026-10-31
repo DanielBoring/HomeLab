@@ -8,7 +8,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Browser / mobile / browser extension
             │
             ▼
@@ -24,6 +24,9 @@ Browser / mobile / browser extension
 Single container — Readeck bundles SQLite so no separate database service is needed.
 
 ## Prerequisites
+
+Run Linux/Bash commands from `readeck/`; deploy Traefik first to create
+`traefik`. Host CLI work needs the deployed project's private settings.
 
 ### Create storage directory
 
@@ -86,22 +89,77 @@ docker compose up -d
 
 ### Backup
 
+Pause automation and retain original settings/images separately. Set `BACKUP_ROOT`
+to an existing private directory outside the checkout and source tree. Run the
+whole block; it stops SQLite/article writers and does not resume on failure.
+
 ```bash
-docker compose down
-tar -czf readeck-backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/readeck
-docker compose up -d
+(
+  set -euo pipefail
+  umask 077
+  root="$(realpath -e "${BACKUP_ROOT:?Set a private backup directory}")"
+  state="$(realpath -e /mnt/SSD/Containers/readeck)"
+  test ! -L "$state/data"
+  test -n "$(find "$state/data" -mindepth 1 -print -quit)"
+  checkout="$(realpath ..)"
+  case "$root/" in
+    "$state/"*|"$checkout/"*) printf "Unsafe backup destination.\n" >&2; exit 1 ;;
+  esac
+  backup="$(mktemp -d "$root/readeck.XXXXXX")"
+  cp -- compose.yaml .env.example "$backup/"
+  docker compose stop
+  tar --acls --xattrs --numeric-owner --exclude=.zfs \
+    -czf "$backup/state.tar.gz" -C "$state" data
+  tar -tzf "$backup/state.tar.gz" > /dev/null
+  (cd "$backup"; sha256sum compose.yaml .env.example state.tar.gz > SHA256SUMS)
+  touch "$backup/COMPLETE"
+  printf "Checked local backup: %s\n" "$backup"
+  docker compose start
+)
 ```
 
 ### Restore
 
-Verify the archive and securely retained environment settings first. Restore the same image version on an isolated host where possible. The following Linux-host commands preserve the existing instance instead of deleting it; run each step only after the preceding step succeeds:
+Use the same image/settings on an isolated recovery host with Traefik prepared.
+Block client ingress and pause automation. Set `RESTORE_DIR` to a trusted backup
+created above. Checksums detect corruption, not authenticity. This example
+refuses symlinks and dataset mount points; use TrueNAS snapshot/clone recovery for
+datasets. Run the complete fail-fast block, with administrative archive access.
 
 ```bash
-tar -tzf /path/to/readeck-backup.tar.gz
-docker compose down
-mv /mnt/SSD/Containers/readeck "/mnt/SSD/Containers/readeck.pre-restore-$(date +%Y%m%d-%H%M%S)"
-tar -xzf /path/to/readeck-backup.tar.gz -C /
-docker compose up -d
+(
+  set -euo pipefail
+  umask 077
+  state=/mnt/SSD/Containers/readeck
+  test "$(realpath -m "$state")" = "$state"
+  backup="$(realpath -e "${RESTORE_DIR:?Set the trusted backup directory}")"
+  case "$backup/" in "$state/"*) printf "Backup is inside the restore target.\n" >&2; exit 1 ;; esac
+  test -f "$backup/COMPLETE"
+  (cd "$backup"; sha256sum -c SHA256SUMS)
+  cmp -- compose.yaml "$backup/compose.yaml"
+  mounts="$(findmnt --list --noheadings --output TARGET)"
+  while IFS= read -r path; do
+    case "$path" in "$state"|"$state/"*) printf "Use dataset recovery for %s.\n" "$path" >&2; exit 1 ;; esac
+  done <<< "$mounts"
+  docker compose stop
+  if [ -e "$state" ]; then
+    old="$state.pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
+    test ! -e "$old"
+    mv -- "$state" "$old"
+  fi
+  mkdir -m 700 -- "$state"
+  tar --same-owner --acls --xattrs -xzf "$backup/state.tar.gz" -C "$state"
+  test -d "$state/data"
+  test ! -L "$state/data"
+  test -n "$(find "$state/data" -mindepth 1 -print -quit)"
+  docker compose up -d --no-deps --pull never app
+)
 ```
 
-Preserve archived numeric ownership, verify bookmarks and article content, and keep the preserved directory until recovery is confirmed. Do not start the stack if extraction failed.
+Verify login, bookmarks and article contents before reopening ingress. If a stage
+Inventory symlinks first: archives preserve links, not external target data.
+Back those targets up separately with every writer stopped. If a stage
+fails, leave the stack stopped. For rollback stop containers, retain the failed
+tree and reinstate the original tree/settings/images without merging trees.
+Keep old data and the backup until accepted. This is not a live-tested restore;
+see [shared backup limitations](../README.md#backing-up-data).

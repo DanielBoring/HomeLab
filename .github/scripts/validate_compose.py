@@ -186,6 +186,25 @@ def validate_images(images):
 def render_images(root, file, text, config_directory):
     document = parse_document(text)
     environment = dummy_environment(document, config_directory)
+    services = document.get("services", {})
+    if isinstance(services, dict):
+        empty_file = (config_directory / "empty-service.env").resolve()
+        for service in services.values():
+            if not isinstance(service, dict) or "env_file" not in service:
+                continue
+            empty_file.touch(exist_ok=True)
+            sources = service["env_file"]
+            if isinstance(sources, str):
+                service["env_file"] = str(empty_file)
+            elif isinstance(sources, list):
+                service["env_file"] = [
+                    str(empty_file) if isinstance(source, str) else
+                    {**source, "path": str(empty_file)}
+                    if isinstance(source, dict) and isinstance(source.get("path"), str)
+                    else source
+                    for source in sources
+                ]
+        text = yaml.safe_dump(document, sort_keys=False)
     output = run(
         [
             "docker", "compose", "--env-file", os.devnull,

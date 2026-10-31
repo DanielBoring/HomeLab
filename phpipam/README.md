@@ -6,7 +6,7 @@ Run it when your homelab has grown to the point where you're guessing whether an
 
 ## Architecture
 
-```
+```text
 Browser → Traefik (TLS + lan-only) → phpipam-web :80
                                            ↓
                                       phpipam-db (MariaDB)
@@ -107,13 +107,34 @@ Go to *Subnets* → select or create a **Section** (e.g. "HomeLab") → *Add sub
 
 ### 5. Configure network discovery (optional)
 
-The `phpipam-cron` container runs scans on the interval set by `SCAN_INTERVAL` (default: `1h`). For subnets to be scanned, discovery must be enabled on each subnet individually under *Subnet → Edit → Discovery*.
+The `phpipam-cron` container runs scans on the fixed Compose `SCAN_INTERVAL=1h`;
+changing `.env` alone does not override it. For subnets to be scanned, discovery must be enabled on each subnet individually under *Subnet → Edit → Discovery*.
 
 For SNMP discovery, add your devices under *Devices* and configure community strings in *Administration → SNMP communities*.
 
 ## Updating
 
+These images are not yet frozen to deployed-build evidence. Review app/MariaDB
+migrations and select verified literal pins before pulling a changed image.
+Take a consistent backup first; do not change a DB major by only editing a tag.
+
 ```bash
 docker compose pull
 docker compose up -d
 ```
+
+## Recovery and safeguards
+
+Run Linux/Bash examples from `phpipam/`. Direct host port 8030 bypasses Traefik;
+restrict it separately. `NET_ADMIN`/`NET_RAW` and configured scanning can affect
+LAN devices, so limit administrators and permitted target networks.
+Check `docker compose ps`, DB/web/cron logs, login and a known subnet record.
+
+Stop web/cron and the database before preserving `db` and any host logo/CA
+files plus original images/private settings. The current Compose declares
+logo/CA volumes but does **not** mount them into services; creating directories
+does not activate custom logos/CAs. Use the
+[shared recovery procedure](../README.md#backing-up-data), preserve database
+ownership, restore privately at the same versions, and validate records/login
+before enabling cron scans. Existing DB passwords require role changes, not
+just new initialization variables.

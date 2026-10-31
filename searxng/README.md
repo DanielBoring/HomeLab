@@ -13,7 +13,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Browser (LAN only)
       │ HTTPS
       ▼
@@ -29,6 +29,9 @@ Browser (LAN only)
 Both containers share the `searxng` internal network. Only the `searxng` container is also on the `traefik` network; Redis is never directly reachable from outside.
 
 ## Prerequisites
+
+Deploy Traefik first. Run Linux/Bash examples from `searxng/`. The copy/secret
+replacement below is for a fresh install; preserve existing host config/keys.
 
 On the Docker host, create the config directory and place your `settings.yml` before running `docker compose up -d`:
 
@@ -88,7 +91,19 @@ To add or remove search engines, add an `engines:` block to `settings.yml`. See 
 
 ## Updating
 
+Review release/config changes and take a protected config backup before editing
+the image tag/digest. Pulling the same digest does not upgrade the application.
+
 ```bash
 docker compose pull
 docker compose up -d
 ```
+
+## Recovery and checks
+
+Restrict published host port 8092 separately from Traefik. Verify service
+status/logs and a harmless search; individual engine blocking is different from
+app failure. Preserve the complete config directory, original secret/settings
+and image pins using the [shared recovery procedure](../README.md#backing-up-data).
+Restore privately at the same version/ownership and verify engines/limiter.
+Redis is tmpfs-backed and disposable; do not fabricate a persistent cache backup.

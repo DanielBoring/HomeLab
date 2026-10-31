@@ -59,11 +59,14 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Controller**: UniFi OS device at `https://<UNIFI_CONTROLLER_IP>`
 
 ### ntopng
-Real-time network traffic monitoring and analysis. Receives NetFlow data from the UniFi gateway, then displays per-host and per-flow breakdowns in a web UI. Also joins the `monitoring` network for Prometheus integration.
+Network traffic analysis UI with Redis persistence. This limited stack does not
+configure a UniFi NetFlow collector or a Prometheus exporter; joining a network
+does not provide those integrations. See its README before expecting LAN-wide
+traffic visibility.
 
 - **Location**: [`/ntopng`](ntopng/)
 - **Access**: `https://<NTOPNG_DOMAIN>` (via Traefik, LAN only)
-- **Ports**: 2055/udp (NetFlow ingest from UniFi), 3000 (internal web UI)
+- **Ports**: 2055/udp (published but no collector configured), 3000 (internal web UI)
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 
 ### Prometheus Proxmox Exporter
@@ -109,10 +112,14 @@ S.M.A.R.T. drive health monitoring with a web UI and historical trending. Bundle
 - **Location**: [`/scrutiny`](scrutiny/)
 - **Access**: `https://<SCRUTINY_DOMAIN>` (via Traefik, LAN only)
 - **Port**: 8096 (direct access)
-- **Documentation**: See [scrutiny/README.md](scrutiny/README.md)
+- **Documentation**: See [scrutiny/readme.md](scrutiny/readme.md)
 
 ### Unbound
-Validating, recursive, caching DNS resolver. Resolves queries by walking the DNS tree from root servers directly — no third-party DNS provider ever sees your queries. Used as the upstream recursive resolver for Pi-hole, replacing forwarders like 8.8.8.8 with a fully self-hosted DNS chain.
+Validating, recursive, caching DNS resolver. The explicit configuration in this
+repository queries root/authoritative DNS servers rather than a forwarding
+provider. It must be installed as described in the service README; an older
+generated configuration may still forward queries. Recursion is not encryption
+or anonymity: authoritative servers and network observers can see DNS traffic.
 
 - **Location**: [`/unbound`](unbound/)
 - **Port**: 5335 (UDP+TCP — DNS only, no web UI)
@@ -195,7 +202,7 @@ Real-time Docker log viewer. Streams container logs to a browser UI — stateles
 Log aggregation backend for container, syslog, journal, and OTLP logs. Grafana Alloy ships logs into Loki; Grafana is the query UI.
 
 - **Location**: [`/loki`](loki/)
-- **Port**: 3100 (Loki ingest — internal only)
+- **Port**: 3100 (published ingest/API; restrict host access because Loki has no built-in authentication here)
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Documentation**: See [loki/README.md](loki/README.md)
 
@@ -204,7 +211,7 @@ Telemetry collector that replaces Promtail. Collects Docker logs, systemd journa
 
 - **Location**: [`/alloy`](alloy/)
 - **Ports**: 514 (syslog UDP/TCP), 4317/4318 (OTLP), debug UI via Traefik
-- **Requires**: `prometheus`, `loki`, and `traefik` networks
+- **Requires**: Traefik and Prometheus to create `traefik` and `monitoring`; Loki running for log ingestion
 - **Documentation**: See [alloy/README.md](alloy/README.md)
 
 ### Nextcloud
@@ -409,7 +416,7 @@ docker compose logs -f
 
 ## Repository Structure
 
-```
+```text
 HomeLab/
 ├── traefik/                        # Reverse proxy and TLS termination
 ├── prometheus/                     # Metrics collection (creates monitoring network)
@@ -493,10 +500,14 @@ The following files are automatically excluded from version control:
 2. **Generate strong secrets**:
    ```bash
    openssl rand -hex 32  # For encryption keys
-   openssl rand -base64 32  # For passwords
+   openssl rand -hex 32     # URL-safe passwords; follow each app's format requirements
    ```
 
-3. **Rotate secrets regularly** - Change passwords and keys quarterly
+3. **Rotate credentials deliberately** - Follow each application's supported
+   password/account procedure and update dependent connection settings together.
+   Database initialization variables do not change existing accounts. Preserve
+   persistent encryption keys unless a verified migration re-encrypts existing
+   data; replacing a key can make stored credentials unreadable.
 
 4. **Backup securely** - Encrypt backups of `.env` files:
    ```bash
@@ -603,7 +614,10 @@ Services are deployed and managed via **Portainer GitOps**:
 2. Portainer polls GitHub every 5 minutes and automatically pulls changes and redeploys affected stacks
 3. For immediate deployment (e.g. during troubleshooting), trigger a manual **Force Update** in Portainer
 
-Environment variables are stored per-stack in Portainer — not in `.env` files on the host.
+For Portainer deployments, settings are stored per-stack in Portainer. Host CLI
+examples instead require a private `.env` (or equivalent exported settings) and
+the same project name as the deployed stack. Portainer variables are not
+automatically available to a CLI run.
 
 ## Maintenance
 
@@ -663,6 +677,9 @@ pushes to `main`, and on manual workflow dispatch. It:
   Compose stack with Docker Compose, including all profiles.
 - Uses dummy settings, bypasses default `.env` loading and service `env_file`
   resolution, and isolates Docker configuration from local credentials.
+  Service `env_file` paths in the validation copy are replaced with an owned
+  empty file while retaining their schema/options: some Compose v2 releases
+  still require the original file's existence with `--no-env-resolution`.
 - Checks digest syntax and matching Nextcloud application/cron images.
 - Adds a PR run summary comparing images with the base commit, including
   database-major, repository-change, and unclassifiable-version warnings.
@@ -676,7 +693,7 @@ The workflow uses GitHub-hosted runners, read-only repository permissions, and
 no HomeLab secrets. It does not configure merge protection or auto-merge. To
 prevent merges with failing checks, a repository owner must separately require
 the **Validate Compose** check in a branch protection rule or ruleset after
-the workflow is published. A direct push to `main` can be redeployed by
+observing a successful hosted run. A direct push to `main` can be redeployed by
 Portainer before its push checks finish.
 
 For a local check, use Python 3.10+ with the pinned dependency in
@@ -706,12 +723,80 @@ or include them in volume-pruning cleanup without a separate retention decision.
 
 ### Backing Up Data
 
-```bash
-cd <service-directory>
-docker compose down
-tar -czf backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/<service-name>
-docker compose up -d
-```
+There is no safe one-directory backup command for every stack. Use each service's
+**Operations and recovery** or **Backup** section to identify its full restore
+set. Examples of paths that must not be inferred from the directory name:
+
+| Stack | Restore set includes |
+|---|---|
+| Arcane | `arcane`, `arcane-postgres`, original encryption/JWT keys and database settings |
+| Calibre | `calibre`, `calibre-web`, `/mnt/Data/Media/Books` |
+| ownCloud | `ocis/config` and `ocis/data`, not `owncloud` |
+| Paperless | `paperless` database, data, media, unprocessed consume files, and secret settings |
+| Nextcloud | Entire `nextcloud/html` and `nextcloud/data`, logical SQL dump, original settings; see its staged procedure |
+| Media/download services | Their application state **and** any irreplaceable media outside `/mnt/SSD/Containers` |
+
+For a **cold filesystem backup**, on the Linux Docker host:
+
+1. Pause deployment/update automation and writers, including other stacks that
+   write to shared media. Confirm the CLI project/settings match the deployment.
+2. Stop the stack's containers with `docker compose stop`; do not use `down -v`.
+   A shared-network owner should remain deployed: removing its network can fail
+   while consumers are attached. Coordinate downtime for consumers separately.
+3. With every database/application writer stopped, snapshot or archive **all**
+   required paths together. Preserve numeric ownership, modes, ACLs and xattrs.
+   Use a private destination outside the data tree and checkout, sufficient free
+   space, and fail-fast commands. Do not resume automatically after a failure.
+   Copying a running database directory is not a consistent database backup.
+4. Verify archive readability/checksums, retain exact Compose/image versions and
+   original private settings separately, then resume existing containers with
+   `docker compose start`. Review status/logs and the application's own checks.
+5. Encrypt private archives/settings and keep a verified copy on separate
+   storage. Same-pool snapshots do not protect against loss of that pool.
+
+For a **restore**, first drill on an isolated host using the original versions
+and settings. Block user ingress and pause automation; retain the existing tree
+or dataset snapshot for rollback. Prepare empty destinations at the exact volume
+paths, restore the complete consistent set with its original ownership, and
+start databases before applications/jobs. Never extract over a running database
+or merge old and restored trees. Cold database files require compatible engine
+versions; major database upgrades need their documented logical migration.
+If any stage fails, leave services stopped and preserve the failed attempt.
+
+ZFS dataset mount points must not be renamed using ordinary `mv` recipes.
+Use supported TrueNAS snapshot/clone recovery instead. Retain dataset properties,
+NFSv4 ACLs and encryption recovery material separately: tar ACL/xattr flags are
+not a complete dataset backup. Only a successful isolated restore and application
+checks establish recoverability; checksums alone do not.
+
+Archives preserve symlinks, not external target data. Inventory shared mounts,
+symlinks and PostgreSQL tablespaces before choosing the restore set; include
+their targets separately and keep all relevant writers stopped. No generic
+archive should be described as complete without that inventory.
+
+### Shared operational safeguards
+
+README shell examples target **Bash on the Linux/TrueNAS Docker host** unless
+labelled PowerShell. Run Compose commands from the relevant service directory.
+Create host directories and copy required config files before deployment.
+Recursive ownership changes are for **fresh paths only**: never apply the
+standard `3001:3001` ownership to existing database data or image-specific users.
+
+Traefik's `lan-only` middleware protects only its routers, not published host
+ports. Compose ports without a host IP bind to all host interfaces; restrict
+them using the host/upstream firewall and never expose unauthenticated admin,
+metrics, DNS or log endpoints to the internet. This is an access requirement,
+not a claim that the current firewall has been checked.
+
+A Docker socket mount grants powerful daemon control even with `:ro`; filesystem
+read-only flags do not restrict Docker API methods. Trust the image and every
+user able to operate it. Do not make the socket world-writable.
+
+Before an update, preserve a recoverable backup and review the exact selected
+release's migrations. Update reviewed image references, not just `pull`; some
+stacks still have unresolved floating images. Disable unattended redeployments
+during backup/recovery and never rely on a container healthcheck alone as proof
+of correct application state.
 
 ### Monitoring
 
@@ -745,7 +830,8 @@ sudo netstat -tulpn | grep <port-number>
 id -u  # User ID
 id -g  # Group ID
 
-# Update PUID/PGID in .env files accordingly
+# Compare the README/image-specific user with the host directory's numeric owners.
+# Do not change an existing database tree to your login user's UID/GID.
 ```
 
 **Container won't start**:
@@ -754,11 +840,15 @@ id -g  # Group ID
 docker compose logs <service-name>
 
 # Verify configuration
-docker compose config
+docker compose config --quiet
 
-# Check for missing environment variables
-grep -v '^#' .env | grep -v '^$'
+# List assigned setting names only (never print their values)
+sed -nE 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' .env
 ```
+
+Successful parsing does not check whether passwords, domains or host paths are
+correct. Inspect settings privately; do not paste rendered Compose, dotenv
+contents, container environments, or unredacted logs into issues.
 
 ## Resources
 
