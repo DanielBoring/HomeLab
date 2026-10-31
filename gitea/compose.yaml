@@ -8,7 +8,8 @@ services:
     networks:
       - gitea
     volumes:
-      - gitea-db:/var/lib/postgresql/data
+      # PostgreSQL 18 stores PGDATA under 18/docker; migrate 17 data first.
+      - gitea-db:/var/lib/postgresql
     environment:
       - POSTGRES_DB=gitea
       - POSTGRES_USER=gitea
