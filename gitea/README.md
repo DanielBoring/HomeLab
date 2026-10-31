@@ -1,9 +1,9 @@
 # Gitea on TrueNAS (Portainer)
 
-Gitea is a self-hosted, lightweight Git service â€” think GitHub but running on your own hardware. It provides repository hosting, issue tracking, pull requests, CI/CD via Gitea Actions, a package registry, and a web-based code editor. It's written in Go, which means low memory usage (~150 MB at idle) and fast startup times.
+Gitea is a self-hosted, lightweight Git service — think GitHub but running on your own hardware. It provides repository hosting, issue tracking, pull requests, CI/CD via Gitea Actions, a package registry, and a web-based code editor. It's written in Go, which means low memory usage (~150 MB at idle) and fast startup times.
 
 **When does it make sense to run Gitea?**
-- You want full control over your source code â€” no third-party has access
+- You want full control over your source code — no third-party has access
 - You need private repositories without paying for a SaaS plan
 - You want to mirror repositories from GitHub/GitLab for offline access or redundancy
 - You're running a homelab CI/CD pipeline and want an on-prem trigger source
@@ -29,19 +29,19 @@ No live migration or production backup/restore was performed for this PR.
 
 ```text
 Internet / LAN
-      â”‚
-      â–¼
+      │
+      ▼
   Traefik (HTTPS :443)
-      â”‚ Host(`gitea.yourdomain.com`)
-      â–¼
-  gitea (port 3000) â”€â”€â”€â”€ gitea-db (PostgreSQL :5432)
-      â”‚
-      â–¼
-  SSH (host :2222 â†’ container :22)
+      │ Host(`gitea.yourdomain.com`)
+      ▼
+  gitea (port 3000) ──── gitea-db (PostgreSQL :5432)
+      │
+      ▼
+  SSH (host :2222 → container :22)
 ```
 
-- **gitea** â€” main application container. Serves the web UI, git-over-HTTPS, and SSH
-- **gitea-db** â€” PostgreSQL 17 database on an internal `gitea` bridge network
+- **gitea** — main application container. Serves the web UI, git-over-HTTPS, and SSH
+- **gitea-db** — PostgreSQL 17 database on an internal `gitea` bridge network
 - Web traffic goes through Traefik with TLS termination
 - SSH is port-forwarded directly from the host (not proxied through Traefik)
 - Both containers communicate over the internal `gitea` network; only `gitea` joins the external `traefik` network
