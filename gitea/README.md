@@ -1,9 +1,9 @@
 # Gitea on TrueNAS (Portainer)
 
-Gitea is a self-hosted, lightweight Git service — think GitHub but running on your own hardware. It provides repository hosting, issue tracking, pull requests, CI/CD via Gitea Actions, a package registry, and a web-based code editor. It's written in Go, which means low memory usage (~150 MB at idle) and fast startup times.
+Gitea is a self-hosted, lightweight Git service â€” think GitHub but running on your own hardware. It provides repository hosting, issue tracking, pull requests, CI/CD via Gitea Actions, a package registry, and a web-based code editor. It's written in Go, which means low memory usage (~150 MB at idle) and fast startup times.
 
 **When does it make sense to run Gitea?**
-- You want full control over your source code — no third-party has access
+- You want full control over your source code â€” no third-party has access
 - You need private repositories without paying for a SaaS plan
 - You want to mirror repositories from GitHub/GitLab for offline access or redundancy
 - You're running a homelab CI/CD pipeline and want an on-prem trigger source
@@ -29,19 +29,19 @@ No live migration or production backup/restore was performed for this PR.
 
 ```text
 Internet / LAN
-      │
-      ▼
+      â”‚
+      â–¼
   Traefik (HTTPS :443)
-      │ Host(`gitea.yourdomain.com`)
-      ▼
-  gitea (port 3000) ──── gitea-db (PostgreSQL :5432)
-      │
-      ▼
-  SSH (host :2222 → container :22)
+      â”‚ Host(`gitea.yourdomain.com`)
+      â–¼
+  gitea (port 3000) â”€â”€â”€â”€ gitea-db (PostgreSQL :5432)
+      â”‚
+      â–¼
+  SSH (host :2222 â†’ container :22)
 ```
 
-- **gitea** — main application container. Serves the web UI, git-over-HTTPS, and SSH
-- **gitea-db** — PostgreSQL 17 database on an internal `gitea` bridge network
+- **gitea** â€” main application container. Serves the web UI, git-over-HTTPS, and SSH
+- **gitea-db** â€” PostgreSQL 17 database on an internal `gitea` bridge network
 - Web traffic goes through Traefik with TLS termination
 - SSH is port-forwarded directly from the host (not proxied through Traefik)
 - Both containers communicate over the internal `gitea` network; only `gitea` joins the external `traefik` network
@@ -487,6 +487,15 @@ LFS/packages/uploads functionality or every application feature. Those remain
 live preflight/isolated-restore/acceptance gates, not assumed successes.
 
 ## Backup and recovery
+
+For the inventoried live PostgreSQL 17 stack, [backup-before-pg18.sh](backup-before-pg18.sh)
+creates private logical/cold backups and saves the original images; it does not
+migrate or upgrade anything. Download the reviewed script **outside** the empty
+backup directory. It requires explicit confirmation that GitOps is paused and
+backup downtime is approved, and attempts to restart the same original DB/app
+containers on failure. The selected local backup is on the same pool. Archive
+listings/checksums are not restore verification; verify recovery separately and
+preserve a private export of the actual Portainer Compose/settings/overrides.
 
 Back up both `/mnt/SSD/Containers/gitea/data` and the matching PostgreSQL cluster
 (`/mnt/SSD/Containers/gitea/db`, now containing `18/docker`) at one stopped-writer
