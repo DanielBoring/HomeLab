@@ -232,6 +232,7 @@ against stack 195 / environment 35 before preparing any write commands.
 hostname
 for cmd in docker findmnt zfs mountpoint curl cp mv tar; do command -v "$cmd"; done
 docker context show
+docker compose version
 docker info --format 'Name={{.Name}} OS={{.OperatingSystem}} Swarm={{.Swarm.LocalNodeState}}'
 for container in gitea gitea-db; do
   docker inspect --format 'Name={{.Name}} ImageID={{.Image}} ImageRef={{.Config.Image}} State={{.State.Status}} Project={{index .Config.Labels "com.docker.compose.project"}} Service={{index .Config.Labels "com.docker.compose.service"}}' "$container"
@@ -290,10 +291,10 @@ output does not itself authorize database changes.
    test "$(cat "$root/db/PG_VERSION")" = 17
    mkdir -p "$backup"
    cp -p .env "$backup/settings.env"
-   docker compose config > "$backup/compose.pg17.yaml"
    project=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' gitea-db)
    test -n "$project"
    test "$project" = "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' gitea)"
+   docker compose -p "$project" --env-file .env config > "$backup/compose.pg17.yaml"
    old_app=$(docker inspect --format '{{.Image}}' gitea)
    old_db=$(docker inspect --format '{{.Image}}' gitea-db)
    reviewed_app=docker.gitea.com/gitea@sha256:87a67ee09d3ae0d1df5fda5dcda3e2a1f9236a45b0a59025d6e00e46adc43bef
