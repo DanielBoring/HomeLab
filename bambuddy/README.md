@@ -16,7 +16,7 @@ for automatic printer discovery. Add the printer manually using its reserved
 LAN IP address. Create a DHCP reservation in UniFi first; do not use a
 guest/isolated VLAN because the TrueNAS host must be able to reach the printer.
 
-```
+```text
 Browser on LAN
     |
     v HTTPS
@@ -37,7 +37,7 @@ Bambu printer (manual, DHCP-reserved IP)
   the TrueNAS host IP.
 - Persists Bambu Buddy's SQLite database, archived print files, thumbnails,
   encryption key file, and logs under `/mnt/SSD/Containers/bambuddy/`.
-- Pins the image to `v1.2.5.3`, a reviewed stable release. Upgrade deliberately
+- Defaults the image selector to `v1.2.5.3`; it is not yet a verified literal digest pin. Upgrade deliberately
   through Portainer after reviewing upstream release notes.
 - Keeps the optional virtual-printer capability available with
   `NET_BIND_SERVICE`; it does not expose the optional virtual-printer ports.
@@ -63,6 +63,21 @@ chown -R 3001:3001 /mnt/SSD/Containers/bambuddy
 ```
 
 ## Configure
+
+Run host shell commands on Linux from `bambuddy/` (the validation/log examples
+below explicitly use the repository root). Directory ownership setup is for a
+fresh installation, not an existing dataset.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `BAMBUDDY_DOMAIN` | Required | LAN HTTPS hostname |
+| `BAMBUDDY_VERSION` | `v1.2.5.3` | Current selector; deployed-build evidence is still needed for a literal digest pin |
+| `BAMBUDDY_MFA_ENCRYPTION_KEY` | Required | Stable Fernet key for stored MFA secrets; preserve with recovery material |
+| `BAMBUDDY_LOG_LEVEL` | `INFO` | Container `LOG_LEVEL` |
+| `TZ` | `America/New_York` | Timezone |
+| `PUID` / `PGID` | `3001` / `3001` | Application file ownership |
+
+`PORT=8000` is fixed in Compose, not user-configurable via `.env`.
 
 1. Copy `.env.example` to `.env` for command-line Compose use, or add its
    values as Portainer stack environment variables. Do not commit `.env`.
@@ -134,6 +149,12 @@ The `data` directory contains the SQLite database and archives; it is the
 critical restore set. Include the logs for diagnosis. Preserve the MFA
 encryption key in your secret manager or Portainer configuration alongside the
 backup.
+
+Stop writers before archiving SQLite and files; follow the
+[shared recovery procedure](../README.md#backing-up-data). Restore the complete
+set privately at the same version/ownership and verify users, archives and MFA
+with the original key before reconnecting printers. Never dispatch a print to
+test recovery. Keep the old state until accepted.
 
 For upgrades, review the upstream [Bambu Buddy releases](https://github.com/maziggy/bambuddy/releases), create a backup, change `BAMBUDDY_VERSION` to the
 reviewed release, then redeploy the stack through Portainer. Do not use the

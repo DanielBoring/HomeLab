@@ -6,7 +6,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 [traefik :8082] -------- traefik bridge ------+
                                             |
                                      prometheus:9090
@@ -86,8 +86,14 @@ Trade-offs to be aware of:
 # Update image
 docker compose pull && docker compose up -d
 
-# Backup
-docker compose down
-tar -czf prometheus-backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/prometheus
-docker compose up -d
 ```
+
+Ownership/copy steps are for fresh setup; compare existing host config before
+replacing it. Validate edited scrape config with
+`docker compose exec prometheus promtool check config /etc/prometheus/prometheus.yml`
+before a planned reload. Preserve config/settings and, if history matters,
+the complete stopped TSDB using the [shared recovery procedure](../README.md#backing-up-data).
+Use `stop`, not network removal, for owner-stack maintenance; coordinate
+consumers separately. Restore at the compatible version and verify targets and
+a historical query. Review retention/migrations before changing tag **and**
+digest.

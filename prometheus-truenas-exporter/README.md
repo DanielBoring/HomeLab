@@ -19,7 +19,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 TrueNAS host
 │
 ├── /proc, /sys, /  ← mounted read-only into container as /host
@@ -108,10 +108,12 @@ The scrape job is already wired in `prometheus/prometheus.yml`:
     - targets: ["prometheus-truenas-exporter:9100"]
 ```
 
-After starting the container, reload Prometheus without a restart:
+An already-loaded scrape job does not need reloading just because its target
+started. If the host-mounted scrape file was deliberately changed and validated,
+request a reload from inside Prometheus (its service name is not host DNS):
 
 ```sh
-curl -X POST http://prometheus:9090/-/reload
+docker exec prometheus wget -q -O /dev/null --post-data='' http://localhost:9090/-/reload
 ```
 
 ## Grafana dashboard
@@ -141,3 +143,13 @@ Then add each host to the `node` job in `prometheus/prometheus.yml`:
         - "10.0.5.22:9100"              # pmox2
         - "10.0.5.23:9100"              # pmox3
 ```
+
+## Recovery and updates
+
+Run host examples on Linux; deployment begins from the repository root.
+This exporter has no application data volume. Preserve Compose/image pins and
+scrape configuration, then recreate it after Prometheus's network exists.
+Host-root and PID access expose sensitive host information even with read-only
+mounts; do not add privileges or alter dataset ACLs to silence collector errors.
+Review collector/metric changes before tag/digest updates. Verify scrape `up`,
+collector errors and representative host metrics, not only HTTP availability.

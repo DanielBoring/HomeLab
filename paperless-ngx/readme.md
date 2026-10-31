@@ -18,6 +18,10 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Prerequisites
 
+Deploy Traefik first. Run Linux/Bash commands from `paperless-ngx/`. Directory
+creation/ownership below is for a fresh installation; preserve restored owners
+and do not chown PostgreSQL/Redis state to the app's UID.
+
 ### 1. Create storage directories
 
 ```bash
@@ -27,8 +31,7 @@ chown -R 3001:3001 /mnt/SSD/Containers/paperless/data
 chown -R 3001:3001 /mnt/SSD/Containers/paperless/media
 chown -R 3001:3001 /mnt/SSD/Containers/paperless/consume
 chown -R 3001:3001 /mnt/SSD/Containers/paperless/export
-chown -R 3001:3001 /mnt/SSD/Containers/paperless/redis
-# db is owned by the postgres user inside the container — do not chown it
+# PostgreSQL and Redis manage their internal users; do not blanket-chown them
 ```
 
 ### 2. Generate secrets
@@ -105,6 +108,10 @@ Other methods: web UI upload, REST API, email (configure in Admin → Mail).
 
 ### Update images
 
+Review application/database migrations and preserve the full recovery set
+before changing literal image tag/digest references; pulling the same pins is
+not an upgrade.
+
 ```bash
 docker compose pull
 docker compose up -d
@@ -113,12 +120,31 @@ docker compose logs -f webserver   # watch for migration output
 
 ### Export (backup)
 
+Pause consumption and other application writers first. Run the entire block on
+Linux from `paperless-ngx/`; set `BACKUP_ROOT` to an existing private backup
+directory outside the checkout and source tree.
+
 ```bash
-docker compose exec -T webserver document_exporter /usr/src/paperless/export
-tar -czf paperless-export-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/paperless/export
+(
+  set -euo pipefail
+  umask 077
+  root="$(realpath -e "${BACKUP_ROOT:?Set a private backup directory}")"
+  source="$(realpath -e /mnt/SSD/Containers/paperless/export)"
+  checkout="$(realpath ..)"
+  case "$root/" in "$source/"*|"$checkout/"*) printf "Unsafe backup destination.\n" >&2; exit 1 ;; esac
+  docker compose exec -T webserver document_exporter /usr/src/paperless/export
+  archive="$(mktemp "$root/paperless-export.XXXXXX.tar.gz")"
+  tar --acls --xattrs --numeric-owner -czf "$archive" -C "$source" .
+  tar -tzf "$archive" > /dev/null
+  sha256sum "$archive" > "$archive.sha256"
+  printf "Checked export archive: %s\n" "$archive"
+)
 ```
 
-The exporter is incremental — re-running only exports changed documents.
+Verify the export completed before archiving; use fail-fast handling and a
+protected destination outside the source path. Check the selected version's
+export options: do not assume a successful archive means the exporter succeeded.
+Keep unprocessed consume files and private deployment settings separately.
 
 ### Restore from export
 
@@ -126,6 +152,12 @@ The exporter is incremental — re-running only exports changed documents.
 # Deploy a fresh instance at the same version, then:
 docker compose exec webserver document_importer /usr/src/paperless/export
 ```
+
+Prepare that isolated instance with its own empty database/media paths,
+required host directories and original relevant settings. Extract the verified
+export into its mounted export directory, block ingress/consumption, and only
+then import. Check the selected version's importer options and inspect errors
+before enabling any writers. The export is not a full infrastructure backup.
 
 ### Rebuild search index
 
@@ -143,9 +175,10 @@ Detects missing originals, checksum mismatches, missing thumbnails, and permissi
 
 ### Full backup (volumes)
 
-```bash
-docker compose down
-tar -czf paperless-volumes-$(date +%Y%m%d).tar.gz \
-  /mnt/SSD/Containers/paperless
-docker compose up -d
-```
+Pause consumption/automation and stop every writer before preserving the entire
+`/mnt/SSD/Containers/paperless` tree consistently with original images/settings.
+Use the [shared cold restore procedure](../README.md#backing-up-data), start
+PostgreSQL/broker before the web app, and verify login, document downloads,
+metadata and the sanity checker before resuming consumption. Restore exports
+only into a deliberately fresh compatible instance; do not import over live
+production data. Published host port 8010 bypasses Traefik restrictions.

@@ -6,10 +6,22 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - tdarr-configs:/app/configs
-      - tdarr-logs:/app/logs
+      - type: bind
+        source: ${TDARR_CONFIGS_PATH}
+        target: /app/configs
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${TDARR_LOGS_PATH}
+        target: /app/logs
+        bind:
+          create_host_path: false
       - tdarr-media:/data/media
-      - tdarr-transcode:/temp
+      - type: bind
+        source: ${TDARR_TRANSCODE_PATH}
+        target: /temp
+        bind:
+          create_host_path: false
     environment:
       - TZ=${TZ:-America/New_York}
       - PUID=${PUID:-1000}
@@ -46,21 +58,3 @@ volumes:
       type: nfs
       o: "addr=${TRUENAS_IP},rw,nfsvers=4"
       device: ":/mnt/Data/Media"
-  tdarr-configs:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${TDARR_CONFIGS_PATH}
-      o: bind
-  tdarr-logs:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${TDARR_LOGS_PATH}
-      o: bind
-  tdarr-transcode:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${TDARR_TRANSCODE_PATH}
-      o: bind

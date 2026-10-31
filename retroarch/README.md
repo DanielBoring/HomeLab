@@ -4,11 +4,11 @@ RetroArch is an all-in-one emulator frontend that runs classic games across doze
 
 GPU acceleration is wired up to the Intel Arc GPU for both rendering and VAAPI video encoding of the KasmVNC stream.
 
-[https://docs.linuxserver.io/images/docker-retroarch/]
+[LinuxServer image documentation](https://docs.linuxserver.io/images/docker-retroarch/)
 
 ## Architecture
 
-```
+```text
 Browser (HTTPS) → Traefik (TLS termination) → retroarch:3000 (KasmVNC HTTP)
                                                       ↓
                                               Intel Arc GPU (VAAPI + EGL)
@@ -19,6 +19,8 @@ KasmVNC streams the RetroArch GUI to the browser. `/dev/dri` is passed through t
 ROMs are mounted from the host into `/roms` inside the container. Configure the path in RetroArch under **Settings → Directory → File Browser / Start Directory**.
 
 ## Prerequisites
+
+Deploy Traefik first. Run shell examples on Linux from `retroarch/`.
 
 ### Host directories
 
@@ -65,7 +67,7 @@ Navigate to `https://retroarch.yourdomain.com` and log in.
 
 RetroArch expects ROMs organized by system. A common convention:
 
-```
+```text
 /mnt/Data/Media/ROMs/
 ├── nes/
 ├── snes/
@@ -96,3 +98,17 @@ If you replace the Intel Arc with an Nvidia GPU:
    - Swap the active/commented environment variables for `DRINODE`, `DRI_NODE`, `NVIDIA_DRIVER_CAPABILITIES`, and `NVIDIA_VISIBLE_DEVICES`
 
 6. In `.env`, rename `INTEL_DRI_NODE` to `NVIDIA_DRI_NODE` and set it to the correct render node (`ls -la /dev/dri/`).
+
+## Recovery and updates
+
+Give selected PUID/PGID access through existing config/media ACLs. `/roms` is
+writable in this stack; avoid simultaneous library changes by other tools.
+Verify `docker compose ps`, recent `retroarch` logs, authenticated desktop access
+and render-device availability.
+
+Close games/GUI and stop writers before preserving the complete config path
+(cores, settings, saves/states) and irreplaceable ROM/BIOS library together with
+original images/settings. Use the
+[shared recovery procedure](../README.md#backing-up-data), restore privately at
+the same version, verify saves/settings, then resume use. Review core/save and
+GPU-driver compatibility before replacing the moving image.
