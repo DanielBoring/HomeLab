@@ -2,6 +2,8 @@
 
 Exports Proxmox VE cluster and node metrics to Prometheus via a `/pve` endpoint on port `9221`.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Prerequisites
 
 - `prometheus` deployed first — the exporter joins the `monitoring` Docker network it creates
@@ -107,4 +109,12 @@ docker compose pull
 docker compose up -d
 ```
 
-The exporter is stateless — no local data is stored, so no backup is needed.
+The exporter is stateless, but preserve original private token/settings,
+Compose/image pins and scrape configuration. Run Linux/Bash examples from
+`prometheus-proxmox-exporter/`. Host port 9221 is published, not monitoring-only;
+restrict it to trusted scrape clients. Prefer verified TLS with the appropriate
+CA rather than routinely disabling verification.
+
+For recovery recreate it after the monitoring network exists, verify token
+authorization, scrape `up` and a known cluster metric. Review scrape/metric
+compatibility before changing tag/digest. No data-directory archive is needed.

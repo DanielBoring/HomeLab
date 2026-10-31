@@ -1,7 +1,7 @@
 
 services:
   traefik-manager:
-    image: ghcr.io/chr0nzz/traefik-manager:latest
+    image: ghcr.io/chr0nzz/traefik-manager:1.15.2@sha256:8c88f80d2679cffa4149e713dff6c166dbebd457c0c8df2503cc573302ae7b4e
     container_name: traefik-manager
     restart: unless-stopped
     security_opt:

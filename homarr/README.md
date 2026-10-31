@@ -2,9 +2,11 @@
 
 Homarr is a self-hosted dashboard for organizing homelab apps and services. It provides a drag-and-drop UI, built-in Docker integration, health/status widgets, and app tiles without maintaining a large YAML dashboard by hand.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
-```
+```text
 Browser
   |
   v
@@ -19,6 +21,8 @@ homarr:7575
 
 ## Prerequisites
 
+Deploy Traefik first. Run Linux/Bash commands from `homarr/`.
+
 Create the host data directory before first deploy:
 
 ```bash
@@ -31,7 +35,8 @@ Generate a stable encryption key and store it in `.env`:
 openssl rand -hex 32
 ```
 
-Do not rotate `SECRET_ENCRYPTION_KEY` unless you are intentionally resetting encrypted Homarr integration secrets.
+Preserve `SECRET_ENCRYPTION_KEY` with the deployment; do not replace it without
+a supported migration procedure for existing encrypted integration secrets.
 
 ## Quick Start
 
@@ -52,5 +57,14 @@ Access Homarr at `https://${HOMARR_DOMAIN}`.
 
 ## Notes
 
-- The Docker socket is mounted read-only so Homarr can discover containers without giving it write access to the Docker daemon.
+- The Docker socket has a read-only filesystem mount, but that does not prevent Docker API writes. Treat Homarr's socket access as privileged; restrict who can use its Docker integration or provide a suitably restricted API proxy.
 - The healthcheck uses `/api/health/live`, not `/`. Hitting `/` as an unauthenticated healthcheck can trigger repeated `No home board found` errors in Homarr logs because the homepage route tries to resolve a default board.
+
+## Recovery and updates
+
+Check `docker compose ps`/recent `homarr` logs and verify authenticated boards
+and integration widgets. Stop writers before preserving the complete appdata
+path, original encryption key, other private settings and image pins. Use the
+[shared recovery procedure](../README.md#backing-up-data), restore privately at
+the same version with original ownership, and verify boards and decryption before
+enabling Docker controls. Review app/database migrations before updates.

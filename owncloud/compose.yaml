@@ -1,7 +1,7 @@
 
 services:
   ocis:
-    image: owncloud/ocis:latest
+    image: owncloud/ocis:8.2.1@sha256:cc6ffce88afeb73010df133563820fb7a5e3e235468dc0b66ab4b20c88f1c6a2
     container_name: ocis
     restart: unless-stopped
     security_opt:
@@ -23,7 +23,7 @@ services:
       - ocis-data:/var/lib/ocis
     entrypoint:
       - /bin/sh
-    command: ["-c", "ocis init --insecure=false || true; ocis server"]
+    command: ["-ec", "if [ ! -e /etc/ocis/ocis.yaml ]; then ocis init --insecure=false; fi; exec ocis server"]
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ocis.rule=Host(`${OCIS_DOMAIN}`)"

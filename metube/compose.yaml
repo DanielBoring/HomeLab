@@ -1,7 +1,7 @@
 
 services:
   metube:
-    image: ghcr.io/alexta69/metube:latest
+    image: ghcr.io/alexta69/metube@sha256:df929ef2453fd75c1f1cbd8dafb309ee03ff18d8705c7c1e01642b1202d4a650
     container_name: metube
     restart: unless-stopped
     security_opt:

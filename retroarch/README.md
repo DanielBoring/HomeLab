@@ -4,11 +4,11 @@ RetroArch is an all-in-one emulator frontend that runs classic games across doze
 
 GPU acceleration is wired up to the Intel Arc GPU for both rendering and VAAPI video encoding of the KasmVNC stream.
 
-[https://docs.linuxserver.io/images/docker-retroarch/]
+[LinuxServer image documentation](https://docs.linuxserver.io/images/docker-retroarch/)
 
 ## Architecture
 
-```
+```text
 Browser (HTTPS) → Traefik (TLS termination) → retroarch:3000 (KasmVNC HTTP)
                                                       ↓
                                               Intel Arc GPU (VAAPI + EGL)
@@ -19,6 +19,8 @@ KasmVNC streams the RetroArch GUI to the browser. `/dev/dri` is passed through t
 ROMs are mounted from the host into `/roms` inside the container. Configure the path in RetroArch under **Settings → Directory → File Browser / Start Directory**.
 
 ## Prerequisites
+
+Deploy Traefik first. Run shell examples on Linux from `retroarch/`.
 
 ### Host directories
 
@@ -65,7 +67,7 @@ Navigate to `https://retroarch.yourdomain.com` and log in.
 
 RetroArch expects ROMs organized by system. A common convention:
 
-```
+```text
 /mnt/Data/Media/ROMs/
 ├── nes/
 ├── snes/
@@ -82,22 +84,13 @@ In RetroArch: **Settings → Directory → System / BIOS** → point to `/roms/b
 
 If you replace the Intel Arc with an Nvidia GPU:
 
-1. Install and configure `nvidia-container-toolkit` on TrueNAS:
-   ```sh
-   curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-   curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-     sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-     sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-   sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-   sudo nvidia-ctk runtime configure --runtime=docker
-   sudo systemctl restart docker
-   ```
+1. Use the GPU/driver configuration supported by your installed TrueNAS SCALE release. Do not add Debian package repositories, run `apt`/`nvidia-ctk`, or restart the appliance's Docker service as a generic setup step. [TrueNAS developer-mode modifications](https://www.truenas.com/docs/scale/systemsettings/advanced/developermode/) are unsupported and can be lost during upgrades.
 
-2. Nvidia drivers **580+** are required. Check with `nvidia-smi`.
+2. Check the selected LinuxServer image's NVIDIA requirements against the TrueNAS-provided driver. Verify the GPU is available to apps using the supported TrueNAS controls; do not assume an arbitrary driver version or kernel parameter is appropriate.
 
-3. Set kernel parameters `nvidia-drm.modeset=1 nvidia_drm.fbdev=1` and reboot.
+3. Schedule any required host reboot as a separate maintenance operation.
 
-4. TrueNAS is headless — use a **dummy HDMI plug** so Nvidia DRM initializes without a real display.
+4. Headless GPU/display requirements vary by hardware and image. Validate them before changing host settings.
 
 5. In `compose.yaml`, swap the GPU config as indicated by the comments:
    - Remove the `devices` block
@@ -105,3 +98,17 @@ If you replace the Intel Arc with an Nvidia GPU:
    - Swap the active/commented environment variables for `DRINODE`, `DRI_NODE`, `NVIDIA_DRIVER_CAPABILITIES`, and `NVIDIA_VISIBLE_DEVICES`
 
 6. In `.env`, rename `INTEL_DRI_NODE` to `NVIDIA_DRI_NODE` and set it to the correct render node (`ls -la /dev/dri/`).
+
+## Recovery and updates
+
+Give selected PUID/PGID access through existing config/media ACLs. `/roms` is
+writable in this stack; avoid simultaneous library changes by other tools.
+Verify `docker compose ps`, recent `retroarch` logs, authenticated desktop access
+and render-device availability.
+
+Close games/GUI and stop writers before preserving the complete config path
+(cores, settings, saves/states) and irreplaceable ROM/BIOS library together with
+original images/settings. Use the
+[shared recovery procedure](../README.md#backing-up-data), restore privately at
+the same version, verify saves/settings, then resume use. Review core/save and
+GPU-driver compatibility before replacing the moving image.

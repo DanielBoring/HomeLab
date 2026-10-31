@@ -4,9 +4,11 @@ RomM (ROM Manager) is a self-hosted game library manager with a slick web UI. It
 
 Run it when you want a Plex-style experience for your game collection: clean cover art, descriptions, release dates, and the ability to browse by platform, genre, or franchise from any device on your LAN.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
-```
+```text
 Browser
   │
   ▼
@@ -21,22 +23,27 @@ romm-db:3306  (MariaDB LTS)
 
 RomM ships with an embedded Redis/Valkey instance for session management and caching — no separate Redis container is needed. The Redis data volume must be mounted at `/redis-data`, which is where the current RomM image writes its embedded Redis snapshots. The ROM library at `/mnt/Data/Media/ROMs` is mounted read-only from RomM's perspective but can be written to by other processes on the host.
 
+Read-only library mounting prevents RomM uploads, deletion, or reorganization of ROM files. Manage those files on the host, then rescan. Existing deployments become read-only when this Compose change is explicitly redeployed.
+
 ## Prerequisites
 
 ### 1. Create host directories
 
 ```bash
 mkdir -p /mnt/SSD/Containers/romm/{resources,redis-data,assets,config,db}
-chown -R 3001:3001 /mnt/SSD/Containers/romm
+# Fresh app paths only; do not change MariaDB's ownership
+chown -R 3001:3001 /mnt/SSD/Containers/romm/{resources,redis-data,assets,config}
 ```
 
-The ROM library at `/mnt/Data/Media/ROMs` should already exist and be owned by 3001:3001.
+The ROM library must already exist and grant UID/GID 3001 read/traverse access
+through its existing ACLs; do not recursively change ownership of shared media.
+Deploy Traefik first and run Linux/Bash examples from `romm/`.
 
 ### 2. Organize your ROM library
 
 RomM expects ROMs grouped into platform folders using RetroArch-style slugs:
 
-```
+```text
 /mnt/Data/Media/ROMs/
 ├── gba/
 ├── gbc/
@@ -51,7 +58,7 @@ RomM expects ROMs grouped into platform folders using RetroArch-style slugs:
 └── ...
 ```
 
-See the [full platform slug list](https://docs.romm.app/latest/ROMs-Management/Folder-Structure/) in the RomM docs. Folders that don't match a known slug are shown as "unknown platform" and can be manually mapped in the UI.
+Consult the [official RomM documentation](https://docs.romm.app/latest/) for the folder structure supported by your selected release. Folders that don't match a known slug can require manual platform mapping in the UI.
 
 ### 3. Generate an auth secret key
 
@@ -118,7 +125,17 @@ Add keys to `.env` and `docker compose up -d` to reload — no rebuild needed.
 
 ## Notes
 
-- **mariadb:lts** is used instead of `mariadb:latest` — pinning to the LTS tag avoids surprise major-version upgrades that require manual data migration steps. Update intentionally with `docker compose pull` when you're ready.
+- **RomM `5.4.0` and MariaDB `12.3.3` are pinned with verified digests to the already-running images.** Replacing the old `mariadb:lts` reference does not select a newer database. Before future updates, review migrations and back up the complete restore set. Never change an existing database major without its supported migration procedure.
 - **Port 8080** is RomM's internal container port — no host port is exposed, Traefik handles all routing.
-- **`restart: true`** in `depends_on` means Docker will restart RomM if MariaDB restarts, re-establishing the DB connection automatically.
+- **`restart: true`** in `depends_on` restarts RomM after explicit Compose-controlled database updates/restarts; it does not propagate automatic container-runtime restarts.
 - **Redis/Valkey writes to `/redis-data`**. If this is mounted elsewhere, Docker may create an anonymous volume at `/redis-data`; the embedded Redis process can then fail snapshot persistence and raise `MISCONF` / `stop-writes-on-bgsave-error` errors.
+
+## Recovery
+
+Check both services/logs and verify login plus a known game's assets. Stop
+app/database writers before preserving all five SSD directories, original auth
+secret, DB/API credentials and image pins. Back up irreplaceable ROMs separately,
+coordinating any other writers despite this app's read-only mount. Use the
+[shared recovery procedure](../README.md#backing-up-data), retain numeric owners,
+start the compatible database before the app, and verify games/artwork/login
+before rescanning. Do not enable a metadata scan to mask missing restored data.

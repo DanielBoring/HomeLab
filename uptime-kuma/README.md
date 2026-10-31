@@ -2,15 +2,21 @@
 
 Self-hosted uptime monitoring with a clean web UI. Monitors services via HTTP/HTTPS, TCP, DNS, and more, with alerting via a wide range of notification providers.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Overview
 
 | Setting | Value |
 |---|---|
-| Image | `louislam/uptime-kuma:2` |
+| Image | `louislam/uptime-kuma`, digest-pinned in [compose.yaml](compose.yaml) |
 | Access | `https://<UPTIME_KUMA_DOMAIN>` (via Traefik) |
 | Config | `/mnt/SSD/Containers/uptime-kuma` |
 
 ## Prerequisites
+
+Deploy Traefik first; run Linux/Bash commands from `uptime-kuma/`.
+The Docker socket mount permits privileged daemon access even with `:ro`;
+restrict administration to trusted users.
 
 Create the persistent storage directory before deploying:
 
@@ -48,13 +54,13 @@ docker compose up -d
 
 In your Windows DNS server, add a CNAME pointing to the Traefik A record:
 
-```
+```text
 <UPTIME_KUMA_DOMAIN>  CNAME  traefik.yourdomain.com
 ```
 
 ### 5. Access
 
-```
+```text
 https://<UPTIME_KUMA_DOMAIN>
 ```
 
@@ -77,8 +83,8 @@ docker compose up -d
 
 ### Backup
 
-```bash
-docker compose down
-tar -czf uptime-kuma-backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/uptime-kuma
-docker compose up -d
-```
+Stop the container before preserving the entire data path, image pins and
+encrypted settings. Use the [shared recovery procedure](../README.md#backing-up-data).
+Restore with original ownership/version, verify users, monitors and history, and
+keep notification delivery disabled until the restore is accepted. A healthy
+container does not prove each configured monitor is functioning.

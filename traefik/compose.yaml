@@ -1,7 +1,7 @@
 
 services:
   traefik:
-    image: traefik:v3.7.13
+    image: traefik:v3.7.13@sha256:24841fe2de7304c149343d877d2923b4c8800a38ba015dea9174c23b20e344a0
     container_name: traefik
     restart: unless-stopped
     security_opt:
@@ -10,7 +10,6 @@ services:
       traefik-macvlan:
         ipv4_address: 10.0.5.5   # Traefik's dedicated LAN IP
       traefik:
-      monitoring:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /mnt/SSD/Containers/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -25,6 +24,7 @@ services:
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.entrypoints=websecure"
       - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.middlewares=secure-headers@file,lan-only@file"
 
 volumes:
   traefik-certs:
@@ -47,5 +47,3 @@ networks:
   traefik:
     name: traefik
     driver: bridge
-  monitoring:
-    external: true

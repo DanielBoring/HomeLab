@@ -4,6 +4,8 @@ Traefik v3 reverse proxy with Docker provider and Let's Encrypt TLS via Cloudfla
 
 https://doc.traefik.io/traefik/getting-started/docker/
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Overview
 
 | Setting | Value |
@@ -26,17 +28,23 @@ Traefik runs on a **macvlan** network, giving it a dedicated LAN IP (`10.0.5.5`)
 - Other containers use the `traefik` bridge network to be reached by Traefik (macvlan is only for external access)
 - **The Docker host itself cannot reach macvlan IPs directly** — macvlan containers are isolated from their parent network interface. Access the Traefik dashboard from another machine on the LAN.
 
-Three networks are used:
+Two networks are used. Deploy Traefik first: it has no dependency on the `monitoring` network. Prometheus subsequently joins both shared bridges and scrapes `traefik:8082` through the `traefik` bridge.
 
 | Network | Type | Purpose |
 |---|---|---|
 | `traefik-macvlan` | macvlan | Traefik's dedicated LAN IP (`10.0.5.5`) |
 | `traefik` | bridge | Shared by all services that Traefik reverse-proxies |
-| `monitoring` | bridge (external) | Prometheus scrapes Traefik metrics on port `8082` |
 
 ## Prerequisites
 
-Create the required directories and copy the config files to the host before deploying:
+The Compose dashboard route now uses `secure-headers@file,lan-only@file`;
+deploy the matching host dynamic middleware file before recreating Traefik.
+This restricts the HTTPS route, not the separate `api.insecure` listener on
+macvlan port 8080. Restrict that unauthenticated API with LAN/firewall controls;
+Traefik Manager currently depends on it. Live ingress restrictions were not
+verified by this documentation work.
+
+Run the following Linux-host commands from the repository's `traefik` directory. Check the macvlan parent interface, subnet, gateway, reserved IP, and ACME email against your host before deployment. Create the required directories and copy the config files:
 
 ```bash
 mkdir -p /mnt/SSD/Containers/traefik/certs
@@ -79,19 +87,19 @@ docker compose up -d
 
 In your Windows DNS server, add an A record pointing to Traefik's dedicated IP:
 
-```
+```text
 traefik.yourdomain.com  A  10.0.5.5
 ```
 
 Each service you add behind Traefik gets a CNAME pointing to this A record:
 
-```
+```text
 myservice.yourdomain.com  CNAME  traefik.yourdomain.com
 ```
 
 ### 5. Access the dashboard
 
-```
+```text
 https://<TRAEFIK_DOMAIN>/dashboard/
 ```
 
@@ -110,9 +118,12 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
       - "traefik.http.routers.my-service.rule=Host(`my-service.example.com`)"
       - "traefik.http.routers.my-service.entrypoints=websecure"
       - "traefik.http.routers.my-service.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.my-service.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.my-service.service=my-service@docker"
       - "traefik.http.services.my-service.loadbalancer.server.port=8080"
 ```
 
@@ -124,31 +135,28 @@ Traefik reads labels attached to Docker containers and automatically builds rout
 
 Every Traefik label follows one of these patterns:
 
-```
+```text
 traefik.http.routers.<NAME>.<PROPERTY>=<VALUE>
 traefik.http.services.<NAME>.<PROPERTY>=<VALUE>
 traefik.http.middlewares.<NAME>.<TYPE>.<PROPERTY>=<VALUE>
 ```
 
-`<NAME>` is a string **you choose** — pick something that matches the service (e.g. `portainer`, `grafana`). It ties the router, service, and middleware definitions together for that container. It has no effect outside of that container's labels.
+`<NAME>` is a string **you choose**. Use the Compose service name and keep names unique across the Docker provider, not just within one container. File-provider resources use the separate `@file` namespace.
 
-### The minimum four labels
+### Standard HTTPS labels
 
-These are the only labels you need to get a container behind Traefik with HTTPS:
+Use the repository-standard explicit backend, network, and middleware settings even when Traefik could infer a single backend:
 
 ```yaml
 labels:
   - "traefik.enable=true"
-  # 1. Opt this container in (required because exposedByDefault is false)
-
+  - "traefik.docker.network=traefik"
   - "traefik.http.routers.myapp.rule=Host(`myapp.yourdomain.com`)"
-  # 2. Route requests for this hostname to this container
-
   - "traefik.http.routers.myapp.entrypoints=websecure"
-  # 3. Listen on the HTTPS entrypoint (port 443)
-
   - "traefik.http.routers.myapp.tls.certresolver=letsencrypt"
-  # 4. Automatically get a Let's Encrypt cert for this hostname
+  - "traefik.http.routers.myapp.middlewares=secure-headers@file,lan-only@file"
+  - "traefik.http.routers.myapp.service=myapp@docker"
+  - "traefik.http.services.myapp.loadbalancer.server.port=8080"
 ```
 
 > **Note:** The HTTP → HTTPS redirect is global (configured in `traefik.yml`), so you don't need a redirect middleware on each service — it's automatic.
@@ -198,7 +206,7 @@ Middlewares defined in [`dynamic/middlewares.yml`](dynamic/middlewares.yml) are 
 
 ### How Traefik processes a request
 
-```
+```text
 1. Request arrives at port 443 (websecure entrypoint)
 2. Traefik checks all routers for a matching rule  →  Host(`myapp.yourdomain.com`)
 3. Matched router runs any attached middlewares    →  secure-headers, lan-only, etc.
@@ -211,7 +219,7 @@ Middlewares defined in [`dynamic/middlewares.yml`](dynamic/middlewares.yml) are 
 ```yaml
 services:
   myapp:
-    image: myapp:latest
+    image: vendor/myapp:1.2.3  # replace with the reviewed exact release
     networks:
       - backend     # Private network for a database
       - traefik     # Traefik network for external access
@@ -220,7 +228,8 @@ services:
       - "traefik.http.routers.myapp.rule=Host(`myapp.yourdomain.com`)"
       - "traefik.http.routers.myapp.entrypoints=websecure"
       - "traefik.http.routers.myapp.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.myapp.middlewares=secure-headers@file"
+      - "traefik.http.routers.myapp.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.myapp.service=myapp@docker"
       - "traefik.http.services.myapp.loadbalancer.server.port=8080"
       - "traefik.docker.network=traefik"   # needed because container is on two networks
 
@@ -251,16 +260,13 @@ Certificates are issued automatically using Cloudflare DNS-01 challenge:
 
 This works without exposing port 80 publicly — unlike HTTP challenge, which requires a public-facing web server.
 
-> **Gotcha — switching challenge types:** `acme.json` caches the ACME order state. If you ever change from HTTP challenge to DNS challenge (or vice versa), you must clear the file or Traefik will keep retrying the old challenge type and fail:
-> ```bash
-> truncate -s 0 /mnt/SSD/Containers/traefik/certs/acme.json
-> chmod 600 /mnt/SSD/Containers/traefik/certs/acme.json
-> docker compose restart traefik
-> ```
+> **Preserve the ACME store:** changing challenge types is not a reason to routinely truncate `acme.json`. It contains account information, certificates, and private keys. Back it up securely before configuration changes, retain mode `600`, and investigate issuance errors before considering a reset. A reset loses that state and can trigger certificate reissuance/rate limits; retain a recoverable copy and plan downtime.
 
 ## Dynamic Configuration
 
 Shared middlewares and non-Docker routes live in `dynamic/middlewares.yml`, loaded via the file provider (`/etc/traefik/dynamic`). Traefik watches this directory and picks up changes automatically — no restart needed.
+
+Only `middlewares.yml` is installed by the quick start. Review other repository dynamic files individually before copying them: file-provider routes have their own middleware settings and do not inherit protection from Docker labels. Middleware does not protect directly published host ports. Docker socket access remains privileged even with a `:ro` mount.
 
 | Middleware | Purpose |
 |---|---|
@@ -276,6 +282,10 @@ Shared middlewares and non-Docker routes live in `dynamic/middlewares.yml`, load
 | Dynamic config (middlewares) | `/mnt/SSD/Containers/traefik/dynamic/` |
 
 ## Maintenance
+
+### Backup and restore
+
+Back up the static configuration, the complete installed dynamic directory, and `certs` together; preserve certificate-store ownership and mode `600`. Store the Cloudflare token and stack environment separately in an encrypted backup. Follow the [root cold-backup and restore procedure](../README.md#backing-up-data), stopping this stack only in a planned proxy maintenance window. Restore with the same image version, validate configuration without printing secrets, and verify routes/TLS from another LAN machine.
 
 ### Update image
 

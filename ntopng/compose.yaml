@@ -1,6 +1,6 @@
 services:
   ntopng:
-    image: ntop/ntopng:latest
+    image: ntop/ntopng@sha256:085561d19402e74cd57820a7494b4323fad1b7657b2f11396dfcabc71c697464
     container_name: ntopng
     restart: unless-stopped
     security_opt:
@@ -44,7 +44,7 @@ services:
       start_period: 60s
 
   ntopng-redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
     container_name: ntopng-redis
     restart: unless-stopped
     security_opt:

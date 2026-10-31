@@ -4,9 +4,11 @@ Website change monitoring with automatic alerts. Point it at any URL and it noti
 
 When to run this over alternatives like Visualping or built-in browser features: ChangeDetection is self-hosted, stores full history, supports complex filtering (XPath, CSS selectors, regex), and integrates with nearly every notification service via Apprise. It also handles JavaScript-heavy sites that simpler HTTP-polling tools can't reach.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
-```
+```text
 Browser
   │
   └─► changedetection :5000  ──► changedetection-playwright :3000 (JS rendering)
@@ -64,6 +66,7 @@ Open `https://<CHANGEDETECTION_DOMAIN>` (or `http://<host-ip>:5000` directly).
 | `TZ` | `America/New_York` | Container timezone |
 | `CHANGEDETECTION_DOMAIN` | — | Traefik domain (e.g. `changedetection.virtuallyboring.com`) |
 | `CHANGEDETECTION_PORT` | `5000` | Host port the UI is exposed on (fallback; Traefik is primary) |
+| `FLARESOLVERR_URL` | `http://flaresolverr:8191/v1` | API endpoint passed to the app; requires the external resolver network/service |
 
 Variables hardcoded in `compose.yaml` (rarely need changing):
 
@@ -79,11 +82,12 @@ The Playwright sidecar can emit Chrome stderr lines for DBus, GPU, WebGL, blocke
 
 ## FlareSolverr Integration
 
-After deploying, configure the Flaresolverr URL in the UI:
+Compose passes the API URL above; if the installed version/watch settings
+require UI configuration, keep them consistent with that API endpoint:
 
 **Settings → General → Requests → FlareSolverr API URL**
-```
-http://flaresolverr:8191
+```text
+http://flaresolverr:8191/v1
 ```
 
 Per-watch, select **FlareSolverr** as the fetch method for any Cloudflare-protected site.
@@ -92,7 +96,7 @@ Per-watch, select **FlareSolverr** as the fetch method for any Cloudflare-protec
 
 ChangeDetection uses [Apprise](https://github.com/caronc/apprise) for notifications. Configure URLs under **Settings → Notifications**. Common examples:
 
-```
+```text
 # Discord
 discord://webhook_id/webhook_token
 
@@ -115,8 +119,12 @@ mailto://user:password@smtp.host/to@address
 # Update images
 docker compose pull && docker compose up -d
 
-# Backup (stops briefly)
-docker compose down
-tar -czf changedetection-backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/changedetection
-docker compose up -d
 ```
+
+Before image changes review both the app and browser compatibility and take a
+consistent backup. Stop watch writers before preserving the complete `/config`
+host path, original images and encrypted settings/notification credentials.
+Use the [shared recovery procedure](../README.md#backing-up-data); restore with
+original ownership, verify watches/history and a harmless fetch before enabling
+notifications. Do not relax browser sandbox controls merely to hide errors.
+The direct host UI port bypasses Traefik and must be restricted separately.

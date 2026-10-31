@@ -1,7 +1,7 @@
 
 services:
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v11.3.1@sha256:ba65da5af3d2147cfc2ee68ea5a6e35b75d2dff7eeff226151a65c9d77831c02
     container_name: dozzle
     restart: unless-stopped
     security_opt:
@@ -20,9 +20,9 @@ services:
       - DOZZLE_AUTH_PROVIDER=${DOZZLE_AUTH_PROVIDER:-none}
       - DOZZLE_ENABLE_MCP=${DOZZLE_ENABLE_MCP:-true}
       # - DOZZLE_AUTH_TTL=48h
-      # - DOZZLE_ENABLE_ACTIONS=true   # requires docker.sock without :ro
-      # - DOZZLE_ENABLE_SHELL=true     # requires docker.sock without :ro
-      # - DOZZLE_REMOTE_AGENT=host1:7007,host2:7007
+      # - DOZZLE_ENABLE_ACTIONS=true   # privileged Docker API actions
+      # - DOZZLE_ENABLE_SHELL=true     # privileged container shell access
+      - DOZZLE_REMOTE_AGENT=${DOZZLE_REMOTE_AGENT:-}
       # - DOZZLE_FILTER=name=myapp*
       # - DOZZLE_LEVEL=info
     labels:

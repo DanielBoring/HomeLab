@@ -2,16 +2,18 @@
 
 Web GUI for [yt-dlp](https://github.com/yt-dlp/yt-dlp) — paste a URL, pick a format, and download video or audio from YouTube and hundreds of other sites. Supports playlists, subscriptions, and custom yt-dlp options.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Why run it
 
 yt-dlp from the command line works, but MeTube gives you a persistent queue, format selection (video/audio/best), and a browser-accessible download history without touching a terminal. Useful for pulling content to your local media library or archiving videos before they disappear.
 
 ## Architecture
 
-```
+```text
 Browser → Traefik (HTTPS, lan-only) → MeTube :8081
                                           │
-                          /downloads → /mnt/Data/Media/Downloads/Untube  (HDD)
+                          /downloads → /mnt/Data/Media/Metube            (HDD)
                           /config    → /mnt/SSD/Containers/metube         (SSD — queue state)
 ```
 
@@ -23,9 +25,9 @@ Downloads land directly in your media storage. The queue state (what's been down
 - Host directories created before first start:
 
 ```bash
-mkdir -p /mnt/Data/Media/Downloads/Untube
+mkdir -p /mnt/Data/Media/Metube
 mkdir -p /mnt/SSD/Containers/metube
-chown -R 3001:3001 /mnt/Data/Media/Downloads/Untube /mnt/SSD/Containers/metube
+chown -R 3001:3001 /mnt/Data/Media/Metube /mnt/SSD/Containers/metube
 ```
 
 ## Quick start
@@ -61,7 +63,19 @@ Full list of yt-dlp options: <https://github.com/yt-dlp/yt-dlp#usage-and-options
 
 ## Notes
 
-- The UI is restricted to LAN (`10.0.0.0/20`) via `lan-only@file` middleware — MeTube has no built-in auth.
+- The domain route uses `lan-only@file`; MeTube has no built-in auth. Direct host port `METUBE_PORT` bypasses Traefik, so restrict it with host/firewall controls or remove the published port if it is unnecessary.
 - `UMASK=002` matches the arr stack convention so downloaded files are group-writable.
 - Audio-only downloads go to the same folder as video; set `AUDIO_DOWNLOAD_DIR` in compose.yaml if you want a separate path.
 - Subscriptions and queue history live in `/mnt/SSD/Containers/metube/` — back this up if you use subscriptions heavily.
+
+## Recovery and updates
+
+Run Linux/Bash commands from `metube/`. Ownership examples are for fresh paths;
+preserve existing media ACLs. Check `docker compose ps`, recent `metube` logs and
+queue/history in the UI without adding a bulk download.
+
+Pause downloads and stop the app before preserving config/queue state and
+irreplaceable downloads together with original images/settings. Follow the
+[shared recovery procedure](../README.md#backing-up-data), restore at the same
+version, check paths/history and keep subscriptions paused until accepted.
+Review yt-dlp/application compatibility before changing tag/digest and pulling.

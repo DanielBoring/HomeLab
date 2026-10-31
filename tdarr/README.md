@@ -7,9 +7,11 @@ Tdarr is a distributed media transcoding automation platform. It scans a media l
 - You want Plex to Direct Play more often (fewer transcodes = less CPU/GPU load at watch time)
 - You have idle GPU cycles that could be doing useful work overnight
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │ TrueNAS Docker Host                             │
 │                                                  │
@@ -18,7 +20,7 @@ Tdarr is a distributed media transcoding automation platform. It scans a media l
 │  │ (server)     │◄───│ (TrueNAS GPU worker) │   │
 │  │              │    │ network_mode:        │   │
 │  │ :8265 webUI  │    │   service:tdarr      │   │
-│  │ :8266 comms  │    │ NVIDIA GPU           │   │
+│  │ :8266 comms  │    │ Intel Arc / VAAPI     │   │
 │  └──────┬───────┘    └──────────────────────┘   │
 │         │                                        │
 │  /mnt/Data/Media (shared volume)                │
@@ -37,10 +39,14 @@ A second node on the gaming desktop connects to port 8266 over the LAN — see [
 ## Prerequisites
 
 **TrueNAS host:**
-- NVIDIA Container Toolkit installed (`nvidia-ctk` available)
-- Docker daemon configured with the NVIDIA runtime
+- Traefik already deployed; run Linux/Bash commands from `tdarr/`.
+- Intel Arc `/dev/dri` available through supported TrueNAS GPU configuration.
+  The active node uses the `iHD` VAAPI driver, not NVIDIA reservations.
+- Writable media/config paths for `PUID:PGID` (default `3001:3001`); preserve
+  restored ownership/ACLs. Do not enable plugins against originals without a
+  separately verified media backup.
 - Host directories created before first run:
-  ```
+  ```text
   mkdir -p /mnt/SSD/Containers/tdarr/{server,configs,logs,transcode-cache}
   ```
 
@@ -69,7 +75,10 @@ Open `https://${TDARR_DOMAIN}` → **Libraries** → add a library pointing to `
 | Port | Purpose |
 |---|---|
 | `8265` | Web UI (exposed via Traefik) |
-| `8266` | Node communication (direct, LAN only) |
+| `8266` | Published node communication; restrict it to trusted worker IPs at the firewall |
+
+The web UI is also published at `${TDARR_PORT:-8265}`. Published ports bypass
+Traefik's LAN middleware; their actual reachability is not checked here.
 
 ## Volumes
 
@@ -80,3 +89,13 @@ Open `https://${TDARR_DOMAIN}` → **Libraries** → add a library pointing to `
 | `/mnt/SSD/Containers/tdarr/logs` | `/app/logs` | Shared logs |
 | `/mnt/Data/Media` | `/data/media` | Media library (read/write) |
 | `/mnt/SSD/Containers/tdarr/transcode-cache` | `/temp` | Transcode scratch space |
+
+## Operations and recovery
+
+Stop/pause all local and desktop workers before a consistent backup of
+`server` and `configs`, original image pins/settings, and irreplaceable media.
+Logs and scratch are optional; queue state does not replace a media backup.
+Use the [shared recovery procedure](../README.md#backing-up-data), restore with
+matching server/node versions, and verify libraries, worker registration and a
+job on disposable media before resuming the queue. Hardware switching is a
+separate reviewed TrueNAS/image configuration change, not an `apt` recipe.

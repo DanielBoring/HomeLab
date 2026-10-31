@@ -2,17 +2,20 @@
 
 Real-time Docker log viewer. Streams container logs to a browser UI via the Docker socket — stateless, no log storage.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Services
 
 | Service | Port | Description |
 |---|---|---|
-| dozzle | 8087 | Web UI (proxied via Traefik) |
+| dozzle | 8080 internal / 8087 host default | Web UI; Traefik uses internal port 8080 |
 
 ## Prerequisites
 
-No persistent storage directory needed — Dozzle is stateless. The `/data` volume only stores user settings and alert configs. It is created automatically by Docker as a named volume bound to:
+Dozzle does not retain container logs, but `/data` persists user settings and alert configuration. Its named volume binds to an existing host directory:
+Deploy Traefik first and run Linux/Bash commands from `dozzle/`. Its named volume binds to an existing host directory:
 
-```
+```text
 /mnt/SSD/Containers/dozzle
 ```
 
@@ -45,23 +48,25 @@ Navigate to `https://<DOZZLE_DOMAIN>` to access the web UI.
 
 | Variable | Default | Description |
 |---|---|---|
-| `TZ` | `America/New_York` | Timezone |
+| `TZ` | `UTC` in Compose; `America/New_York` in template | Timezone |
 | `DOZZLE_HOSTNAME` | `homelab` | Display name for this host in the UI |
 | `DOZZLE_AUTH_PROVIDER` | `none` | Auth mode: `none`, `simple`, `forward-proxy` |
 | `DOZZLE_ENABLE_MCP` | `true` | Enable the read-only MCP endpoint at `/api/mcp` |
 | `DOZZLE_DOMAIN` | `dozzle.localhost` | Hostname Traefik routes to Dozzle |
 | `DOZZLE_PORT` | `8087` | Host port (direct access only — Traefik ignores this) |
+| `DOZZLE_REMOTE_AGENT` | Empty | Optional comma-separated agent addresses, explicitly passed by Compose |
 
 Commented-out options in `compose.yaml`:
 
 | Variable | Description |
 |---|---|
 | `DOZZLE_AUTH_TTL` | Persist auth sessions (e.g. `48h`) — requires `DOZZLE_AUTH_PROVIDER=simple` |
-| `DOZZLE_ENABLE_ACTIONS` | Allow start/stop/restart from UI — requires removing `:ro` from socket mount |
-| `DOZZLE_ENABLE_SHELL` | Allow shell access to containers — requires removing `:ro` from socket mount |
-| `DOZZLE_REMOTE_AGENT` | Connect to remote Dozzle agents (e.g. `host1:7007,host2:7007`) |
+| `DOZZLE_ENABLE_ACTIONS` | Allow start/stop/restart from UI; disabled unless deliberately configured |
+| `DOZZLE_ENABLE_SHELL` | Allow shell access to containers; disabled unless deliberately configured |
 | `DOZZLE_FILTER` | Limit visible containers by name or label (e.g. `name=myapp*`) |
 | `DOZZLE_LEVEL` | Log verbosity: `debug`, `info`, `warn`, `error` |
+
+A read-only socket mount does not restrict Docker API methods. Socket access is privileged even with actions/shell disabled. The direct host port also bypasses Traefik middleware; with `DOZZLE_AUTH_PROVIDER=none`, restrict all access paths to trusted clients.
 
 ## Storage
 
@@ -143,7 +148,7 @@ docker run -d \
   --restart unless-stopped \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -p 7007:7007 \
-  amir20/dozzle:latest agent
+  amir20/dozzle:v11.3.1@sha256:ba65da5af3d2147cfc2ee68ea5a6e35b75d2dff7eeff226151a65c9d77831c02 agent
 ```
 
 Or as a compose service if you prefer:
@@ -151,7 +156,7 @@ Or as a compose service if you prefer:
 ```yaml
 services:
   dozzle-agent:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v11.3.1@sha256:ba65da5af3d2147cfc2ee68ea5a6e35b75d2dff7eeff226151a65c9d77831c02
     container_name: dozzle-agent
     command: agent
     restart: unless-stopped
@@ -230,7 +235,9 @@ Fire on Docker engine events — most reliable signal for container health, inde
 
 ## Portainer Integration
 
-Portainer and Dozzle complement each other naturally — Portainer handles container management (deploy, start/stop, inspect) while Dozzle handles real-time log streaming. Both mount the Docker socket read-only and coexist without conflict.
+Portainer handles container management while Dozzle handles log viewing.
+Portainer's deployment is outside this repository; do not assume its mount mode.
+Docker socket access is privileged even when a filesystem mount uses `:ro`.
 
 ### Configure Portainer to Open Logs in Dozzle
 
@@ -239,7 +246,7 @@ Portainer CE/BE supports an **External Log Viewer** setting that adds a link on 
 1. In Portainer, go to **Settings → General**.
 2. Scroll to **Log Viewer** and enable **External Log Viewer**.
 3. Set the URL to:
-   ```
+   ```text
    https://<DOZZLE_DOMAIN>/show?name={containerName}
    ```
    Replace `<DOZZLE_DOMAIN>` with your actual Dozzle domain (e.g. `dozzle.example.com`). The `{containerName}` placeholder is filled in by Portainer at click time.
@@ -266,12 +273,22 @@ docker compose up -d
 
 ### Enable Simple Auth
 
-1. Generate a user entry:
-   ```bash
-   docker run -it --rm amir20/dozzle generate admin --password yourpassword --email you@example.com
-   ```
-2. Paste the output into `/mnt/SSD/Containers/dozzle/users.yml`
+1. Follow the selected version's [simple authentication instructions](https://dozzle.dev/guide/authentication).
+   Use the same pinned image as Compose, not an unversioned generator. Generate
+   the user file privately; do not put an actual password into command history
+   or paste generated credentials into shared logs.
+2. Store the resulting `users.yml` in `/mnt/SSD/Containers/dozzle` with restrictive
+   permissions, preserving any existing users file before replacement.
 3. Set `DOZZLE_AUTH_PROVIDER=simple` in `.env` and restart:
    ```bash
    docker compose up -d
    ```
+
+### Recovery
+
+Stop Dozzle before preserving its whole `/data` path, original images/private
+settings and auth configuration with the
+[shared recovery procedure](../README.md#backing-up-data). Restore privately at
+the same version/ownership, verify login, visible hosts and alerts, then reconnect
+agents. Docker's underlying logs need their own retention plan; Dozzle is not
+their backup. Review agent/server compatibility before tag/digest updates.

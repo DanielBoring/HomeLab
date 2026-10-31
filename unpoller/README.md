@@ -2,6 +2,8 @@
 
 Polls a UniFi network controller and exposes metrics to Prometheus via a `/metrics` endpoint on port `9130`.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Prerequisites
 
 - `prometheus` deployed first — Unpoller joins the `monitoring` Docker network it creates
@@ -94,4 +96,11 @@ docker compose pull
 docker compose up -d
 ```
 
-Unpoller is stateless — no data is stored locally, so no backup is needed.
+Unpoller is stateless, but preserve original private controller settings,
+Compose/image pins and scrape configuration. Run Linux/Bash examples from
+`unpoller/`. Ports 9130 and 37288 are host-published, not monitoring-only;
+restrict them to trusted clients.
+
+Recover after Prometheus's network exists, verify controller authorization,
+successful polls, scrape `up` and a known device metric. Review dashboard/metric
+compatibility before tag/digest updates. No data-directory archive is needed.

@@ -1,6 +1,6 @@
 services:
   gitea-db:
-    image: postgres:17
+    image: postgres:17.11@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     container_name: gitea-db
     restart: unless-stopped
     security_opt:
@@ -25,7 +25,7 @@ services:
         max-file: "3"
 
   gitea:
-    image: docker.gitea.com/gitea:1
+    image: docker.gitea.com/gitea@sha256:87a67ee09d3ae0d1df5fda5dcda3e2a1f9236a45b0a59025d6e00e46adc43bef
     container_name: gitea
     restart: unless-stopped
     security_opt:

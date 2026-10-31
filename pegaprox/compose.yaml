@@ -1,6 +1,6 @@
 services:
   pegaprox:
-    image: ghcr.io/pegaprox/pegaprox:latest
+    image: ghcr.io/pegaprox/pegaprox:1.3.0@sha256:325da9bb2082b668c44ab09a2f2e30bb4df0435eca88d3776f52fc35ea2850a5
     container_name: pegaprox
     restart: unless-stopped
     security_opt:

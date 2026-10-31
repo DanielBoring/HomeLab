@@ -35,11 +35,11 @@ Web-based terminal emulator for remote system access.
 - **Documentation**: See [termix/README.md](termix/README.md)
 
 ### Prometheus
-Metrics collection and storage. Prometheus scrapes targets on the `monitoring` Docker network and retains data for 30 days. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and proxmox-exporter attach to.
+Metrics collection and storage with 30-day retention. Prometheus scrapes monitoring services through the `monitoring` Docker network and Traefik through the `traefik` network. This stack **owns and creates** the shared `monitoring` network that Grafana, Unpoller, and proxmox-exporter attach to.
 
 - **Location**: [`/prometheus`](prometheus/)
 - **Access**: `https://<PROMETHEUS_DOMAIN>` (via Traefik, LAN only)
-- **Deploy before Grafana, Unpoller, and proxmox-exporter** — it creates the `monitoring` network
+- **Deploy after Traefik and before monitoring consumers**: it joins `traefik` and creates `monitoring` for Grafana, Loki, Alloy, Unpoller, and exporters.
 - **Documentation**: See [prometheus/README.md](prometheus/README.md)
 
 ### Grafana
@@ -59,11 +59,14 @@ Polls UniFi network controller and exposes metrics to Prometheus.
 - **Controller**: UniFi OS device at `https://<UNIFI_CONTROLLER_IP>`
 
 ### ntopng
-Real-time network traffic monitoring and analysis. Receives NetFlow data from the UniFi gateway, then displays per-host and per-flow breakdowns in a web UI. Also joins the `monitoring` network for Prometheus integration.
+Network traffic analysis UI with Redis persistence. This limited stack does not
+configure a UniFi NetFlow collector or a Prometheus exporter; joining a network
+does not provide those integrations. See its README before expecting LAN-wide
+traffic visibility.
 
 - **Location**: [`/ntopng`](ntopng/)
 - **Access**: `https://<NTOPNG_DOMAIN>` (via Traefik, LAN only)
-- **Ports**: 2055/udp (NetFlow ingest from UniFi), 3000 (internal web UI)
+- **Ports**: 2055/udp (published but no collector configured), 3000 (internal web UI)
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 
 ### Prometheus Proxmox Exporter
@@ -109,10 +112,14 @@ S.M.A.R.T. drive health monitoring with a web UI and historical trending. Bundle
 - **Location**: [`/scrutiny`](scrutiny/)
 - **Access**: `https://<SCRUTINY_DOMAIN>` (via Traefik, LAN only)
 - **Port**: 8096 (direct access)
-- **Documentation**: See [scrutiny/README.md](scrutiny/README.md)
+- **Documentation**: See [scrutiny/readme.md](scrutiny/readme.md)
 
 ### Unbound
-Validating, recursive, caching DNS resolver. Resolves queries by walking the DNS tree from root servers directly — no third-party DNS provider ever sees your queries. Used as the upstream recursive resolver for Pi-hole, replacing forwarders like 8.8.8.8 with a fully self-hosted DNS chain.
+Validating, recursive, caching DNS resolver. The explicit configuration in this
+repository queries root/authoritative DNS servers rather than a forwarding
+provider. It must be installed as described in the service README; an older
+generated configuration may still forward queries. Recursion is not encryption
+or anonymity: authoritative servers and network observers can see DNS traffic.
 
 - **Location**: [`/unbound`](unbound/)
 - **Port**: 5335 (UDP+TCP — DNS only, no web UI)
@@ -132,13 +139,6 @@ Open-source home automation platform. Connects to thousands of devices and servi
 - **Location**: [`/homeassistant`](homeassistant/)
 - **Access**: `https://<HOMEASSISTANT_DOMAIN>` (via Traefik) and `http://<host-ip>:8123` (direct, for companion app)
 - **Documentation**: See [homeassistant/README.md](homeassistant/README.md)
-
-### What's Up Docker (WUD)
-Watches running containers and notifies you when a newer image is available. Passive by default — it won't touch your containers; it sends Discord notifications and shows a dashboard of what's outdated and by how much.
-
-- **Location**: [`/wud`](wud/)
-- **Access**: `https://<WUD_DOMAIN>` (via Traefik, LAN only)
-- **Documentation**: See [wud/README.md](wud/README.md)
 
 ### phpIPAM
 Open-source IP address management tool. Tracks subnet allocations, individual IP assignments, VLANs, VRFs, and devices — a searchable source of truth for network addressing. Lighter-weight than NetBox and purpose-built for IP management.
@@ -202,7 +202,7 @@ Real-time Docker log viewer. Streams container logs to a browser UI — stateles
 Log aggregation backend for container, syslog, journal, and OTLP logs. Grafana Alloy ships logs into Loki; Grafana is the query UI.
 
 - **Location**: [`/loki`](loki/)
-- **Port**: 3100 (Loki ingest — internal only)
+- **Port**: 3100 (published ingest/API; restrict host access because Loki has no built-in authentication here)
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 - **Documentation**: See [loki/README.md](loki/README.md)
 
@@ -211,7 +211,7 @@ Telemetry collector that replaces Promtail. Collects Docker logs, systemd journa
 
 - **Location**: [`/alloy`](alloy/)
 - **Ports**: 514 (syslog UDP/TCP), 4317/4318 (OTLP), debug UI via Traefik
-- **Requires**: `prometheus`, `loki`, and `traefik` networks
+- **Requires**: Traefik and Prometheus to create `traefik` and `monitoring`; Loki running for log ingestion
 - **Documentation**: See [alloy/README.md](alloy/README.md)
 
 ### Nextcloud
@@ -384,8 +384,13 @@ Automated media library optimization and transcoding worker.
 ### Prerequisites
 
 - Docker Engine 20.10+
-- Docker Compose V2
+- Docker Compose 2.23.1 or later (Loki uses inline `configs.content`)
 - Linux host with sufficient storage for container volumes
+
+Prepare each stack's host files and environment before deployment. Start Traefik
+first to create `traefik`, then Prometheus to create `monitoring`, then the
+monitoring consumers. Traefik does not depend on `monitoring`; Prometheus reaches
+its metrics endpoint at `traefik:8082` through their shared `traefik` bridge.
 
 ### General Deployment Pattern
 
@@ -395,8 +400,8 @@ Each service follows a consistent structure:
 # Navigate to service directory
 cd <service-name>
 
-# Copy environment template (if exists)
-cp .env.example .env  # Only for services requiring secrets
+# Copy the environment template, including domain and port settings
+cp .env.example .env
 
 # Edit configuration
 nano .env  # Customize as needed
@@ -411,7 +416,7 @@ docker compose logs -f
 
 ## Repository Structure
 
-```
+```text
 HomeLab/
 ├── traefik/                        # Reverse proxy and TLS termination
 ├── prometheus/                     # Metrics collection (creates monitoring network)
@@ -425,7 +430,6 @@ HomeLab/
 ├── dozzle/                         # Real-time Docker log viewer
 ├── uptime-kuma/                    # Uptime monitoring (HTTP, TCP, DNS)
 ├── scrutiny/                       # S.M.A.R.T. drive health monitoring
-├── wud/                            # What's Up Docker — container update notifications
 ├── nextcloud/                      # Self-hosted file sync and collaboration
 ├── paperless-ngx/                  # Document management with OCR
 ├── calibre/                        # Calibre + Calibre-Web ebook manager
@@ -496,10 +500,14 @@ The following files are automatically excluded from version control:
 2. **Generate strong secrets**:
    ```bash
    openssl rand -hex 32  # For encryption keys
-   openssl rand -base64 32  # For passwords
+   openssl rand -hex 32     # URL-safe passwords; follow each app's format requirements
    ```
 
-3. **Rotate secrets regularly** - Change passwords and keys quarterly
+3. **Rotate credentials deliberately** - Follow each application's supported
+   password/account procedure and update dependent connection settings together.
+   Database initialization variables do not change existing accounts. Preserve
+   persistent encryption keys unless a verified migration re-encrypts existing
+   data; replacing a key can make stored credentials unreadable.
 
 4. **Backup securely** - Encrypt backups of `.env` files:
    ```bash
@@ -523,7 +531,6 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Semaphore Config**: `/mnt/SSD/Containers/semaphore/config`
 - **Semaphore Tmp**: `/mnt/SSD/Containers/semaphore/tmp`
 - **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
-- **WUD Store**: `/mnt/SSD/Containers/wud`
 - **Dozzle Data**: `/mnt/SSD/Containers/dozzle`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
@@ -607,31 +614,189 @@ Services are deployed and managed via **Portainer GitOps**:
 2. Portainer polls GitHub every 5 minutes and automatically pulls changes and redeploys affected stacks
 3. For immediate deployment (e.g. during troubleshooting), trigger a manual **Force Update** in Portainer
 
-Environment variables are stored per-stack in Portainer — not in `.env` files on the host.
+For Portainer deployments, settings are stored per-stack in Portainer. Host CLI
+examples instead require a private `.env` (or equivalent exported settings) and
+the same project name as the deployed stack. Portainer variables are not
+automatically available to a CLI run.
 
 ## Maintenance
 
 ### Image Updates
 
-Two tools cover image updates, depending on how a stack tags its image:
+Dependabot opens weekly pull requests for image version updates through
+[.github/dependabot.yml](.github/dependabot.yml). The `docker-compose` entry uses
+`directories: ["/*"]` to cover every top-level service directory, including new
+ones. GitHub Actions dependencies have a separate weekly update entry.
 
-| Tag style | Example | Tool | What happens |
-|---|---|---|---|
-| **Pinned** | `traefik:v3.7.13`, `grafana/grafana:11.6.1` | **Dependabot** ([.github/dependabot.yml](.github/dependabot.yml)) | Weekly PR bumping the tag. One `docker-compose` entry with `directories: ["/*"]` covers every service directory, including new ones |
-| **Floating** | `:latest` | **WUD** ([wud/](wud/)) | Notification that a newer image exists; nothing changes in git |
+On October 12, 2026, image references for 48 services in 32 stacks were frozen
+to registry manifests verified against their running TrueNAS images. This
+selects the already-running software, not a newer release. The remaining 26
+services in 16 stacks were absent from that inventory; their references remain
+unchanged and must not be treated as verified pins.
+
+An image **digest** (`@sha256:...`) is an exact content fingerprint. For 35
+services, a release tag was also verified and recorded as
+`repository:version@sha256:...`. For 13 services without a verified release
+tag, the reference is `repository@sha256:...`; do not invent a version from a
+build label. Registry manifest digests are pullable references; local Docker
+image IDs are not interchangeable with them.
+
+Dependabot reads the files in GitHub, not the images running on TrueNAS. Its
+Compose parser supports version tags and digest references, but a digest alone
+does not identify a release number or whether an update is breaking. For a
+digest-only proposal, verify the upstream release and update stream before
+approving it. Unpinned moving tags still need a separate running-image inventory
+and version-selection plan.
+
+Keep image references literal in Compose. Even where Dependabot parses a
+`${VARIABLE:-default}` reference, an override in `.env` or Portainer can make
+an updated default ineffective. Printventory's image is now managed directly
+in Compose, not through `PRINTVENTORY_VERSION`.
 
 > **Merging a Dependabot PR deploys it.** Portainer polls `main` and redeploys changed stacks within about 5 minutes (see [Deployment](#deployment)). Read the release notes and take any pre-upgrade backup (e.g. a database dump) **before** merging. Postgres major-version bumps need a dump and restore, not a plain merge.
 
-Pin a stack's image when an unreviewed upgrade could break it, for example when the upgrade runs database migrations. That's how a stack gets Dependabot coverage. Image refs built from `${VARIABLES}` aren't detected, so hardcode the tag.
+To update a pinned image, review the upstream release notes, migration
+requirements, and backups, then review a Dependabot PR or change the image
+reference in Compose. Update both the version tag and digest when both are
+present; changing only the tag leaves the old digest in control. Keep Nextcloud
+and its cron service on the same image reference. `docker compose pull` alone
+does not advance a pin to a newer release.
+
+Local file edits do not deploy anything. A later Portainer redeployment can
+recreate containers and apply other configuration changes in the same revision,
+so review the complete change before publishing. Neither image pinning nor a
+passing PR check establishes application compatibility or migration safety.
+
+#### Pull request checks
+
+[Compose validation](.github/workflows/compose-validation.yml) runs the
+**Validate Compose** job on every pull request, including Dependabot PRs, on
+pushes to `main`, and on manual workflow dispatch. It:
+
+- Tests the checker, then validates every Git-tracked or new, non-ignored
+  Compose stack with Docker Compose, including all profiles.
+- Uses dummy settings, bypasses default `.env` loading and service `env_file`
+  resolution, and isolates Docker configuration from local credentials.
+  Service `env_file` paths in the validation copy are replaced with an owned
+  empty file while retaining their schema/options: some Compose v2 releases
+  still require the original file's existence with `--no-env-resolution`.
+- Checks digest syntax and matching Nextcloud application/cron images.
+- Adds a PR run summary comparing images with the base commit, including
+  database-major, repository-change, and unclassifiable-version warnings.
+
+Image warnings require human review; they do not fail the job. The check does
+not pull images, contact HomeLab infrastructure, deploy services, run application
+health checks, or test database migrations. It cannot establish that an image
+exists in its registry or that a tag agrees with its digest.
+
+The workflow uses GitHub-hosted runners, read-only repository permissions, and
+no HomeLab secrets. It does not configure merge protection or auto-merge. To
+prevent merges with failing checks, a repository owner must separately require
+the **Validate Compose** check in a branch protection rule or ruleset after
+observing a successful hosted run. A direct push to `main` can be redeployed by
+Portainer before its push checks finish.
+
+For a local check, use Python 3.10+ with the pinned dependency in
+[requirements.txt](.github/scripts/requirements.txt) and Docker Compose with
+`config --no-env-resolution` and `--no-path-resolution` support. The checker
+supports independent stack files; `include` and `extends` are rejected to avoid
+loading additional settings sources. New required settings may need a typed
+dummy value in the checker; a passing dummy check is not a check of actual
+Portainer settings. Dependabot also reviews the checker dependency weekly.
+
+From the repository root on **Windows/PowerShell**:
+
+```powershell
+python -B -m unittest discover -s .github\scripts -p "test_*.py" -v
+python -B .github\scripts\validate_compose.py --base-ref HEAD
+```
+
+On **Linux**, use `python3` and `.github/scripts` paths instead. Without
+`--base-ref`, the checker validates all current stacks but skips image comparison.
+
+### Retired update monitor
+
+WUD is retired in favor of Dependabot review through GitHub. Its old named volume
+`wud_wud-store` and host data at `/mnt/SSD/Containers/wud` are intentionally
+preserved for rollback. They are not part of an active stack; do not delete them
+or include them in volume-pruning cleanup without a separate retention decision.
 
 ### Backing Up Data
 
-```bash
-cd <service-directory>
-docker compose down
-tar -czf backup-$(date +%Y%m%d).tar.gz /mnt/SSD/Containers/<service-name>
-docker compose up -d
-```
+There is no safe one-directory backup command for every stack. Use each service's
+**Operations and recovery** or **Backup** section to identify its full restore
+set. Examples of paths that must not be inferred from the directory name:
+
+| Stack | Restore set includes |
+|---|---|
+| Arcane | `arcane`, `arcane-postgres`, original encryption/JWT keys and database settings |
+| Calibre | `calibre`, `calibre-web`, `/mnt/Data/Media/Books` |
+| ownCloud | `ocis/config` and `ocis/data`, not `owncloud` |
+| Paperless | `paperless` database, data, media, unprocessed consume files, and secret settings |
+| Nextcloud | Entire `nextcloud/html` and `nextcloud/data`, logical SQL dump, original settings; see its staged procedure |
+| Media/download services | Their application state **and** any irreplaceable media outside `/mnt/SSD/Containers` |
+
+For a **cold filesystem backup**, on the Linux Docker host:
+
+1. Pause deployment/update automation and writers, including other stacks that
+   write to shared media. Confirm the CLI project/settings match the deployment.
+2. Stop the stack's containers with `docker compose stop`; do not use `down -v`.
+   A shared-network owner should remain deployed: removing its network can fail
+   while consumers are attached. Coordinate downtime for consumers separately.
+3. With every database/application writer stopped, snapshot or archive **all**
+   required paths together. Preserve numeric ownership, modes, ACLs and xattrs.
+   Use a private destination outside the data tree and checkout, sufficient free
+   space, and fail-fast commands. Do not resume automatically after a failure.
+   Copying a running database directory is not a consistent database backup.
+4. Verify archive readability/checksums, retain exact Compose/image versions and
+   original private settings separately, then resume existing containers with
+   `docker compose start`. Review status/logs and the application's own checks.
+5. Encrypt private archives/settings and keep a verified copy on separate
+   storage. Same-pool snapshots do not protect against loss of that pool.
+
+For a **restore**, first drill on an isolated host using the original versions
+and settings. Block user ingress and pause automation; retain the existing tree
+or dataset snapshot for rollback. Prepare empty destinations at the exact volume
+paths, restore the complete consistent set with its original ownership, and
+start databases before applications/jobs. Never extract over a running database
+or merge old and restored trees. Cold database files require compatible engine
+versions; major database upgrades need their documented logical migration.
+If any stage fails, leave services stopped and preserve the failed attempt.
+
+ZFS dataset mount points must not be renamed using ordinary `mv` recipes.
+Use supported TrueNAS snapshot/clone recovery instead. Retain dataset properties,
+NFSv4 ACLs and encryption recovery material separately: tar ACL/xattr flags are
+not a complete dataset backup. Only a successful isolated restore and application
+checks establish recoverability; checksums alone do not.
+
+Archives preserve symlinks, not external target data. Inventory shared mounts,
+symlinks and PostgreSQL tablespaces before choosing the restore set; include
+their targets separately and keep all relevant writers stopped. No generic
+archive should be described as complete without that inventory.
+
+### Shared operational safeguards
+
+README shell examples target **Bash on the Linux/TrueNAS Docker host** unless
+labelled PowerShell. Run Compose commands from the relevant service directory.
+Create host directories and copy required config files before deployment.
+Recursive ownership changes are for **fresh paths only**: never apply the
+standard `3001:3001` ownership to existing database data or image-specific users.
+
+Traefik's `lan-only` middleware protects only its routers, not published host
+ports. Compose ports without a host IP bind to all host interfaces; restrict
+them using the host/upstream firewall and never expose unauthenticated admin,
+metrics, DNS or log endpoints to the internet. This is an access requirement,
+not a claim that the current firewall has been checked.
+
+A Docker socket mount grants powerful daemon control even with `:ro`; filesystem
+read-only flags do not restrict Docker API methods. Trust the image and every
+user able to operate it. Do not make the socket world-writable.
+
+Before an update, preserve a recoverable backup and review the exact selected
+release's migrations. Update reviewed image references, not just `pull`; some
+stacks still have unresolved floating images. Disable unattended redeployments
+during backup/recovery and never rely on a container healthcheck alone as proof
+of correct application state.
 
 ### Monitoring
 
@@ -665,7 +830,8 @@ sudo netstat -tulpn | grep <port-number>
 id -u  # User ID
 id -g  # Group ID
 
-# Update PUID/PGID in .env files accordingly
+# Compare the README/image-specific user with the host directory's numeric owners.
+# Do not change an existing database tree to your login user's UID/GID.
 ```
 
 **Container won't start**:
@@ -674,11 +840,15 @@ id -g  # Group ID
 docker compose logs <service-name>
 
 # Verify configuration
-docker compose config
+docker compose config --quiet
 
-# Check for missing environment variables
-grep -v '^#' .env | grep -v '^$'
+# List assigned setting names only (never print their values)
+sed -nE 's/^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=.*/\1/p' .env
 ```
+
+Successful parsing does not check whether passwords, domains or host paths are
+correct. Inspect settings privately; do not paste rendered Compose, dotenv
+contents, container environments, or unredacted logs into issues.
 
 ## Resources
 

@@ -1,6 +1,6 @@
 services:
   tdarr:
-    image: haveagitgat/tdarr:latest
+    image: haveagitgat/tdarr@sha256:7ba5325ea64951181a30f2a8d5bbc4fc0985e4c275ea1d09d15491b47b4cd8d6
     container_name: tdarr
     restart: unless-stopped
     security_opt:
@@ -49,7 +49,7 @@ services:
         max-file: "3"
 
   tdarr-node:
-    image: haveagitgat/tdarr_node:latest
+    image: haveagitgat/tdarr_node@sha256:4d8e8d8b4159003858b255a3e44fb1564dbb599e996350c0c44a2ace25a46217
     container_name: tdarr-node
     restart: unless-stopped
     security_opt:

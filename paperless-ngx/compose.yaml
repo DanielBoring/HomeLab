@@ -1,7 +1,7 @@
 
 services:
   broker:
-    image: redis:7
+    image: redis:7.4.11@sha256:17e1d479466f88e2d8fe48f21f44aba1572bf3bbc207be16b09870072b83b005
     container_name: paperless-redis
     restart: unless-stopped
     security_opt:
@@ -12,7 +12,7 @@ services:
       - paperless-redis:/data
 
   db:
-    image: postgres:17
+    image: postgres:17.11@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3
     container_name: paperless-db
     restart: unless-stopped
     security_opt:
@@ -32,7 +32,7 @@ services:
       retries: 5
 
   webserver:
-    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.3.0@sha256:6b94799bc769a063b3340cc5847402e626d4d91d29a295a8e747f8e9bead4207
     container_name: paperless
     restart: unless-stopped
     networks:
@@ -108,7 +108,7 @@ services:
         max-file: "3"
 
   gotenberg:
-    image: gotenberg/gotenberg:8
+    image: gotenberg/gotenberg:8.37.0@sha256:f29984bd1e226bf1b93ba90af06000afa8b315853e99d27b9aaa41b93f15c769
     container_name: paperless-gotenberg
     restart: unless-stopped
     security_opt:
@@ -121,7 +121,7 @@ services:
       - --chromium-allow-list=file:///tmp/.*
 
   tika:
-    image: apache/tika:latest
+    image: apache/tika:4.1.0@sha256:06bcdbd09aca073293e5a171ad161418cc93c91d58d9e4e205064eade84889d4
     container_name: paperless-tika
     restart: unless-stopped
     security_opt:

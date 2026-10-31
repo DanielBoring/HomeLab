@@ -63,9 +63,12 @@ After the first successful connection, go to the [Tailscale admin console](https
 | Type | When to use |
 |---|---|
 | Reusable auth key | Simple setup; node registered under your user account |
-| OAuth client secret | Preferred for long-running containers; does not expire |
+| OAuth client secret | Requires supported tagged-node OAuth setup and a reviewed renewal/revocation plan; not interchangeable with a normal auth key |
 
-Generate keys at [login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
+Generate auth keys at [login.tailscale.com/admin/settings/keys](https://login.tailscale.com/admin/settings/keys).
+Follow [upstream container authentication](https://tailscale.com/docs/features/containers/docker)
+for the selected version before using OAuth; do not assume pasting a client
+secret into `TS_AUTHKEY` alone configures its required tags/permissions.
 
 ## Exit Node
 
@@ -90,10 +93,17 @@ docker compose up -d
 
 ### Re-authenticate
 
-If the node loses authentication, delete the state directory and redeploy:
+First inspect the node's status and follow the supported Tailscale reauthentication flow. Do not routinely delete state: it contains the node identity and registration.
 
-```bash
-docker compose down
-rm -rf /mnt/SSD/Containers/tailscale/*
-docker compose up -d
-```
+If a deliberate identity reset is necessary, arrange alternative host access first. Stop the stack and preserve the complete directory in a protected backup rather than deleting it. Recreate the required directory with its original ownership before redeployment, then reauthenticate and review the new identity's approvals/routes in the admin console. The reset can interrupt remote access and may register a different node.
+
+Do not start the stack until directory preparation, an appropriate authentication method, and a rollback/access plan are ready. Keep the preserved state private.
+
+Run Linux/Bash examples from `tailscale/`. Follow the
+[shared recovery procedure](../README.md#backing-up-data) for stopped identity
+state/settings. Do not rename dataset mount points; use supported snapshot/clone
+recovery. Never run restored and original identities concurrently. Verify node
+status, approved routes and connectivity through an independent management path
+before relying on the tunnel. Keep `NET_ADMIN` and TUN access limited to this
+router. Obtain verified image evidence and review route/auth changes before
+updating its moving tag.

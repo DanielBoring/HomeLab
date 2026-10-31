@@ -1,7 +1,7 @@
 
 services:
   db:
-    image: mariadb:11
+    image: mariadb:11.8.9@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15
     container_name: nextcloud-db
     restart: unless-stopped
     security_opt:
@@ -24,7 +24,7 @@ services:
       start_period: 30s
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine@sha256:520775a41a63e77e06c73e35d2fd9cc15921a609516818796b4ecbb813078bc7
     container_name: nextcloud-redis
     restart: unless-stopped
     security_opt:
@@ -36,7 +36,7 @@ services:
       - nextcloud-redis:/data
 
   app:
-    image: nextcloud:stable-apache
+    image: nextcloud:34.0.4-apache@sha256:0e5688ba0988b9112cf03f9c6bab53eccb466d278435f6596f16c1f25acacf74
     container_name: nextcloud
     restart: unless-stopped
     networks:
@@ -98,7 +98,7 @@ services:
         max-file: "3"
 
   cron:
-    image: nextcloud:stable-apache
+    image: nextcloud:34.0.4-apache@sha256:0e5688ba0988b9112cf03f9c6bab53eccb466d278435f6596f16c1f25acacf74
     container_name: nextcloud-cron
     restart: unless-stopped
     security_opt:

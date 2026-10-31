@@ -45,6 +45,14 @@ services:
       start_period: 30s
 ```
 
+For reproducible images, prefer a verified release tag plus registry manifest
+digest (`vendor/image:vX.Y.Z@sha256:...`). When freezing an existing deployment
+whose exact release tag cannot be verified, use a verified digest-only reference
+(`vendor/image@sha256:...`) rather than guessing a release or retaining a moving
+tag. Never substitute a local Docker image ID for a registry manifest digest.
+Keep image references literal in Compose so environment overrides cannot defeat
+reviewed image updates.
+
 When a service is exposed via Traefik, add these labels:
 
 ```yaml
@@ -75,6 +83,10 @@ Required order:
 2. **prometheus** — creates `monitoring` network
 3. **loki**, **grafana**, **alloy**, **unpoller**, exporters — join `monitoring` as external
 4. All other services — join `traefik` as external
+
+Traefik must not require the external `monitoring` network: that would prevent it
+from starting before Prometheus. Prometheus joins both bridges and scrapes
+`traefik:8082` through `traefik`; monitoring services use `monitoring`.
 
 Services that join a network as `external: true` cannot start until the owning stack is up.
 

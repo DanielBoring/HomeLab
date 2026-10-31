@@ -2,9 +2,11 @@
 
 Open WebUI running as a Docker container on TrueNAS, connected to a remote Ollama instance.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
-```
+```text
 TrueNAS (Docker)               Gaming PC / Remote Host
 ┌──────────────────────────┐   ┌─────────────────────┐
 │  Traefik → Open WebUI    │──▶│  Ollama  :11434     │
@@ -15,6 +17,10 @@ TrueNAS (Docker)               Gaming PC / Remote Host
 ```
 
 ## Prerequisites
+
+Deploy Traefik first. Run Linux host commands from `openwebui/`; Ollama setup
+below runs on its separate host. This route does not include `lan-only`, so
+require application authentication and verify ingress restrictions.
 
 Create the data directory before deploying:
 
@@ -66,9 +72,13 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 
 ### 2. Open port 11434 in the firewall
 
-**Windows Defender (PowerShell, run as Administrator):**
+Ollama's API is not authenticated by this stack. Restrict access to the specific
+trusted Docker host's source IP; do not open it to all clients or the internet.
+Replace the placeholder below before running it.
+
+**Windows Defender (PowerShell, run as Administrator on the Ollama host):**
 ```powershell
-New-NetFirewallRule -DisplayName "Ollama" -Direction Inbound -Protocol TCP -LocalPort 11434 -Action Allow
+New-NetFirewallRule -DisplayName "Ollama from TrueNAS" -Direction Inbound -Protocol TCP -LocalPort 11434 -RemoteAddress '<TrueNAS-source-IP>' -Action Allow
 ```
 
 ### 3. Verify connectivity
@@ -87,3 +97,14 @@ You can update the Ollama connection without restarting the container via the UI
 **Settings > Admin Settings > Connections > Ollama API**
 
 Changes take effect immediately.
+
+## Recovery and updates
+
+Check `docker compose ps`, recent `open-webui` logs and authenticated UI/model
+listing; test a harmless request only after the backend is reachable. Stop
+writers before preserving the entire backend-data path (database, uploads,
+configuration and any stored keys), original settings and image pin using the
+[shared recovery procedure](../README.md#backing-up-data). Restore privately at
+the same version with original ownership and verify users/history/uploads.
+Ollama model storage is on the remote host and needs a separate recovery plan.
+Review schema migrations before changing the image; retain pre-update state.

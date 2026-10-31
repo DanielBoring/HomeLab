@@ -1,6 +1,6 @@
 services:
   app:
-    image: codeberg.org/readeck/readeck:latest
+    image: codeberg.org/readeck/readeck@sha256:fc34b2e9bc766422a4265dc253d1a3e95e0608ee08e86c7e3dda8773ec906fdc
     container_name: readeck
     restart: unless-stopped
     security_opt:

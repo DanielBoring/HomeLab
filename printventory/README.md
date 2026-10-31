@@ -8,6 +8,8 @@ Spoolman integration), and "open in slicer" shortcuts. Printventory started as
 an Electron desktop app. This stack runs its **Server Mode** Docker image, so
 any browser on the LAN can browse the library.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Why and when to use it
 
 Use it if your models are spread across years of downloads and project folders
@@ -21,7 +23,7 @@ and where is it?"; Bambu Buddy answers "what is the printer doing?"
 
 ## Architecture
 
-```
+```text
 Browser on LAN
     |
     v HTTPS
@@ -111,7 +113,6 @@ Docker fails to start the container if it doesn't.
 | Variable | Default | Purpose |
 |---|---|---|
 | `PRINTVENTORY_DOMAIN` | — (required) | Hostname for the Traefik router. |
-| `PRINTVENTORY_VERSION` | `2.2.22` | Image tag on Docker Hub (`printventory/printventory`). Pinned on purpose: upstream releases very frequently. |
 | `PRINTVENTORY_MODELS_PATH` | — (required) | Host path of your model library, bind-mounted read-only at `/mnt/models`. |
 | `PRINTVENTORY_STL_HOME_EXCLUDE` | empty | Comma-separated container paths to skip during scans, e.g. `/mnt/models/cache`. Applied only while the exclude list in the UI is empty. |
 | `PRINTVENTORY_MEM_LIMIT` | `4g` | Container memory cap. The app's V8 heap auto-sizes from it. |
@@ -161,12 +162,16 @@ Everything that matters is in `/mnt/SSD/Containers/printventory/data`: the
 SQLite DB, generated thumbnails, and settings. Your model files stay on their
 own dataset. Back them up separately.
 
-```sh
-docker stop printventory
-tar czf printventory-backup.tar.gz -C /mnt/SSD/Containers/printventory/data .
-docker start printventory
-```
+Stop the app before a consistent SQLite/files backup and follow the
+[shared recovery procedure](../README.md#backing-up-data), retaining original
+pins/settings. Restore to a fresh destination with original ownership (the
+image uses root), confirm collections/thumbnails and model paths, and retain the
+old state until accepted. Checksums alone do not prove recovery. Do not drop the
+read-only model mount during a restore drill.
 
 To upgrade, read the [release notes](https://github.com/TechJeeper/Printventory/releases)
-and take a backup. Then bump `PRINTVENTORY_VERSION` and redeploy the stack.
+and take a backup. Then review an image-update PR or update both the tag and
+digest in `compose.yaml` before redeploying the stack. Existing
+`PRINTVENTORY_VERSION` values in `.env` or Portainer no longer select the image
+and can be removed during your next planned settings update.
 Don't use the in-app updater with this Git-managed stack.

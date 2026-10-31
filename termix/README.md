@@ -4,9 +4,11 @@
 
 Run it when you want a quick way to reach your homelab hosts from any browser (a phone, a borrowed laptop, a tablet) without setting up a full bastion or VPN client.
 
+Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+
 ## Architecture
 
-```
+```text
 Browser → Traefik (TLS + lan-only) → termix :8080
                                          ↓
                               ┌──────────┴──────────┐
@@ -95,7 +97,24 @@ RDP connections are proxied through guacd — if guacd is not running, the conne
 
 ## Updating
 
+Review Termix/guacd compatibility and migrations, back up first, and update
+reviewed image references before pulling; the pinned digest is not a moving tag.
+
 ```bash
 docker compose pull
 docker compose up -d
 ```
+
+## Recovery and safeguards
+
+Run Linux/Bash examples from `termix/`. Restrict direct host port 8090 separately
+from Traefik; saved host credentials and terminal access are powerful privileges.
+Keep NLA/TLS verification enabled where possible; troubleshoot trust rather than
+automatically weakening security or ignoring certificates.
+
+Check both services/logs, authenticated UI access and connection inventory.
+Stop Termix writers before preserving the whole data path, original images and
+encrypted private settings/keys via the
+[shared recovery procedure](../README.md#backing-up-data). Restore privately at
+the same versions/ownership, verify users and saved connection decryption, then
+reconnect to hosts without executing state-changing commands as a health check.
