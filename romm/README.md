@@ -8,7 +8,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Browser
   │
   ▼
@@ -31,16 +31,19 @@ Read-only library mounting prevents RomM uploads, deletion, or reorganization of
 
 ```bash
 mkdir -p /mnt/SSD/Containers/romm/{resources,redis-data,assets,config,db}
-chown -R 3001:3001 /mnt/SSD/Containers/romm
+# Fresh app paths only; do not change MariaDB's ownership
+chown -R 3001:3001 /mnt/SSD/Containers/romm/{resources,redis-data,assets,config}
 ```
 
-The ROM library at `/mnt/Data/Media/ROMs` should already exist and be owned by 3001:3001.
+The ROM library must already exist and grant UID/GID 3001 read/traverse access
+through its existing ACLs; do not recursively change ownership of shared media.
+Deploy Traefik first and run Linux/Bash examples from `romm/`.
 
 ### 2. Organize your ROM library
 
 RomM expects ROMs grouped into platform folders using RetroArch-style slugs:
 
-```
+```text
 /mnt/Data/Media/ROMs/
 ├── gba/
 ├── gbc/
@@ -126,3 +129,13 @@ Add keys to `.env` and `docker compose up -d` to reload — no rebuild needed.
 - **Port 8080** is RomM's internal container port — no host port is exposed, Traefik handles all routing.
 - **`restart: true`** in `depends_on` restarts RomM after explicit Compose-controlled database updates/restarts; it does not propagate automatic container-runtime restarts.
 - **Redis/Valkey writes to `/redis-data`**. If this is mounted elsewhere, Docker may create an anonymous volume at `/redis-data`; the embedded Redis process can then fail snapshot persistence and raise `MISCONF` / `stop-writes-on-bgsave-error` errors.
+
+## Recovery
+
+Check both services/logs and verify login plus a known game's assets. Stop
+app/database writers before preserving all five SSD directories, original auth
+secret, DB/API credentials and image pins. Back up irreplaceable ROMs separately,
+coordinating any other writers despite this app's read-only mount. Use the
+[shared recovery procedure](../README.md#backing-up-data), retain numeric owners,
+start the compatible database before the app, and verify games/artwork/login
+before rescanning. Do not enable a metadata scan to mask missing restored data.

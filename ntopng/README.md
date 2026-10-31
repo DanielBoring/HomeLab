@@ -1,104 +1,76 @@
 # ntopng
 
-ntopng is a web-based network traffic analysis and monitoring tool by [ntop](https://www.ntop.org/). It provides real-time and historical visibility into who is talking to whom on your network, how much bandwidth each host or application is consuming, and what protocols are in use — down to Layer 7 application detection via the nDPI engine (450+ protocols).
+[ntopng](https://www.ntop.org/) is a network traffic analysis UI. **This stack
+is limited:** it runs ntopng Community and Redis but does not configure a UniFi
+NetFlow collector, nProbe, a Prometheus exporter, or a Prometheus scrape job.
+Do not expect LAN-wide traffic visibility from deployment alone.
 
-**Why you'd use it over UniFi's built-in stats:** UniFi reports aggregate bandwidth per device; ntopng shows individual flows, application breakdown (e.g., "which app on which host used 4 GB last night"), and historical trend data. It complements UniFi-Poller's device-health metrics with deep per-flow visibility.
-
-Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
+Images are frozen to inventoried builds. See the
+[image update guide](../README.md#image-updates); a pull alone does not upgrade.
 
 ## Architecture
 
-```
-UDM SE
-  │ NetFlow UDP → host port 2055
-  ▼
-ntopng (Docker)
-  │ REST API
-  ▼
-ntopng-exporter ──→ Prometheus (monitoring network) ──→ Grafana
-  │
-ntopng-redis (session state, internal ntopng network)
-```
+Traefik routes HTTPS to `ntopng:3000`; Redis is private on the owned `ntopng`
+network. ntopng also joins external `traefik` and `monitoring`, but network
+membership does not create a monitoring integration.
 
-Traffic ingestion uses **NetFlow from the UDM SE** — the gateway sees all LAN traffic and exports summarized flow records to ntopng. This means ntopng sees every device conversation without needing raw packet access or `--network=host`.
+Compose currently publishes UDP 2055 without configuring a collector.
+`NTOPNG_NETFLOW_PORT` changes that publication only; it does not enable ingestion.
+No host-network packet capture or mirrored gateway interface is configured.
+Any visible default interface traffic is container-local, not all LAN traffic.
 
-The `ntopng-exporter` sidecar queries ntopng's REST API and exposes metrics in Prometheus format. Prometheus scrapes it on the shared `monitoring` network, making ntopng data available in Grafana alongside your existing dashboards.
+Working NetFlow/IPFIX ingestion normally requires an upstream collector such as
+nProbe and its supported transport into ntopng. Gateway export support,
+licensing, editions and versions must be verified before adding that
+architecture. See [ntop's nProbe integration guide](https://www.ntop.org/guides/ntopng/using_with_other_tools/nprobe.html)
+(checked 2026-10-13). No exporter/dashboard setup is promised by this stack.
 
-## Prerequisites
+## Prerequisites and quick start
 
-### 1. Create host directories (on TrueNAS)
+Run Bash commands on the Linux host from `ntopng/`. Deploy Traefik and Prometheus
+first to create `traefik` and `monitoring`. Prepare
+`/mnt/SSD/Containers/ntopng` and its `redis` directory. The images manage their
+internal users; preserve existing ownership, rather than applying a blanket
+`3001:3001` change to Redis.
 
 ```bash
 mkdir -p /mnt/SSD/Containers/ntopng/redis
-chown -R 3001:3001 /mnt/SSD/Containers/ntopng
-```
-
-### 2. Ensure external networks exist
-
-Both `traefik` and `monitoring` must already exist. Deploy `traefik/` and `prometheus/` first if you haven't already.
-
-## Quick Start
-
-```bash
 cp .env.example .env
-# Edit .env — set NTOPNG_DOMAIN and NTOPNG_ADMIN_PASSWORD
+# Set NTOPNG_DOMAIN and retain private settings outside Git
 docker compose up -d
+docker compose ps
+docker compose logs --tail=100 ntopng
 ```
 
-## Configure NetFlow on UDM SE
+Access `https://<NTOPNG_DOMAIN>` from an allowed LAN client. This stack does not
+pass `NTOPNG_ADMIN_USER`/`NTOPNG_ADMIN_PASSWORD` into ntopng.
+Those obsolete template entries were removed; existing private settings using
+them do not configure login. Complete the deployed
+image's first-login password setup privately before granting other users access;
+do not assume an arbitrary `.env` password works.
 
-1. Log in to UniFi Network Controller at `10.0.1.1`
-2. Navigate to **Settings → System → Advanced**
-3. Under **NetFlow**, enable the toggle
-4. Set **NetFlow Host** = TrueNAS IP address
-5. Set **NetFlow Port** = `2055` (or the value of `NTOPNG_NETFLOW_PORT`)
-6. Save
+## Settings
 
-After saving, open ntopng at `https://${NTOPNG_DOMAIN}` and navigate to **Interfaces**. A NetFlow collector interface should appear within 1–2 minutes once the UDM SE begins exporting.
-
-## Configure ntopng NetFlow Interface (first run)
-
-ntopng does not auto-detect the UDP port — you configure it once via the web UI:
-
-1. Log in with the admin credentials from `.env`
-2. Go to **Admin → Interfaces → Add Interface**
-3. Select **Flow Collector** → **NetFlow/IPFIX**
-4. Set the listen port to `2055`
-5. Save and apply
-
-## Add Grafana Dashboard
-
-Import community dashboard **[#20071](https://grafana.com/grafana/dashboards/20071-ntopng-exporter/)** (ntopng-exporter):
-
-1. Grafana → **Dashboards → Import**
-2. Enter ID `20071`, click **Load**
-3. Select the `prometheus` datasource
-4. Save into a new **Network** folder
-
-## Environment Variables
-
-| Variable | Default | Description |
+| Setting | Default | Effect |
 |---|---|---|
-| `NTOPNG_DOMAIN` | — | Traefik hostname for the web UI |
-| `NTOPNG_ADMIN_USER` | `admin` | ntopng admin username |
-| `NTOPNG_ADMIN_PASSWORD` | — | ntopng admin password (also used by exporter) |
-| `NTOPNG_NETFLOW_PORT` | `2055` | Host UDP port that receives NetFlow from UDM SE |
+| `NTOPNG_DOMAIN` | Required | Traefik hostname |
+| `NTOPNG_NETFLOW_PORT` | `2055` | Published UDP port only; no collector is configured |
 | `TZ` | `America/New_York` | Container timezone |
 
-## Prometheus Scraping
+Community mode and Redis address are fixed in Compose, not dotenv controls.
+For the current limited stack, do not enable gateway export to this port.
 
-`ntopng-exporter` listens on port `9244` inside the `monitoring` network. Prometheus is configured to scrape it via the `ntopng` job in `prometheus/prometheus.yml`.
+## Operations and recovery
 
-After deploying ntopng, restart Prometheus to pick up the new scrape job:
+Preserve `/mnt/SSD/Containers/ntopng` **including Redis state**, original image
+pins and private deployment settings. Redis contains persistent application
+state here, not just a disposable cache. Stop both writers before a filesystem
+backup; use the [shared cold backup/restore procedure](../README.md#backing-up-data).
+An isolated same-version restore should retain login/settings/history; verify
+those before accepting it.
 
-```bash
-cd ../prometheus && docker compose restart prometheus
-```
-
-Verify under **Prometheus → Status → Targets** that the `ntopng` job shows **UP**.
-
-## Notes
-
-- **Community Edition** is free and sufficient for this setup. The `--community` flag in the command activates it; no license file is needed.
-- **Data persistence:** ntopng stores RRD timeseries and configuration in `/mnt/SSD/Containers/ntopng`. Redis persists session state in `/mnt/SSD/Containers/ntopng/redis`.
-- **ClickHouse (future):** If you later want SQL-level historical analysis or longer retention, ntopng Enterprise L supports ClickHouse as a timeseries backend, which Grafana can query directly. The community + Prometheus-exporter path covers most use cases without the additional infrastructure.
+Before updates, review the selected ntopng/Redis release and migration notes,
+take a recoverable backup, then update reviewed pins before pulling/recreating.
+For failed login or an empty interface view, inspect redacted logs and Redis
+health first. An empty LAN view is expected without a configured ingestion
+architecture, not proof of a network-health fault.

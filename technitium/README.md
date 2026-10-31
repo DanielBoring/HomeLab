@@ -18,7 +18,7 @@ Pi-hole handles blocking and Pi-hole forwards to Unbound for recursion — two p
 
 ## Architecture
 
-```
+```text
 LAN clients (port 53)
         |
   [Technitium :53]  <-- Docker, host-port bound
@@ -36,16 +36,21 @@ The container is on the `traefik` network so the web UI is proxied by Traefik. D
 
 ## Host prerequisites
 
-1. **Nothing else on port 53** — TrueNAS SCALE may have `systemd-resolved` using port 53. Check with `ss -tulnp | grep ':53'`. If it is active, disable it:
+1. **Nothing else on port 53** — inspect actual listeners before changing DNS:
    ```bash
-   systemctl stop systemd-resolved
-   systemctl disable systemd-resolved
+   ss -tulnp | grep ':53'
    ```
+   Do not disable the host resolver blindly. If there is a conflict, plan a
+   supported TrueNAS DNS change with a working fallback and rollback first.
+   Restrict published UDP/TCP 53 to trusted clients at the firewall.
 2. **Create bind-mount directories** before starting the container:
    ```bash
    mkdir -p /mnt/SSD/Containers/technitium/config
    mkdir -p /mnt/SSD/Containers/technitium/logs
    ```
+3. **Traefik first** — its external network and HTTPS route must work using
+   existing DNS before moving LAN DNS to Technitium. Commands target Linux/Bash
+   from `technitium/`.
 
 ## Quick start
 
@@ -55,13 +60,18 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Open `https://${TECHNITIUM_DOMAIN}` (once DNS and Traefik are wired) or `http://<host-ip>:5380` on first boot (web UI is not behind Traefik until Traefik is resolving your domain).
+Open `https://<TECHNITIUM_DOMAIN>` through Traefik. Host port 5380 is **not**
+published by this stack, so `http://<host-ip>:5380` is not a first-boot endpoint.
+Use existing DNS or a temporary client-side hostname mapping to Traefik's IP;
+do not make Technitium the sole LAN resolver before its UI and DNS are verified.
 
 Default admin username: `admin`
 
 ## Initial configuration
 
-After `docker compose up -d`, open the web UI at `http://<host-ip>:5380` and log in with username `admin` and the password you set in `.env`.
+Open the HTTPS route and log in with username `admin` and the initialization
+password. For an existing installation use its actual account credentials;
+changing the template setting is not a documented existing-account rotation.
 
 ### 1. General settings (Settings → General)
 
@@ -106,8 +116,8 @@ Technitium can recurse fully on its own (like Unbound) or forward to upstream re
 | URL | List |
 |---|---|
 | `https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts` | StevenBlack (ads + malware) |
-| `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt` | Hagezi Pro |
-| `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/tif.txt` | Hagezi Threat Intelligence |
+| [Hagezi Multi Pro](https://github.com/hagezi/dns-blocklists#pro) | Select the current Technitium-compatible hosts/domain-list download from the official index |
+| [Hagezi Threat Intelligence](https://github.com/hagezi/dns-blocklists#tif) | Select the current compatible download from the official index |
 
 3. Set **Blocking Type** to `NxDomain` (most compatible) or `Unspecified` (returns 0.0.0.0/:: which breaks some apps less)
 4. Click **Save** then **Update Now** to pull all lists immediately
@@ -150,7 +160,12 @@ A conditional forwarder sends queries for a specific domain to a designated DNS 
 | Forwarder | `10.0.1.1` |
 | Protocol | `Udp` |
 
-This means reverse-DNS queries for RFC 1918 addresses handed out by UniFi DHCP resolve to actual hostnames.
+This forwards **forward lookups** under `home.arpa`, not reverse DNS.
+IPv4 reverse queries use `in-addr.arpa`: for example the `10.0.0.0/16`
+reverse suffix is `0.10.in-addr.arpa`. Create the appropriate reverse zone or
+conditional forwarder only after confirming the target actually serves PTR
+records for that subnet. IPv6 uses `ip6.arpa`; `.local` is mDNS and should not be
+treated as an ordinary DNS zone without an intentional design.
 
 ## Migrating from Pi-hole + Unbound
 
@@ -167,7 +182,9 @@ This means reverse-DNS queries for RFC 1918 addresses handed out by UniFi DHCP r
 | `TECHNITIUM_DOMAIN` | — | yes | Web UI domain; also sets the server's SOA hostname |
 | `TECHNITIUM_ADMIN_PASSWORD` | — | yes | Admin panel password (set before first boot) |
 
-Additional Technitium-specific env vars (all optional — configure via web UI instead):
+Additional upstream settings below are **not passed through by this Compose
+file**. Configure them through the UI, or deliberately add container environment
+entries after reviewing the pinned release; adding them to `.env` alone has no effect:
 
 | Variable | Description |
 |---|---|
@@ -183,3 +200,14 @@ Full variable reference: <https://github.com/TechnitiumSoftware/DnsServer#enviro
 |---|---|---|
 | 53 | UDP + TCP | DNS queries from LAN clients (host-bound) |
 | 5380 | TCP | Web admin UI (internal, proxied by Traefik) |
+
+## Operations and recovery
+
+Preserve `/mnt/SSD/Containers/technitium/config` (zones, settings and accounts),
+any required query logs, original image/settings and admin recovery access.
+Use the [shared stopped-writer backup/restore procedure](../README.md#backing-up-data)
+with a working client DNS fallback during downtime. Restore with the same image
+to an isolated host, verify zones, forward/PTR answers, blocking and admin login,
+then deliberately switch clients back. Review migrations and preserve the old
+config before changing image pins. Successful container startup alone does not
+prove DNS correctness.

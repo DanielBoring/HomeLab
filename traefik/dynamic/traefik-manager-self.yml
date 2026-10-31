@@ -5,6 +5,9 @@ http:
       entryPoints:
         - websecure
       service: traefik-manager
+      middlewares:
+        - secure-headers@file
+        - lan-only@file
       tls:
         certResolver: letsencrypt
   services:

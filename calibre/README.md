@@ -13,6 +13,9 @@ Calibre desktop GUI and Calibre-Web served as Docker containers. Calibre runs a 
 
 ## Prerequisites
 
+Deploy Traefik first; run Linux/Bash commands from `calibre/`. Ownership commands
+below are for fresh directories only. Preserve existing media ACLs/owners.
+
 Create persistent storage directories before deploying:
 
 ```bash
@@ -67,13 +70,16 @@ For an existing installation, use **Calibre Library → Switch/create library**,
 |---|---|---|
 | `CALIBRE_DOMAIN` | calibre | Hostname Traefik routes to the Calibre desktop GUI |
 | `CALIBRE_WEB_DOMAIN` | calibre-web | Hostname Traefik routes to Calibre-Web |
-| `CUSTOM_PORT` | calibre | Remaps the HTTP desktop GUI port (default: 8080) |
-| `CUSTOM_HTTPS_PORT` | calibre | Remaps the HTTPS desktop GUI port (default: 8181) |
-| `DOCKER_MODS` | calibre-web | Adds ebook conversion support (x86-64 only) |
-| `PASSWORD` | calibre | Optional password for the KasmVNC desktop |
-| `CLI_ARGS` | calibre | Optional extra arguments passed to the Calibre startup command |
+| `CUSTOM_PORT` | calibre | Fixed container setting `8085`; not a dotenv control |
+| `CUSTOM_HTTPS_PORT` | calibre | Fixed container setting `8086`; not a dotenv control |
+| `DOCKER_MODS` | calibre-web | Fixed conversion mod (x86-64 only) |
+| `PASSWORD` | calibre | Upstream optional setting; requires an explicit service environment entry |
+| `CLI_ARGS` | calibre | Upstream optional setting; requires an explicit service environment entry |
 
-> If the Calibre desktop GUI fails to render on your Docker host, uncomment `security_opt: seccomp:unconfined` in `compose.yaml`.
+> Investigate GUI logs first. Relaxing seccomp is a deliberate security change,
+> not a default fix; preserve `no-new-privileges` if adding a reviewed exception.
+> All four published host ports bypass Traefik middleware. Restrict them to
+> trusted clients, especially the desktop if no application password is set.
 
 ## Storage
 
@@ -94,12 +100,9 @@ docker compose up -d
 
 ### Backup
 
-```bash
-docker compose down
-tar -czf calibre-backup-$(date +%Y%m%d).tar.gz \
-  /mnt/SSD/Containers/calibre \
-  /mnt/SSD/Containers/calibre-web
-docker compose up -d
-```
-
-The book files at `/mnt/Data/Media/Books` should be backed up separately as part of your media backup strategy.
+Stop both containers and any other book-library writers before backing up
+**both config paths and `/mnt/Data/Media/Books`** (including `metadata.db`) as a
+consistent set. Follow the [shared recovery procedure](../README.md#backing-up-data).
+Restore original versions/settings/ownership, then verify Calibre's library and
+Calibre-Web login/book downloads before reopening. Never restore only book files
+over a different live metadata database.

@@ -8,7 +8,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Browser / Desktop Sync Client
         │ HTTPS
         ▼
@@ -30,9 +30,14 @@ Browser / Desktop Sync Client
 
 `PROXY_TLS=false` tells the built-in proxy to accept plain HTTP — Traefik handles TLS. The `OCIS_URL` env var tells OCIS its own public HTTPS address so OIDC redirects and share links resolve correctly.
 
-`ocis init` runs on the first container start and writes `/etc/ocis/ocis.yaml` with hashed admin password and generated secrets. The `|| true` in the entrypoint command means subsequent starts skip init silently.
+`ocis init` runs only when `/etc/ocis/ocis.yaml` is absent. Initialization
+failures stop startup; an existing config is not regenerated or ignored.
+The server then uses the persisted config and current environment.
 
 ## Host Prerequisites
+
+Deploy Traefik first and run Linux/Bash commands from `owncloud/`.
+Ownership setup below is for fresh paths only; retain restored ownership/ACLs.
 
 OCIS runs as UID 1000 internally. The bind-mounted host directories must be owned by that UID before the first start, or OCIS will fail to write config/data:
 
@@ -78,7 +83,14 @@ Two directories need to be backed up:
 - `/mnt/SSD/Containers/ocis/config` — `ocis.yaml` with all secrets and hashed passwords
 - `/mnt/SSD/Containers/ocis/data` — all user files, metadata, and thumbnails
 
-If you pre-set the three secrets in `.env` before the first run, you can recreate `ocis.yaml` from scratch by deleting it and restarting the container (it will re-run `ocis init`). Without pre-set secrets, losing the config volume means regenerating secrets and resetting the admin password.
+Do not delete `ocis.yaml` to regenerate an existing installation: it contains
+more identity/storage configuration than three supplied secrets. Preserve
+**both directories together** and encrypted original settings/image pins.
+Use the [shared stopped-writer backup and isolated restore procedure](../README.md#backing-up-data).
+Restore both into empty destinations at the same version, then verify existing
+users, shares and representative file download/sync before reopening clients.
+Missing config is a recovery problem, not permission to initialize new state
+against old user data.
 
 ## Upgrading
 

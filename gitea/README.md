@@ -13,7 +13,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Internet / LAN
       │
       ▼
@@ -41,13 +41,16 @@ Internet / LAN
   Traefik and is reachable wherever the TrueNAS host is reachable; restrict it
   with host firewall rules if SSH must also be LAN-only.
 - Stores Gitea repositories/configuration and PostgreSQL data on the SSD bind
-  paths below. Neither is a named Docker-managed volume.
+  paths below. These are named volumes using the local bind driver, not
+  anonymous Docker-managed storage.
 - Disables self-service registration. Create the administrator in the first-run
   wizard, then use that account to invite users.
 
 ## Prerequisites
 
 Create the host directories before starting:
+Traefik must already own the external `traefik` bridge. Run Linux/Bash commands
+from `gitea/`; never reinitialize restored paths with first-install steps.
 
 ```bash
 mkdir -p /mnt/SSD/Containers/gitea/data
@@ -121,14 +124,14 @@ At preparation time, Portainer reported that no running Docker container on
 
 Clone URLs will look like:
 
-```
+```text
 git clone ssh://git@gitea.virtuallyboring.com:2222/user/repo.git
 git clone https://gitea.virtuallyboring.com/user/repo.git
 ```
 
 You can add an `~/.ssh/config` entry to keep the short SSH URL syntax:
 
-```
+```text
 Host gitea.virtuallyboring.com
     Port 2222
 ```
@@ -148,3 +151,10 @@ Back up both `/mnt/SSD/Containers/gitea/data` and
 `/mnt/SSD/Containers/gitea/db` together. Gitea repositories live in the data
 path, but issues, users, permissions, and settings live in PostgreSQL. A backup
 of only one path is not a complete restore point.
+
+Stop Gitea and PostgreSQL writers before a cold filesystem backup, retain
+original image pins/settings/keys, and follow the
+[shared isolated restore procedure](../README.md#backing-up-data). Restore both
+paths at the same versions, start the database first, and verify users/issues
+and a representative HTTPS/SSH clone before reopening. Major PostgreSQL
+upgrades require their supported logical migration, not reusing old raw data.

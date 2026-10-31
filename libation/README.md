@@ -6,7 +6,7 @@ The typical use case in this homelab is to feed downloaded books directly into t
 
 ## Architecture
 
-```
+```text
 Audible API
     │
     ▼
@@ -34,7 +34,10 @@ chown -R 3001:3001 /mnt/SSD/Containers/libation
 
 ## First-Time Setup
 
-The Docker container is headless — it cannot prompt you for your Audible password or handle the login challenge interactively. You **must** complete the account setup using the desktop app first, then copy the resulting config files to the Docker volume. This only needs to happen once.
+Desktop setup and private config transfer are the approach below. Current
+upstream also documents CLI `login-external`/`import-account`; availability must
+match the selected image version, which is not inventoried here. Do not treat
+desktop setup as the only upstream-supported method.
 
 ### Step 1 — Install the Desktop App
 
@@ -53,7 +56,7 @@ Before copying the config, set up your download preferences in the desktop app s
 
 - **Books folder** — set this to anything; the Docker container ignores this value and uses `LIBATION_BOOKS_DIR` (`/data`) instead.
 - **File naming template** — customize how downloaded files are named. A useful pattern:
-  ```
+  ```text
   <if series-><series> - <-if series><title>
   ```
   This puts series-based books in a subfolder like `The Stormlight Archive - The Way of Kings`.
@@ -61,26 +64,36 @@ Before copying the config, set up your download preferences in the desktop app s
 
 ### Step 4 — Copy Config Files to the Host
 
-Locate the Libation settings directory on the machine where you ran the desktop app:
+Find the actual **Libation files/settings directory** selected in your desktop
+installation; do not assume `%APPDATA%` or a fixed OS path. Upstream usually
+uses a Libation directory under the user's home.
 
-| OS | Path |
-|---|---|
-| Windows | `%APPDATA%\Libation\` |
-| macOS | `~/Library/Application Support/Libation/` |
-| Linux | `~/.config/Libation/` |
+For encrypted tokens, export the desktop encryption key using **Settings →
+Important → Export encryption key**, and transfer `libation-master.key` alongside
+the account/settings files. The desktop OS secret store is not available inside
+Docker. Treat all three files as credentials and transfer only over a trusted,
+encrypted connection.
 
-Copy **both** files to the Docker config volume on TrueNAS:
+Example from Windows/PowerShell, replacing the source directory and SSH host:
 
-```bash
-# From your local machine (adjust source path for your OS)
-scp "%APPDATA%\Libation\AccountsSettings.json" truenas:/mnt/SSD/Containers/libation/config/
-scp "%APPDATA%\Libation\Settings.json"         truenas:/mnt/SSD/Containers/libation/config/
+```powershell
+$LibationFiles = 'C:\path\to\your\Libation-files'
+scp "$LibationFiles\AccountsSettings.json" "$LibationFiles\Settings.json" truenas:/mnt/SSD/Containers/libation/config/
+# When tokens are encrypted, also transfer the exported key:
+scp "$LibationFiles\libation-master.key" truenas:/mnt/SSD/Containers/libation/config/
 ```
 
 Then fix ownership on the host:
 
 ```bash
-chown -R 3001:3001 /mnt/SSD/Containers/libation/config
+chown 3001:3001 /mnt/SSD/Containers/libation/config/AccountsSettings.json \
+  /mnt/SSD/Containers/libation/config/Settings.json
+# If transferred, protect the matching key the same way:
+chmod 600 /mnt/SSD/Containers/libation/config/AccountsSettings.json
+if [ -f /mnt/SSD/Containers/libation/config/libation-master.key ]; then
+  chown 3001:3001 /mnt/SSD/Containers/libation/config/libation-master.key &&
+    chmod 600 /mnt/SSD/Containers/libation/config/libation-master.key
+fi
 ```
 
 ### Step 5 — Start the Container
@@ -93,7 +106,7 @@ docker compose logs -f
 
 A successful first scan looks like:
 
-```
+```text
 Scanning library for new books...
 Found 142 books in library
 Downloading: The Way of Kings (Part 1)...
@@ -127,7 +140,8 @@ ls /mnt/Data/Media/Audiobooks/
 Audible tokens do eventually expire. If you see authentication errors in the logs:
 
 1. Open the desktop app on any machine and log in again.
-2. Re-copy `AccountsSettings.json` to `/mnt/SSD/Containers/libation/config/`.
+2. Pause scans, preserve the old config, and transfer updated
+   `AccountsSettings.json` **and its matching exported key** if encrypted.
 3. Restart the container: `docker compose restart libation`
 
 ### Triggering a Manual Scan
@@ -168,7 +182,7 @@ M4B files are natively playable on Apple devices, VLC, and most modern media pla
 
 | Mount | Host Path | Purpose |
 |---|---|---|
-| `/config` | `/mnt/SSD/Containers/libation/config` | `AccountsSettings.json`, `Settings.json` |
+| `/config` | `/mnt/SSD/Containers/libation/config` | Accounts/settings and matching exported `libation-master.key` if tokens are encrypted |
 | `/db` | `/mnt/SSD/Containers/libation/db` | Libation SQLite database |
 | `/data` | `/mnt/Data/Media/Audiobooks` | Downloaded audiobook files |
 
@@ -179,3 +193,21 @@ M4B files are natively playable on Apple devices, VLC, and most modern media pla
 - **Books/InProgress paths in Settings.json are ignored** — the container always uses the `LIBATION_BOOKS_DIR` env var (`/data`). Don't waste time trying to set the path inside the app.
 - **SLEEP_TIME=-1** — use this if you prefer to drive scans from an external cron job rather than the container's internal loop.
 - **PostgreSQL** — the `LIBATION_CONNECTION_STRING` env var (not set here) lets you swap SQLite for PostgreSQL if you need remote access to the metadata.
+
+## Operations and recovery
+
+Linux host preparation/Compose commands run from `libation/`; Windows transfer
+examples are labelled separately. Ownership setup is for fresh directories,
+not blanket permission changes to an existing media library. Allow UID/GID
+3001 access through the existing media ACLs.
+
+Stop scans before backing up `config`, `db`, and irreplaceable audiobooks
+together with original image/settings. Keep the account token/key files private.
+Use the [shared isolated restore procedure](../README.md#backing-up-data), verify
+metadata and token decryption without starting a bulk download, and then resume
+scheduled scans. Review matching-version migrations before changing the
+unresolved moving image.
+
+Encrypted-token transfer guidance was checked against
+[upstream Docker documentation](https://github.com/rmcrackan/Libation/blob/master/docs/installation/docker.md)
+on 2026-10-13; the installed version and account login were not live-tested.

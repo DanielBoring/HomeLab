@@ -8,7 +8,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Browser → Traefik (TLS + lan-only) → semaphore :3000
 ```
 
@@ -16,11 +16,18 @@ Single container using SQLite. No external database required. All project data, 
 
 ## Prerequisites
 
+Run Bash on the Linux host from `semaphore/`; deploy Traefik first.
+For fresh directories only:
+
 ```bash
 mkdir -p /mnt/SSD/Containers/semaphore/{data,config,tmp}
+chown 1001:0 /mnt/SSD/Containers/semaphore/{data,config,tmp}
 ```
 
-Semaphore manages its own internal permissions — no `chown` required.
+The pinned release's [Dockerfile](https://github.com/semaphoreui/semaphore/blob/v2.17.26/deployment/docker/server/Dockerfile)
+uses UID 1001 with group 0 (checked 2026-10-13). Host bind mounts hide the image's
+pre-created ownership. Preserve restored ACLs/owners; do not chown database files
+to the repository's standard UID 3001.
 
 ## Deployment
 
@@ -114,14 +121,10 @@ Click **Run** on the template. Semaphore clones the repo, builds the Ansible com
 
 ## Included Tools
 
-Semaphore v2.17.26 ships with:
-
-| Tool | Version |
-|---|---|
-| Ansible | 2.18.11 |
-| Terraform | 1.10.2 |
-| OpenTofu | 1.10.0 |
-| PowerShell | 7.5.0 |
+The release Dockerfile includes Ansible, Terraform, OpenTofu and Terragrunt.
+Exact binary versions should be checked in the deployed image before selecting
+playbooks; they have not been independently inventoried here. Do not assume
+PowerShell is installed because Semaphore supports a PowerShell task type.
 
 ## Storage
 
@@ -133,7 +136,8 @@ Semaphore v2.17.26 ships with:
 
 ## Updating
 
-Semaphore pins an image tag — check [releases](https://github.com/semaphoreui/semaphore/releases) and bump the tag in `compose.yaml` before pulling:
+Review [releases](https://github.com/semaphoreui/semaphore/releases), take a
+recoverable backup and update both the reviewed tag and digest before pulling:
 
 ```bash
 docker compose pull
@@ -142,12 +146,9 @@ docker compose up -d
 
 ## Backup
 
-```bash
-docker compose down
-tar -czf semaphore-backup-$(date +%Y%m%d).tar.gz \
-  /mnt/SSD/Containers/semaphore/data \
-  /mnt/SSD/Containers/semaphore/config
-docker compose up -d
-```
-
-The `tmp` directory is a cache and does not need to be backed up.
+Stop scheduled tasks and the container before preserving `data` and `config`,
+original image pins and encrypted settings/keys. Follow the
+[shared recovery procedure](../README.md#backing-up-data). `tmp` is expendable.
+Restore to fresh destinations with UID 1001 access and original versions; verify
+login, projects, inventories and key-store access without launching jobs against
+managed hosts. Resume scheduling only after verification.

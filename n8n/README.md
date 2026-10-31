@@ -8,7 +8,7 @@ Images in `compose.yaml` are frozen to the inventoried builds. See the [image up
 
 ## Architecture
 
-```
+```text
 Browser → Traefik (TLS + lan-only) → n8n :5678
                                           ↓
                                     n8n-postgres :5432
@@ -16,13 +16,21 @@ Browser → Traefik (TLS + lan-only) → n8n :5678
 
 Two containers on a private `n8n` bridge network. Postgres is not exposed outside that network — only n8n can reach it. Traefik handles TLS termination and LAN-IP restriction.
 
-n8n runs as the internal `node` user (UID 1000). The data directory on the host will be owned by UID 1000 — this is expected and does not need manual `chown`.
+n8n runs as the internal `node` user (UID/GID 1000). A root-created bind directory
+does not inherit the image's ownership; prepare writable storage before startup.
 
 ## Prerequisites
 
+Run Bash on the Linux host from `n8n/`. Deploy Traefik first.
+For **fresh directories only**:
+
 ```bash
 mkdir -p /mnt/SSD/Containers/n8n/{data,postgres}
+chown 1000:1000 /mnt/SSD/Containers/n8n/data
 ```
+
+For existing/restored data preserve ownership and ACLs. PostgreSQL manages its
+own directory; do not chown it to the app user.
 
 ## Deployment
 
@@ -70,8 +78,8 @@ On first access n8n will prompt you to create an owner account. Complete this im
 
 | Path | Contents |
 |---|---|
-| `/mnt/SSD/Containers/n8n/data` | Workflow definitions, execution logs, credentials (encrypted) |
-| `/mnt/SSD/Containers/n8n/postgres` | PostgreSQL data directory |
+| `/mnt/SSD/Containers/n8n/data` | App settings/key material and filesystem-backed binary data where configured |
+| `/mnt/SSD/Containers/n8n/postgres` | Authoritative workflows, executions and encrypted credentials in PostgreSQL |
 
 ## Updating
 
@@ -89,21 +97,14 @@ n8n runs database migrations automatically on startup after an image update.
 
 ## Backup
 
-Back up both the data directory and the postgres database. The encryption key from `.env` is also required to restore credentials — include it in your backup strategy.
+Back up both directories consistently with **n8n and PostgreSQL stopped**, plus
+the original image/Compose settings and encryption key. Follow the
+[shared cold backup and restore procedure](../README.md#backing-up-data).
+Do not use a hardcoded `pg_dump -U n8n n8n` if your configured account/database
+differs. A logical SQL backup does not replace the app files/key.
 
-```bash
-docker compose down
-
-# Filesystem snapshot
-tar -czf n8n-backup-$(date +%Y%m%d).tar.gz \
-  /mnt/SSD/Containers/n8n/data \
-  /mnt/SSD/Containers/n8n/postgres
-
-docker compose up -d
-```
-
-For a consistent postgres dump instead of a filesystem copy:
-
-```bash
-docker exec n8n-postgres pg_dump -U n8n n8n > n8n-db-$(date +%Y%m%d).sql
-```
+Restore both paths to empty destinations with original versions/ownership and
+the original encryption key. Start PostgreSQL before n8n; keep clients, webhook
+senders and workflow triggers blocked during the drill. Verify saved credentials,
+representative workflows and binary attachments before reopening. Do not rotate
+the encryption key or run external-effect workflows simply to test recovery.

@@ -37,6 +37,13 @@ Two networks are used. Deploy Traefik first: it has no dependency on the `monito
 
 ## Prerequisites
 
+The Compose dashboard route now uses `secure-headers@file,lan-only@file`;
+deploy the matching host dynamic middleware file before recreating Traefik.
+This restricts the HTTPS route, not the separate `api.insecure` listener on
+macvlan port 8080. Restrict that unauthenticated API with LAN/firewall controls;
+Traefik Manager currently depends on it. Live ingress restrictions were not
+verified by this documentation work.
+
 Run the following Linux-host commands from the repository's `traefik` directory. Check the macvlan parent interface, subnet, gateway, reserved IP, and ACME email against your host before deployment. Create the required directories and copy the config files:
 
 ```bash
@@ -80,19 +87,19 @@ docker compose up -d
 
 In your Windows DNS server, add an A record pointing to Traefik's dedicated IP:
 
-```
+```text
 traefik.yourdomain.com  A  10.0.5.5
 ```
 
 Each service you add behind Traefik gets a CNAME pointing to this A record:
 
-```
+```text
 myservice.yourdomain.com  CNAME  traefik.yourdomain.com
 ```
 
 ### 5. Access the dashboard
 
-```
+```text
 https://<TRAEFIK_DOMAIN>/dashboard/
 ```
 
@@ -128,7 +135,7 @@ Traefik reads labels attached to Docker containers and automatically builds rout
 
 Every Traefik label follows one of these patterns:
 
-```
+```text
 traefik.http.routers.<NAME>.<PROPERTY>=<VALUE>
 traefik.http.services.<NAME>.<PROPERTY>=<VALUE>
 traefik.http.middlewares.<NAME>.<TYPE>.<PROPERTY>=<VALUE>
@@ -199,7 +206,7 @@ Middlewares defined in [`dynamic/middlewares.yml`](dynamic/middlewares.yml) are 
 
 ### How Traefik processes a request
 
-```
+```text
 1. Request arrives at port 443 (websecure entrypoint)
 2. Traefik checks all routers for a matching rule  →  Host(`myapp.yourdomain.com`)
 3. Matched router runs any attached middlewares    →  secure-headers, lan-only, etc.
