@@ -164,6 +164,24 @@ application `/data` tree and PostgreSQL are required for recovery.
 
 ### PostgreSQL 17 to 18
 
+For the approved TrueNAS cutover, [migrate-pg18.py](migrate-pg18.py) consumes
+root-private `containers.private.json` and `volumes.private.json` captured from
+the actual stack. Run `python3 migrate-pg18.py stage /root/gitea-pg18-upgrade.XXXXXXXX`
+first, then use `migrate` with the same directory after staging passes. It passes
+the captured settings directly as subprocess environment variables with dotenv
+loading disabled, and verifies actual create-only probe environments. It makes
+a fresh stopped-app DB dump, retains the original PG17 directory, and restores
+PG18 before starting the unchanged Gitea image/data. Pre-switch errors resume
+the original services; post-switch errors require manual recovery using the
+saved Compose/image IDs and `environment.private.json`, not a generated `.env`.
+
+The operator has explicitly accepted the existing backup's 12 unresolved mode
+differences: logical PG17 restore and offline Git integrity passed, with 2117
+native ACLs matching exactly. This is not a claim of complete metadata recovery
+verification. The live upgrade has not yet been performed; keep GitOps paused
+through cutover, acceptance and Portainer adoption. This helper route uses the
+captured runtime settings rather than the illustrative `.env` export below.
+
 This is a **host-shell runbook for an approved maintenance window**, not commands
 to run during PR review. Run as root in one Bash session on the verified TrueNAS
 Docker host, from a dedicated private operator working directory. Export the
