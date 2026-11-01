@@ -20,7 +20,8 @@ services:
     networks:
       - paperless
     volumes:
-      - paperless-db:/var/lib/postgresql/data
+      # PostgreSQL 18 uses 18/docker below this parent; restore PG17 logically first.
+      - paperless-db:/var/lib/postgresql
     environment:
       - POSTGRES_DB=paperless
       - POSTGRES_USER=paperless
