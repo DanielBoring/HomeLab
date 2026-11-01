@@ -11,19 +11,38 @@ Gitea is a self-hosted, lightweight Git service — think GitHub but running on 
 
 Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
 
-## Deployment status and upgrade gate (2026-10-31)
+## Deployment status and adoption gate (2026-11-01)
 
-Gitea is already live on TrueNAS in Portainer stack **195**, environment **35**.
-The inventoried app digest below is unchanged and reports **Gitea 1.27.3** when
-run locally. The live database is PostgreSQL **17.11**. This proposed Compose
-selects PostgreSQL **18.6**, and is safe for empty storage or a completed,
-accepted logical migration only.
+Gitea is live on TrueNAS in Portainer stack **195**, environment **35**. The
+PostgreSQL **17.11 to 18.6** migration completed on 2026-11-01. Gitea remains
+**1.27.3** with the original application image, runtime settings, data and keys.
+The fresh cutover dump restored successfully; counts remained **1 user, 11
+repository records and 0 issues**. Collation matched, `ANALYZE` and a full native
+`pg_dump` reread passed, both containers are healthy, and HTTPS health returned
+200 with certificate validation. Human login/clone acceptance remains pending.
 
-**Do not merge/deploy this database change directly onto the live stack.** Its
-Git stack tracks `main` with automatic pull/redeployment. The operator must approve and run the live migration in the TrueNAS shell, pause Git polling/image
-updaters, and complete the [controlled migration](#postgresql-17-to-18) before
-merging and resuming automation. A green PR check is not cutover authorization.
-No live migration or production backup/restore was performed for this PR.
+The first PG18 startup was blocked by an intermediate `db/18` directory owned
+by root with mode 700 under NFSv4 inheritance. Changing only that new directory
+to UID/GID 999 preserved its native ACL bytes and mode, and an isolated UID999
+probe confirmed access changed from denied to allowed. The helper now prepares
+all PG18 directories explicitly and probes traversal plus actual file creation
+before startup, with a separate fresh-directory preflight before source downtime.
+That revised preflight passed on the actual TrueNAS NFSv4 dataset using a fresh
+temporary tree, with live container identities/states/restart counts unchanged.
+
+The original PG17 cluster remains at
+`/mnt/SSD/Containers/gitea/db.pg17-20261101T042739Z`, with clean shutdown verified.
+Keep it and the private cutover dump/settings/images; no cleanup is authorized.
+The backup and current bare-repository path sets both contain the same 10 paths
+(including one wiki). Two empty mirror records lacked main bare paths
+in both inventories; the DB/FS count difference is pre-existing.
+
+**Keep GitOps/image auto-updates off until acceptance and explicit adoption.**
+`main` still selects PG17 while the live stack runs PG18. Merge and Portainer
+adoption require separate coordination; do not let the old Git configuration
+redeploy over the new cluster. No main merge or automatic polling change has
+been performed. This is a completed controlled migration, not an empty-data
+installation or a claim of fully verified backup metadata recovery.
 
 ## Architecture
 
@@ -178,9 +197,11 @@ saved Compose/image IDs and `environment.private.json`, not a generated `.env`.
 The operator has explicitly accepted the existing backup's 12 unresolved mode
 differences: logical PG17 restore and offline Git integrity passed, with 2117
 native ACLs matching exactly. This is not a claim of complete metadata recovery
-verification. The live upgrade has not yet been performed; keep GitOps paused
-through cutover, acceptance and Portainer adoption. This helper route uses the
+verification. The live upgrade completed on 2026-11-01; keep GitOps paused
+through human acceptance and Portainer adoption. This helper route uses the
 captured runtime settings rather than the illustrative `.env` export below.
+The procedure below is retained for future migrations, not instructions to rerun
+the completed live cutover.
 
 This is a **host-shell runbook for an approved maintenance window**, not commands
 to run during PR review. Run as root in one Bash session on the verified TrueNAS
@@ -356,11 +377,17 @@ output does not itself authorize database changes.
    docker compose -p "$project" down         # Never add -v / --volumes
    cp -a "$root/data" "$backup/gitea-data"
    mv "$root/db" "$old_db_dir"
-   mkdir "$root/db"
+   mkdir -p "$root/db/18/docker"
+   chown 999:999 "$root/db" "$root/db/18" "$root/db/18/docker"
+   chmod 700 "$root/db" "$root/db/18" "$root/db/18/docker"
    ```
 
    Archive listing only checks format; restore/application checks prove usability.
    Keep the entire old PostgreSQL 17 directory intact with numeric ownership.
+   On this NFSv4 dataset, a root-created `18` parent with mode 700 blocks
+   PostgreSQL UID999 even when `18/docker` is owned correctly. Prepare the full
+   tree as above and use the helper's isolated UID999 write/traversal probe
+   before starting the server; mode bits alone do not verify native ACL access.
    The cold copy must include all `/data`: repositories, config/custom files,
    uploads/attachments, avatars, LFS, packages, SSH keys and Actions artifacts
    where present. Also back up any configured external/object storage, custom

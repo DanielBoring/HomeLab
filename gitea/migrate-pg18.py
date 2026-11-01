@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Operator-run Gitea PG17->18 helper. Default stage mode never stops live services."""
-import argparse, datetime, hashlib, json, os, pathlib, socket, stat, subprocess, sys, time, uuid, signal
+import argparse, datetime, hashlib, json, os, pathlib, socket, stat, subprocess, sys, time, uuid, signal, tempfile
 
 APP = 'docker.gitea.com/gitea@sha256:87a67ee09d3ae0d1df5fda5dcda3e2a1f9236a45b0a59025d6e00e46adc43bef'
 PG17 = 'postgres:17.11@sha256:2d2b8998d31037bf721cfdf764d76ba74171b4fab3431b7f72c27c56ddbdf9e3'
@@ -121,6 +121,59 @@ def validate_model(stage, old, new, captured):
         need(expected_ports==(c['HostConfig'].get('PortBindings') or {}), 'Runtime published ports differ')
         probe_environment(stage,name,s,env(c))
 
+def prepare_pg18_tree(parent):
+    # NFSv4 inheritance can otherwise leave the intermediate 18 directory
+    # root-owned 0700, which the entrypoint's second pass as UID999 cannot cross.
+    need(parent.is_dir() and parent.resolve()==parent and not any(parent.iterdir()), 'PG18 preparation requires a fresh empty directory')
+    for folder in [parent, parent/'18', parent/'18'/'docker']:
+        if folder!=parent:folder.mkdir(mode=0o700)
+        os.chown(folder,999,999);os.chmod(folder,0o700)
+        st=folder.stat()
+        need((st.st_uid,st.st_gid,stat.S_IMODE(st.st_mode))==(999,999,0o700), 'PG18 directory ownership/mode did not apply')
+
+def probe_pg18_storage(parent, log=None):
+    token='gitea-pg18-storage-'+uuid.uuid4().hex[:12]
+    cid=None
+    script='''set -eu
+p=""
+trap '[ -z "$p" ] || rm -f -- "$p"' EXIT
+test -x /var/lib/postgresql/18
+test -x /var/lib/postgresql/18/docker
+test -w /var/lib/postgresql/18/docker
+p=$(mktemp /var/lib/postgresql/18/docker/.uid999-access.XXXXXXXX)
+printf verified > "$p"
+test "$(cat "$p")" = verified
+'''
+    try:
+        cid=dt('create','--pull','never','--name',token,'--label','gitea.pg18.storage-probe='+token,
+               '--network','none','--user','999:999','--entrypoint','/bin/sh',
+               '--security-opt','no-new-privileges:true','--cap-drop','ALL',
+               '--mount','type=bind,src='+str(parent)+',dst=/var/lib/postgresql',PG18,'-ec',script)
+        c=dj('inspect',cid)[0]
+        need(c['HostConfig']['NetworkMode']=='none' and not c['HostConfig'].get('PortBindings'), 'Storage probe isolation failed')
+        need(len(c['Mounts'])==1 and c['Mounts'][0]['Type']=='bind' and c['Mounts'][0]['Source']==str(parent), 'Unexpected storage probe mount')
+        run(D+['start','--attach',cid],log=log)
+        need(dj('inspect',cid)[0]['State']['ExitCode']==0, 'UID999 cannot traverse/write the prepared PG18 path')
+    finally:
+        if cid:
+            c=dj('inspect',cid)[0]
+            need(c['Config']['Labels'].get('gitea.pg18.storage-probe')==token, 'Refusing unknown storage probe cleanup')
+            run(D+['rm','--force','--volumes',cid],log=log)
+
+def preflight_pg18_storage():
+    parent=pathlib.Path(tempfile.mkdtemp(prefix='.pg18-access-',dir=str(ROOT)))
+    try:
+        prepare_pg18_tree(parent)
+        probe_pg18_storage(parent)
+    finally:
+        # Never recurse/remove unknown files: preserve any nonempty test tree.
+        for folder in [parent/'18'/'docker',parent/'18',parent]:
+            try:folder.rmdir()
+            except FileNotFoundError:pass
+            except OSError:
+                print('Storage probe directory retained for inspection: '+str(parent),file=sys.stderr)
+                break
+
 def stage_only(stage, captured):
     need(not (stage/'ready.private.json').exists(), 'Stage already prepared; use migrate mode or a fresh capture directory')
     for version,ref in [(17,BASE),(18,HEAD)]:
@@ -132,6 +185,7 @@ def stage_only(stage, captured):
     save(stage/'environment.private.json',json.dumps({k:a[v] for k,v in MAPPING.items()},ensure_ascii=False).encode('utf-8'))
     old,new=model(stage,17),model(stage,18)
     validate_model(stage,old,new,captured)
+    preflight_pg18_storage()
     # Save exact local rollback image identities; no moving tag is used for rollback.
     override={'services':{n:{'image':captured[n]['Image']} for n in ['gitea','gitea-db']}}
     save(stage/'images.pg17.json',json.dumps(override).encode())
@@ -198,7 +252,9 @@ def migrate(stage,captured):
         # After down begins, container identities may disappear: fail closed, never auto-rename/rollback data.
         phase='removing-source-containers';run(compose(stage,17,'down'),log=log)
         phase='retaining-pg17-data';os.rename(ROOT/'db',old_dir)
-        (ROOT/'db').mkdir(mode=0o700);os.chown(ROOT/'db',999,999);os.chmod(ROOT/'db',0o700)
+        (ROOT/'db').mkdir(mode=0o700)
+        prepare_pg18_tree(ROOT/'db')
+        probe_pg18_storage(ROOT/'db',log=log)
         phase='initializing-pg18';run(compose(stage,18,'up','-d','gitea-db'),log=log)
         newdb=dj('inspect','gitea-db')[0];need(newdb['Config']['Image']==PG18, 'Unexpected new DB image')
         need(len(newdb['Mounts'])==1 and newdb['Mounts'][0]['Type']=='volume' and newdb['Mounts'][0]['Name']=='gitea_gitea-db' and newdb['Mounts'][0]['Destination']=='/var/lib/postgresql' and newdb['Mounts'][0]['RW'], 'Unexpected PG18 data mount')
