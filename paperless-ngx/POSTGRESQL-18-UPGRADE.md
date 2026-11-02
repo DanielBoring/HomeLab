@@ -30,6 +30,58 @@ Approximate observed sizes: `db` 30 MB, `data` 3.8 MB, `media` 2.5 KB; the
 other three directories are smaller. These are a snapshot, not substitute
 for a fresh cutover inventory.
 
+## Live maintenance status (2026-11-02)
+
+The operator used the approved **same-pool** recovery plan. This protects
+against a migration error but does not protect against loss of the `SSD` pool.
+The original five images were archived and hashed before downtime. The final
+PG17 dump and six-directory cold archive were captured after Paperless writers
+stopped. The actual dump restored into an isolated PG18 container with no
+network, and all 75 public table counts matched. The live PG18 restore also
+matched all 75 counts, passed a full `pg_dump` reread, and reported no database
+collation version mismatch. The original PG17 database tree remains at
+`/mnt/SSD/Containers/paperless/db.pg17-20261102T135949Z-9a91e4`.
+
+The native checkpoint is snapshot
+`SSD/Containers@paperless-pg17-20261102T135949Z-9a91e4` and read-only clone
+`SSD/paperless-recovery-20261102T135949Z-9a91e4`, mounted outside the shared
+Containers tree at `/mnt/SSD/paperless-recovery-20261102T135949Z-9a91e4`.
+The snapshot and clone comparison matched all 1,893 Paperless paths, including
+types, owners, modes, modification times, file sizes and SHA-256 content,
+symlink targets, and native NFSv4 ACL bytes. The snapshot and clone cover the
+shared parent dataset, so any rollback must restore **only Paperless paths**.
+
+Private source models and settings remain under
+`/root/paperless-pg18-upgrade.2gh4r_s3`. The current attempt's private
+results are in `attempt-20261102T135941Z-e343d2` below that stage; its fresh
+dump and cold archive are in the identically named directory below
+`/mnt/SSD/Containers/paperless-backup-20261101T155441Z-7ca810`. The archive
+of all five original images is in that backup **base** as `images.tar`, outside
+the attempt directory. The earlier failed attempt and its checkpoint are
+retained separately. Its ZFS mountpoint guard failed before the DB switch;
+the original PG17 stack was resumed before the fresh attempt began.
+
+The live operator job completed successfully. The restarted app connected to
+the restored PG18.6 database through Django; its data directory is
+`/var/lib/postgresql/18/docker`. All 75 public tables matched the source,
+including three user records and zero document records. An independent fresh
+inspection found the app and DB healthy, all five stack containers with zero
+restarts and no OOM kills, and the other 77 container identities unchanged.
+The normal HTTPS endpoint returned 200 with TLS verification. Startup worker
+tasks completed, including workflow, mail and classifier checks. The app's UID
+ownership step took about four minutes; the operator job took about six
+minutes and exited successfully. Its result captured an earlier app health
+state of `starting`; the later independent inspection confirmed `healthy`.
+
+**Human login, real OCR/Tika/Gotenberg checks, Portainer adoption, and PR merge
+remain pending.** HTTPS 200 and healthy containers do not establish those
+acceptance checks. The user confirmed external document delivery is inactive;
+no firewall ingress block was applied. Normal app and mail workers resumed,
+so the retained PG17 tree and checkpoint represent the cutover point. Any
+later rollback must account for writes made on PG18. Keep external delivery
+inactive and Portainer Git polling paused until the remaining checks and
+separate merge decision are complete.
+
 ## Stop conditions and inventory
 
 Before downtime, verify and record privately:
@@ -230,10 +282,18 @@ includes an isolated restore, check native ACLs, numeric owners, modes, file
 content, app access and DB readability. Record any skipped test before the
 switch. Do not roll back the *whole* shared `SSD/Containers` dataset: it
 contains other services. An archive listing and hashes prove only
-readability/integrity. If a command fails **before** `old down`, inspect and
-restart the original containers. After `old down` removes them, stop for manual
-review of path state before recreating the old model. If the DB directory has
-already moved, restore the PG17 path first; never start PG17 on PG18 files.
+readability/integrity. On this TrueNAS host, `SSD` has ZFS `altroot=/mnt`:
+the clone's raw `mountpoint` property must be `/SSD/paperless-recovery-…` to
+produce the effective OS path `/mnt/SSD/paperless-recovery-…`. Query and
+verify `zpool get altroot SSD`, the resulting ZFS property, the effective
+mount path, and the read-only `findmnt` result **before** depending on the
+clone. Passing `/mnt/SSD/…` as the raw property produced an incorrect
+`/mnt/mnt/SSD/…` path in the first attempt; the guard stopped that attempt
+before any DB directory move. If a command fails **before** `old down`,
+inspect and restart the original containers. After `old down` removes them,
+stop for manual review of path state before recreating the old model. If the DB
+directory has already moved, restore the PG17 path first; never start PG17 on
+PG18 files.
 
 ## Restore into a fresh PG18 cluster
 
@@ -272,6 +332,16 @@ successful restore.
 Keep clients and ingestion blocked while starting the unchanged app and other
 unchanged services. Check `new ps` and bounded logs for all five services.
 Confirm the app's effective engine remains PostgreSQL and points to `db`.
+Paperless 3.3.0 [remaps its built-in UID](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.0/docker/rootfs/etc/s6-overlay/s6-rc.d/init-modify-user/run)
+to `3001` at startup. Its `usermod` step can walk the image's
+[`/usr/src/paperless` home](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.0/Dockerfile)
+and cause substantial Docker overlay writes before the web server starts;
+folder ownership checks, migrations, index checks, and services follow. A
+fixed 180-second operator readiness limit can expire during healthy progress.
+Observe the active process, logs and I/O; allow a bounded, reviewed extension
+while progress continues,
+without killing or restarting the native UID operation. A quiet or failed
+process needs investigation, not an assumed successful start.
 Sign in with an existing account and compare users/settings, permissions,
 mail rules and workflows. Compare document count (currently zero), search and
 media paths; for any actual documents, inspect originals, downloads,
@@ -365,8 +435,14 @@ synthetic image through the Redis-backed worker and checked OCR text, restored
 its DB to PG18, authenticated and downloaded the document, then recreated the
 DB and app containers and checked persistence. This does not test TrueNAS ACLs,
 the actual backup/restore, Portainer adoption, production login, OCR quality, mail,
-Tika/Gotenberg, Traefik or real document/media integrity. Those remain live
-acceptance gates.
+Tika/Gotenberg, Traefik or real document/media integrity.
+
+The live maintenance separately verified the actual PG17 dump by isolated
+PG18 restore, the live PG18 restore by all-table counts and reread, and native
+checkpoint content and ACLs by snapshot-to-clone comparison. The app's actual
+Django connection to PG18, health, startup worker tasks, and HTTPS response
+also passed. Human login, real OCR and Office file checks, Portainer adoption,
+and the separate merge decision remain open.
 
 References: [official PostgreSQL image PGDATA and volume changes](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata),
 [PostgreSQL 18 backup and restore](https://www.postgresql.org/docs/18/backup.html),
