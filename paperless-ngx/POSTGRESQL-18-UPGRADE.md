@@ -14,8 +14,8 @@ digest in `compose.yaml`. A read-only runtime check on 2026-11-01 showed its
 effective Django engine is PostgreSQL, database `paperless` on host `db`, despite
 `PAPERLESS_DBENGINE` being absent. The [exact v3.3.0 source](https://github.com/paperless-ngx/paperless-ngx/blob/v3.3.0/src/paperless/settings/custom.py#L1316-L1329)
 infers PostgreSQL from `PAPERLESS_DBHOST` in this case, although the current
-general documentation says to set the engine explicitly. The live PG17
-database has 75 public tables, three user records and zero document records.
+general documentation says to set the engine explicitly. The PG17 source
+inventory found 75 public tables, three user records and zero document records.
 **Zero documents does not make the database
 disposable:** accounts, configuration, mail rules, workflows, and task state may
 still be present. This PR keeps the known-running app configuration and exact image
@@ -73,9 +73,10 @@ ownership step took about four minutes; the operator job took about six
 minutes and exited successfully. Its result captured an earlier app health
 state of `starting`; the later independent inspection confirmed `healthy`.
 
-**Human login, real OCR/Tika/Gotenberg checks, Portainer adoption, and PR merge
-remain pending.** HTTPS 200 and healthy containers do not establish those
-acceptance checks. The user confirmed external document delivery is inactive;
+The user confirmed on 2026-11-02 that login works and the application looks
+correct. **Real OCR/Tika/Gotenberg checks, Portainer adoption, and PR merge
+remain pending.** HTTPS 200 and healthy containers alone would not establish
+those acceptance checks. The user confirmed external document delivery is inactive;
 no firewall ingress block was applied. Normal app and mail workers resumed,
 so the retained PG17 tree and checkpoint represent the cutover point. Any
 later rollback must account for writes made on PG18. Keep external delivery
@@ -441,8 +442,9 @@ The live maintenance separately verified the actual PG17 dump by isolated
 PG18 restore, the live PG18 restore by all-table counts and reread, and native
 checkpoint content and ACLs by snapshot-to-clone comparison. The app's actual
 Django connection to PG18, health, startup worker tasks, and HTTPS response
-also passed. Human login, real OCR and Office file checks, Portainer adoption,
-and the separate merge decision remain open.
+also passed. The user confirmed login and the visible application on
+2026-11-02. Real OCR and Office file checks, Portainer adoption, and the
+separate merge decision remain open.
 
 References: [official PostgreSQL image PGDATA and volume changes](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata),
 [PostgreSQL 18 backup and restore](https://www.postgresql.org/docs/18/backup.html),
