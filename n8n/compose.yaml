@@ -44,7 +44,7 @@ services:
         max-file: "3"
 
   n8n-postgres:
-    image: postgres:16.15-alpine@sha256:3c5c8892d184f738f4fe282d14ddaa613a38f00f4189d2d94725ebe6f2909ddb
+    image: postgres:18.6-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
     container_name: n8n-postgres
     restart: unless-stopped
     security_opt:
@@ -56,7 +56,7 @@ services:
       - POSTGRES_USER=${N8N_DB_USER:-n8n}
       - POSTGRES_PASSWORD=${N8N_DB_PASSWORD}
     volumes:
-      - n8n-postgres:/var/lib/postgresql/data
+      - n8n-postgres18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER:-n8n} -d ${N8N_DB_NAME:-n8n}"]
       interval: 10s
@@ -75,11 +75,11 @@ volumes:
       type: none
       device: /mnt/SSD/Containers/n8n/data
       o: bind
-  n8n-postgres:
+  n8n-postgres18:
     driver: local
     driver_opts:
       type: none
-      device: /mnt/SSD/Containers/n8n/postgres
+      device: /mnt/SSD/Containers/n8n/postgres18
       o: bind
 
 networks:
