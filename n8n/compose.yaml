@@ -56,7 +56,7 @@ services:
       - POSTGRES_USER=${N8N_DB_USER:-n8n}
       - POSTGRES_PASSWORD=${N8N_DB_PASSWORD}
     volumes:
-      - n8n-postgres:/var/lib/postgresql/data
+      - n8n-postgres18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER:-n8n} -d ${N8N_DB_NAME:-n8n}"]
       interval: 10s
@@ -75,11 +75,11 @@ volumes:
       type: none
       device: /mnt/SSD/Containers/n8n/data
       o: bind
-  n8n-postgres:
+  n8n-postgres18:
     driver: local
     driver_opts:
       type: none
-      device: /mnt/SSD/Containers/n8n/postgres
+      device: /mnt/SSD/Containers/n8n/postgres18
       o: bind
 
 networks:
