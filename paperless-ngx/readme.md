@@ -4,12 +4,14 @@ Self-hosted document management system. OCRs, indexes, and archives documents �
 
 Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
 
+**Existing PostgreSQL 17 installations:** follow the [PostgreSQL 18 migration runbook](POSTGRESQL-18-UPGRADE.md) before deploying this Compose. Changing the image and mount without a logical restore does not upgrade the database.
+
 ## Services
 
 | Service | Port | Description |
 |---|---|---|
 | webserver | 8000 | Web UI and REST API (proxied via Traefik) |
-| db | internal | PostgreSQL 17 — document metadata and state |
+| db | internal | PostgreSQL 18 — document metadata and state |
 | broker | internal | Redis 7 — task queue for Celery workers |
 | tika | internal | Apache Tika — text extraction from Office documents |
 | gotenberg | internal | Gotenberg — Office-to-PDF conversion via Chromium |
@@ -26,12 +28,16 @@ and do not chown PostgreSQL/Redis state to the app's UID.
 
 ```bash
 mkdir -p /mnt/SSD/Containers/paperless/{data,media,consume,export,redis}
-mkdir -p /mnt/SSD/Containers/paperless/db
+mkdir -p /mnt/SSD/Containers/paperless/db/18/docker
+# Fresh PG18 storage only: prepare the full parent tree for image UID/GID 999.
+chown 999:999 /mnt/SSD/Containers/paperless/db{,/18,/18/docker}
+chmod 700 /mnt/SSD/Containers/paperless/db{,/18,/18/docker}
 chown -R 3001:3001 /mnt/SSD/Containers/paperless/data
 chown -R 3001:3001 /mnt/SSD/Containers/paperless/media
 chown -R 3001:3001 /mnt/SSD/Containers/paperless/consume
 chown -R 3001:3001 /mnt/SSD/Containers/paperless/export
-# PostgreSQL and Redis manage their internal users; do not blanket-chown them
+# PostgreSQL and Redis manage their internal users; do not blanket-chown them.
+# On TrueNAS, also run the isolated UID 999 ACL access probe in the migration runbook.
 ```
 
 ### 2. Generate secrets
@@ -93,7 +99,7 @@ Commented-out options in `compose.yaml`:
 | Originals, archive PDFs, thumbnails | `/mnt/SSD/Containers/paperless/media` |
 | Consumption inbox | `/mnt/SSD/Containers/paperless/consume` |
 | Export / backup output | `/mnt/SSD/Containers/paperless/export` |
-| PostgreSQL data | `/mnt/SSD/Containers/paperless/db` |
+| PostgreSQL 18 parent mount (`18/docker` is PGDATA) | `/mnt/SSD/Containers/paperless/db` |
 | Redis data | `/mnt/SSD/Containers/paperless/redis` |
 
 ## Consuming Documents
@@ -110,7 +116,8 @@ Other methods: web UI upload, REST API, email (configure in Admin → Mail).
 
 Review application/database migrations and preserve the full recovery set
 before changing literal image tag/digest references; pulling the same pins is
-not an upgrade.
+not an upgrade. For PostgreSQL 17 to 18, use the [migration runbook](POSTGRESQL-18-UPGRADE.md),
+which preserves the original app pin and coordinates the data restore.
 
 ```bash
 docker compose pull
@@ -177,7 +184,8 @@ Detects missing originals, checksum mismatches, missing thumbnails, and permissi
 
 Pause consumption/automation and stop every writer before preserving the entire
 `/mnt/SSD/Containers/paperless` tree consistently with original images/settings.
-Use the [shared cold restore procedure](../README.md#backing-up-data), start
+Use the [shared cold restore procedure](../README.md#backing-up-data) and the
+[PostgreSQL 18 migration runbook](POSTGRESQL-18-UPGRADE.md). Start
 PostgreSQL/broker before the web app, and verify login, document downloads,
 metadata and the sanity checker before resuming consumption. Restore exports
 only into a deliberately fresh compatible instance; do not import over live
