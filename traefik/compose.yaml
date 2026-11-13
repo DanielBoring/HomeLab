@@ -38,7 +38,7 @@ networks:
   traefik-macvlan:
     driver: macvlan
     driver_opts:
-      parent: enp8s0
+      parent: enp4s0
     ipam:
       config:
         - subnet: 10.0.5.0/24
