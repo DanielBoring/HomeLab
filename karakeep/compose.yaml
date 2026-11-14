@@ -53,7 +53,7 @@ services:
         max-file: "3"
 
   meilisearch:
-    image: getmeili/meilisearch:v1.41.0
+    image: getmeili/meilisearch:v1.56.2
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
