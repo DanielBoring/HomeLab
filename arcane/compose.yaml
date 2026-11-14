@@ -1,7 +1,7 @@
 
 services:
   arcane:
-    image: ghcr.io/getarcaneapp/arcane:v2.17.1@sha256:3d7057b7e3b3e0be4b3ba34dd1b137b02a055f97ddc232c32817666658643842
+    image: ghcr.io/getarcaneapp/arcane:v2.17.3@sha256:2e0dc9f5ef03599181a49baf6470055d82e24d9cb15bbc62498ea642c0f882a7
     container_name: arcane
     restart: unless-stopped
     networks:
