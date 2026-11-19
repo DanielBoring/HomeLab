@@ -1,0 +1,37 @@
+services:
+  brisa:
+    # Registry manifest verified against the reviewed Brisa 1.0.2 source revision.
+    image: ghcr.io/brunoorsolon/brisa@sha256:160891da8db0ef19f672b4400b362d726080cdb731be0872a40c110d61974960
+    container_name: brisa
+    restart: unless-stopped
+    # Upstream requires privileged hardware access for sysfs PWM control.
+    privileged: true
+    stop_grace_period: 30s
+    environment:
+      - TZ=${TZ:-America/New_York}
+    ports:
+      - "${BRISA_BIND_IP:-10.0.5.10}:${BRISA_PORT:-9595}:9595"
+    volumes:
+      - type: bind
+        source: ${BRISA_DATA_PATH:-/mnt/SSD/Containers/brisa}
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /sys
+        target: /sys
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9595/api/config', timeout=5).read()"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

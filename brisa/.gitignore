@@ -1,0 +1,7 @@
+# Host-specific kernel modules and build products belong on persistent NAS storage.
+modules/
+*.ko
+*.o
+*.cmd
+Module.symvers
+modules.order

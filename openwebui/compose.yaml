@@ -5,7 +5,10 @@ services:
     networks:
       - traefik
     environment:
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_OPENAI_API: "true"
+      OPENAI_API_BASE_URL: "${LM_STUDIO_BASE_URL:?Set LM_STUDIO_BASE_URL in .env}"
+      OPENAI_API_KEY: "${LM_STUDIO_API_KEY:-}"
     volumes:
       - open-webui:/app/backend/data
     labels:

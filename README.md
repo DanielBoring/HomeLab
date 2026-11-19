@@ -84,6 +84,13 @@ Node Exporter instance running on the TrueNAS Docker host, exposing host-level C
 - **Port**: 9100 (Prometheus scrape endpoint — monitoring network only)
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 
+### Brisa
+Brisa dashboard and HDD-temperature fan control for the TrueNAS HL8 with a Minisforum BD790i X3D. Requires the separately prepared host driver and Post Init loader.
+
+- **Location**: [`/brisa`](brisa/)
+- **Access**: `http://10.0.5.10:9595` (direct LAN access)
+- **Documentation**: See [brisa/README.md](brisa/README.md)
+
 ### Semaphore
 Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with scheduling and access control.
 
@@ -229,11 +236,11 @@ Document management system — scan, index, and archive documents with OCR and f
 - **Documentation**: See [paperless-ngx/readme.md](paperless-ngx/readme.md)
 
 ### Open WebUI
-Web UI for interacting with self-hosted LLM models via Ollama.
+Web UI for interacting with self-hosted models via LM Studio.
 
 - **Location**: [`/openwebui`](openwebui/)
 - **Access**: `https://<OPENWEBUI_DOMAIN>` (via Traefik)
-- **Ollama host**: Remote instance at `<OLLAMA_HOST>:11434`
+- **Model backend** runs on the Windows PC at `LM_STUDIO_BASE_URL`.
 - **Documentation**: See [openwebui/README.md](openwebui/README.md)
 
 ### NetBox
@@ -427,6 +434,7 @@ HomeLab/
 ├── ntopng/                         # Real-time network traffic monitoring
 ├── prometheus-proxmox-exporter/    # Proxmox VE metrics exporter
 ├── prometheus-truenas-exporter/    # TrueNAS host node exporter
+├── brisa/                          # IT8613E controller and Brisa dashboard
 ├── dozzle/                         # Real-time Docker log viewer
 ├── uptime-kuma/                    # Uptime monitoring (HTTP, TCP, DNS)
 ├── scrutiny/                       # S.M.A.R.T. drive health monitoring
@@ -439,7 +447,7 @@ HomeLab/
 ├── retroarch/                      # Browser-accessible RetroArch GUI
 ├── romm/                           # ROM library manager and scraper
 ├── changedetection/                # Website change detection and monitoring
-├── openwebui/                      # Web UI for Ollama LLM models
+├── openwebui/                      # Web UI for LM Studio models
 ├── owncloud/                       # ownCloud Infinite Scale
 ├── linkwarden/                     # Bookmark manager
 ├── karakeep/                       # Bookmark/read-it-later service
@@ -532,6 +540,7 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Semaphore Tmp**: `/mnt/SSD/Containers/semaphore/tmp`
 - **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
 - **Dozzle Data**: `/mnt/SSD/Containers/dozzle`
+- **Brisa Data**: `/mnt/SSD/Containers/brisa`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
 - **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`

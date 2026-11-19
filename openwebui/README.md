@@ -1,26 +1,26 @@
 # Open WebUI
 
-Open WebUI running as a Docker container on TrueNAS, connected to a remote Ollama instance.
+Open WebUI runs on TrueNAS and connects to LM Studio on a Windows PC over the LAN.
 
 Images in `compose.yaml` are frozen to the inventoried builds. See the [image update guide](../README.md#image-updates); `docker compose pull` alone does not upgrade them.
 
 ## Architecture
 
 ```text
-TrueNAS (Docker)               Gaming PC / Remote Host
-┌──────────────────────────┐   ┌─────────────────────┐
-│  Traefik → Open WebUI    │──▶│  Ollama  :11434     │
-│  :8080 (internal)        │   │  (OLLAMA_BASE_URL)  │
-└──────────────────────────┘   └─────────────────────┘
+TrueNAS (Docker)               Windows PC
+┌──────────────────────────┐   ┌────────────────────────┐
+│  Traefik → Open WebUI    │──▶│  LM Studio /v1         │
+│  :8080 (internal)        │   │  (LM_STUDIO_BASE_URL)  │
+└──────────────────────────┘   └────────────────────────┘
         ▲
   https://${OPENWEBUI_DOMAIN}
 ```
 
 ## Prerequisites
 
-Deploy Traefik first. Run Linux host commands from `openwebui/`; Ollama setup
-below runs on its separate host. This route does not include `lan-only`, so
-require application authentication and verify ingress restrictions.
+Deploy Traefik first. Run Docker Compose commands from `openwebui/` on TrueNAS.
+Require application authentication and verify ingress restrictions for the
+Traefik route.
 
 Create the data directory before deploying:
 
@@ -31,8 +31,8 @@ mkdir -p /mnt/SSD/Containers/openwebui
 ## Quick Start
 
 ```bash
-cp .env.example .env
-# Edit .env — set OLLAMA_BASE_URL and OPENWEBUI_DOMAIN
+test -f .env || cp .env.example .env
+# Edit .env with the LM Studio base URL, optional API token, and Open WebUI domain.
 docker compose up -d
 ```
 
@@ -40,63 +40,40 @@ Then open `https://<OPENWEBUI_DOMAIN>`. DNS must resolve the domain to Traefik (
 
 ## Configuration
 
-| Variable          | Description                        | Example                                  |
-|-------------------|------------------------------------|------------------------------------------|
-| `OLLAMA_BASE_URL` | URL of the remote Ollama instance  | `http://<ollama-host>:11434`             |
-| `OPENWEBUI_DOMAIN`| Hostname Traefik routes to the UI  | `openwebui.yourdomain.com`               |
+| Variable | Description | Example |
+| --- | --- | --- |
+| `LM_STUDIO_BASE_URL` | LM Studio's OpenAI-compatible base URL, including `/v1` | `http://<windows-lan-ip>:1234/v1` |
+| `LM_STUDIO_API_KEY` | LM Studio API token when **Require Authentication** is enabled | Leave blank when authentication is disabled |
+| `OPENWEBUI_DOMAIN` | Hostname Traefik routes to the UI | `openwebui.yourdomain.com` |
 
-## Ollama Host Requirements
+## LM Studio Host Requirements
 
-The Ollama instance must be reachable from the TrueNAS host over the network.
+In LM Studio, enable **Serve on Local Network** in the local server settings and
+start the server. Use the Windows PC's LAN IP and the configured LM Studio port
+in `LM_STUDIO_BASE_URL`. A container on TrueNAS reaches the Windows PC over the
+LAN. Its own `localhost` points back to the container.
 
-### 1. Listen on all interfaces
+If Windows Firewall blocks the connection, allow the LM Studio port from the
+TrueNAS source IP. To test reachability from TrueNAS, substitute the same URL
+you set in `LM_STUDIO_BASE_URL` and append `/models`.
 
-By default Ollama only binds to `127.0.0.1`. Set `OLLAMA_HOST` to make it accept remote connections:
-
-**Windows — system environment variable (persistent):**
-```powershell
-[System.Environment]::SetEnvironmentVariable("OLLAMA_HOST", "0.0.0.0", "Machine")
-# Restart the Ollama service/app after setting this
-```
-
-**Windows — per-session (temporary):**
-```powershell
-$env:OLLAMA_HOST = "0.0.0.0"
-ollama serve
-```
-
-**Linux/macOS:**
 ```bash
-OLLAMA_HOST=0.0.0.0 ollama serve
+curl -fsS 'http://<windows-lan-ip>:1234/v1/models'
 ```
 
-### 2. Open port 11434 in the firewall
+A JSON model list confirms that TrueNAS can reach the API. If LM Studio requires
+authentication, supply the token as a bearer token for the test.
 
-Ollama's API is not authenticated by this stack. Restrict access to the specific
-trusted Docker host's source IP; do not open it to all clients or the internet.
-Replace the placeholder below before running it.
+## Switching an Existing Deployment
 
-**Windows Defender (PowerShell, run as Administrator on the Ollama host):**
-```powershell
-New-NetFirewallRule -DisplayName "Ollama from TrueNAS" -Direction Inbound -Protocol TCP -LocalPort 11434 -RemoteAddress '<TrueNAS-source-IP>' -Action Allow
-```
+Use the updated `compose.yaml` and replace `OLLAMA_BASE_URL` in the TrueNAS
+deployment's `.env` with `LM_STUDIO_BASE_URL`, then run `docker compose up -d`.
 
-### 3. Verify connectivity
-
-From the TrueNAS host:
-```bash
-curl http://<ollama-host>:11434/api/tags
-```
-
-A JSON response listing available models confirms the connection is working.
-
-## Changing the Ollama URL After Deployment
-
-You can update the Ollama connection without restarting the container via the UI:
-
-**Settings > Admin Settings > Connections > Ollama API**
-
-Changes take effect immediately.
+Open WebUI can give saved connection settings precedence over Compose values.
+Under **Admin Settings → Connections**, verify that the LM Studio URL is set as
+an OpenAI-compatible connection and that the Ollama connection is disabled.
+Save those settings if the previous connection is still active, then select an
+LM Studio model and send a test message.
 
 ## Recovery and updates
 
@@ -106,5 +83,5 @@ writers before preserving the entire backend-data path (database, uploads,
 configuration and any stored keys), original settings and image pin using the
 [shared recovery procedure](../README.md#backing-up-data). Restore privately at
 the same version with original ownership and verify users/history/uploads.
-Ollama model storage is on the remote host and needs a separate recovery plan.
+LM Studio model storage is on the Windows PC and needs a separate recovery plan.
 Review schema migrations before changing the image; retain pre-update state.
