@@ -9,6 +9,7 @@ The HomeLab service directory, container, and Portainer stack are named `brisa`.
 | Host `it87` module | Expose IT8613E temperature, RPM, and PWM interfaces through Linux hwmon |
 | Brisa container | Read available sensors, apply configured curves, and provide the dashboard |
 | TrueNAS Post Init task | Load the matching saved module after boot |
+| Supervisor and companion guard | Restore the saved PWM and automatic mode on stop/failure, and detect stalled control history |
 
 The image is pinned directly in [compose.yaml](compose.yaml), following the repository's [image update policy](../README.md#image-updates). The selected registry digest identifies Brisa 1.0.2, source revision `512d7b2814797610bcc44e21cd92db79fe3cf7f6`. An image-label version does not establish a matching registry tag, so the reference uses the verified digest.
 
@@ -18,7 +19,44 @@ The image is pinned directly in [compose.yaml](compose.yaml), following the repo
 - All six HDD temperatures are readable. A physical test verified `pwm2` as SYS FAN2, with RPM increasing from 1,275 to 1,753 before returning to 1,264 after restoration.
 - The module and executable loader are saved on the SSD pool. An enabled Post Init task is registered in the portal with a 30-second timeout.
 - The relocated loader at `/mnt/SSD/Containers/brisa/load-it87.sh` passed its syntax check and reported the available controller. A subsequent API query verified task ID 2 with that exact saved path, POSTINIT timing, enabled true, and timeout 30 seconds.
-- Brisa deployment, automatic curves, failure behavior, and clean-boot loading remain pending operational verification.
+- Portainer stack `brisa` (ID 199, TrueNAS environment 35) is deployed from HomeLab's `brisa/compose.yaml`. Live API checks verified all six HDD temperatures, CPU readings, and the IT8613 fan outputs, including `hwmon-pwm-it87.2608/pwm2` at 1,264 RPM in one sample.
+- The user selected cooling-first validation. The six-HDD maximum sensor and trial curve below are assigned to `hwmon-pwm-it87.2608/pwm2`, labeled Front HDD fans — SYS FAN2. No other fan channel is assigned.
+- The host firmware baseline was captured as raw PWM 150, automatic mode 2, kernel `6.12.105-production+truenas`. Docker inspect verified `/mnt/SSD/Containers/brisa` mounted at `/data` and host `/sys` mounted at `/sys`.
+- Initial live operation at a hottest-HDD temperature of 41°C requested 73% output. Front-fan RPM increased from 1,266 before assignment to 1,415 and 1,421 in samples ten seconds apart.
+- The graceful-stop procedure was verified. Brisa returned channel 2 to automatic mode but retained raw PWM 186. Explicitly restoring PWM 150 and mode 2 returned RPM to 1,264. Brisa was left stopped after this test.
+- Automating exact baseline restoration, abrupt-exit and missing-sensor behavior, workload tuning, and clean-boot loading remain pending.
+
+## Automatic restoration change
+
+The prepared stack now runs the official image through a small supervisor and adds companion container `brisa-fan-guard`. The supervisor restores both saved values on exit. The companion handles loss of the whole application container, using a shared inherited file lock to avoid competing with the application. A control-history watchdog detects a stalled loop. The host baseline file is required before the application starts.
+
+[Guard design and validation](docs/guard-and-validation.md) explains the implementation, regeneration command, passed Linux software tests, NAS deployment checks, and ordered stop/crash/stall/reboot tests. This guard change has not yet been deployed or tested on the NAS. Thirteen software cases passed using temporary hardware files in Linux. After restoration, the companion permits firmware to adjust automatic duty normally.
+
+### Staged cooling-first trial
+
+| Hottest HDD temperature | Requested output |
+|---|---|
+| 30°C | 60% |
+| 35°C | 60% |
+| 40°C | 70% |
+| 45°C | 85% |
+| 50°C | 100% |
+
+The trial uses 10-second polling and a 100% fallback when the configured temperature input cannot be resolved. Curve points are experimental starting values, not manufacturer limits or validated final settings. The maximum virtual sensor uses the available members if an individual drive sensor disappears; its fallback does not independently enforce complete six-drive coverage.
+
+Before first assigning the front fans, save their current raw PWM and automatic mode with [scripts/capture-firmware-baseline.py](scripts/capture-firmware-baseline.py). This has been completed on the target host. Run it as root on TrueNAS while channel 2 is still in mode 2. It only reads fan attributes and writes a baseline JSON file, and refuses to overwrite an existing baseline.
+
+[scripts/test-firmware-release.py](scripts/test-firmware-release.py) records the active channel, stops Brisa, measures its release behavior, explicitly restores both saved PWM and automatic mode, and verifies readback. It leaves Brisa stopped for review. The script requires the saved baseline to match the controller and running kernel. An equivalent inline procedure was executed on the host with these results; the repository helper itself has passed syntax checks.
+
+That helper performs a manual restoration for diagnosis. To prove the new guard restores automatically, use the normal-stop test in [Guard design and validation](docs/guard-and-validation.md), which only stops the container and reads the result.
+
+| Stage | Raw PWM | Enable mode | RPM |
+|---|---|---|---|
+| Brisa controlling the front pair | 186 | 1, manual | 1,412 |
+| After Brisa's own graceful release | 186 | 2, automatic | 1,448 |
+| After explicit baseline restoration | 150 | 2, automatic | 1,264 |
+
+Graceful release returned control mode to firmware, while exact restoration required the saved raw PWM value too. Stopping the stock application alone should not be described as restoring the complete original baseline on this controller.
 
 ## Host prerequisites
 

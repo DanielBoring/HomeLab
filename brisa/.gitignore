@@ -5,3 +5,5 @@ modules/
 *.cmd
 Module.symvers
 modules.order
+__pycache__/
+*.pyc

@@ -32,6 +32,11 @@ jobs:
       - name: Test the checker
         run: python3 -B -m unittest discover -s .github/scripts -p 'test_*.py' -v
 
+      - name: Check Brisa guard configuration and lifecycle
+        run: |
+          python3 -B brisa/scripts/render-guard-config.py --check
+          python3 -B -m unittest discover -s brisa/tests -v
+
       - name: Validate all stacks and summarize image changes
         env:
           BASE_REF: ${{ github.event.pull_request.base.sha }}
