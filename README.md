@@ -85,11 +85,7 @@ Node Exporter instance running on the TrueNAS Docker host, exposing host-level C
 - **Requires**: `prometheus` stack deployed first (joins the `monitoring` network)
 
 ### Brisa
-Brisa dashboard and HDD-temperature fan control for the TrueNAS HL8 with a Minisforum BD790i X3D. Requires the separately prepared host driver and Post Init loader.
-
-- **Location**: [`/brisa`](brisa/)
-- **Access**: `http://10.0.5.10:9595` (direct LAN access)
-- **Documentation**: See [brisa/README.md](brisa/README.md)
+[Brisa fan-control stack](brisa/compose.yaml)
 
 ### Semaphore
 Self-hosted UI for running Ansible, Terraform, and OpenTofu playbooks with scheduling and access control.
@@ -540,7 +536,6 @@ Services are configured to use persistent storage at `/mnt/SSD/Containers/`:
 - **Semaphore Tmp**: `/mnt/SSD/Containers/semaphore/tmp`
 - **Uptime Kuma Data**: `/mnt/SSD/Containers/uptime-kuma`
 - **Dozzle Data**: `/mnt/SSD/Containers/dozzle`
-- **Brisa Data**: `/mnt/SSD/Containers/brisa`
 - **Tailscale State**: `/mnt/SSD/Containers/tailscale`
 - **Calibre Config**: `/mnt/SSD/Containers/calibre`
 - **Calibre-Web Config**: `/mnt/SSD/Containers/calibre-web`
