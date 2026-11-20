@@ -24,6 +24,18 @@ services:
       - TZ=${TZ:-America/New_York}
     ports:
       - "${BRISA_BIND_IP:-10.0.5.10}:${BRISA_PORT:-9595}:9595"
+    networks:
+      - default
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.brisa.rule=Host(`${BRISA_DOMAIN:-brisa.localhost}`)"
+      - "traefik.http.routers.brisa.entrypoints=websecure"
+      - "traefik.http.routers.brisa.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.brisa.middlewares=secure-headers@file,lan-only@file"
+      - "traefik.http.routers.brisa.service=brisa@docker"
+      - "traefik.http.services.brisa.loadbalancer.server.port=9595"
     volumes:
       - type: bind
         source: ${BRISA_DATA_PATH:-/mnt/SSD/Containers/brisa}
@@ -85,6 +97,10 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  traefik:
+    external: true
 
 # Generated from fan_guard.py by scripts/render-guard-config.py.
 configs:
