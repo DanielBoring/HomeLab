@@ -1,0 +1,405 @@
+diff --git a/brisa/app/api/routes.py b/brisa/app/api/routes.py
+index 664d002..21c138d 100644
+--- a/brisa/app/api/routes.py
++++ b/brisa/app/api/routes.py
+@@ -1,4 +1,5 @@
+ import logging
++import re
+ 
+ from fastapi import APIRouter, HTTPException
+ from fastapi.responses import PlainTextResponse
+@@ -6,6 +7,7 @@ from fastapi.responses import PlainTextResponse
+ from app.controller import _last_applied, resolve_virtual_sensors
+ from app.database import query_history
+ from app.sensors import detect_sensors
++from app.arc_telemetry import read_arc
+ from app.liquidctl_wrapper import get_fan_status
+ from app import hwmon_pwm
+ from app.models import AppConfig
+@@ -14,6 +16,11 @@ logger = logging.getLogger(__name__)
+ router = APIRouter()
+ 
+ 
++@router.get("/dashboard/arc-a310")
++def arc_a310():
++    return read_arc()
++
++
+ def _get_app_config() -> AppConfig:
+     from app.main import get_config
+     return get_config()
+@@ -49,6 +56,17 @@ def _build_virtual_sensor_dicts(config: AppConfig, real_sensor_map: dict[str, fl
+     return result
+ 
+ 
++def _dashboard_drive_label(sid):
++    # Use the persistent drive ID even when a configured disk is temporarily missing.
++    drive = re.fullmatch(r"drivetemp-wwid-naa\.([0-9a-fA-F]{16})/([^/]+)", sid)
++    if drive:
++        wwid, model = drive.groups()
++        for prefix, name in (("WDC WD200EDGZ-", "WD 20 TB"), ("ST20000DM001-", "Seagate 20 TB")):
++            if model.startswith(prefix):
++                return f"{name} · {wwid[-4:].upper()}"
++    return None
++
++
+ @router.get("/state")
+ async def get_state():
+     config = _get_app_config()
+@@ -61,12 +79,20 @@ async def get_state():
+     sensor_map = {**real_sensor_map, **virtual_temps}
+ 
+     vs_map = {vs.id: vs for vs in config.virtual_sensors}
++    cpu_names = {
++        "Tctl": "CPU control (Tctl)",
++        "Tccd1": "CPU chiplet 1 (CCD1)",
++        "Tccd2": "CPU chiplet 2 (CCD2)",
++    }
++    cpu_labels = {s["id"]: cpu_names.get(s["label"], s["label"])
++                  for s in all_sensors if s["driver"] == "k10temp"}
+ 
+     def build_sensor_dict(sid):
+         vs = vs_map.get(sid)
++        default_label = vs.name if vs else cpu_labels.get(sid) or _dashboard_drive_label(sid)
+         return {
+             "sensor_id": sid,
+-            "alias": config.sensor_aliases.get(sid) or (vs.name if vs else None),
++            "alias": config.sensor_aliases.get(sid) or default_label,
+             "temp": sensor_map.get(sid),
+             "virtual": sid in vs_map,
+             "color": config.card_colors.get(sid),
+@@ -87,15 +113,23 @@ async def get_state():
+                 rpm_map[fc.fan_id] = rpm
+ 
+     fan_cfg_map = {fc.fan_id: fc for fc in config.fan_configs}
++    # HL8 wiring identified from the BIOS SYS FAN and CPU FAN register banks.
++    tach_labels = {
++        "hwmon-pwm-it87.2608/pwm3": "Small front fan",
++        "hwmon-pwm-it87.2608/pwm4": "CPU fan",
++    }
++    for fan_id in tach_labels:
++        if fan_id not in fan_cfg_map:
++            rpm_map[fan_id] = hwmon_pwm.get_fan_rpm(fan_id)
+ 
+     def build_fan_dict(fan_id):
+         fc = fan_cfg_map.get(fan_id)
+         return {
+             "id": fan_id,
+-            "label": fc.fan_label if fc else fan_id,
++            "label": fc.fan_label if fc else tach_labels.get(fan_id, fan_id),
+             "current_rpm": rpm_map.get(fan_id),
+             "override_percent": fc.override_percent if fc else None,
+-            "last_percent": _last_applied.get(fan_id),
++            "last_percent": None if fc is None and fan_id in tach_labels else _last_applied.get(fan_id),
+             "color": config.card_colors.get(fan_id),
+         }
+ 
+@@ -143,6 +177,17 @@ async def get_state():
+             seen.add(fc.fan_id)
+             ungrouped_fans.append(build_fan_dict(fc.fan_id))
+ 
++    # Retain explicit groups and configured fan cards when already displayed.
++    visible_sensors = grouped_sensor_ids | {s["sensor_id"] for s in ungrouped_sensors}
++    cpu_items = [build_sensor_dict(sid) for sid in cpu_labels if sid not in visible_sensors]
++    if cpu_items:
++        sensor_groups.append({"id": "readonly-k10temp", "name": "AMD Ryzen 9 7945HX3D", "items": cpu_items})
++
++    tach_items = [build_fan_dict(fid) for fid in tach_labels
++                  if fid not in grouped_fan_ids and fid not in fan_cfg_map]
++    if tach_items:
++        fan_groups.append({"id": "readonly-it8613", "name": "Motherboard fan speeds", "items": tach_items})
++
+     return {
+         "sensor_groups": sensor_groups,
+         "fan_groups": fan_groups,
+@@ -299,4 +344,4 @@ async def metrics():
+             f'brisa_fan_rpm{{fan="{fan_id}",label="{fan_label}"}} {f["current_rpm"]}'
+         )
+ 
+-    return PlainTextResponse("\n".join(lines) + "\n")
+\ No newline at end of file
++    return PlainTextResponse("\n".join(lines) + "\n")
+diff --git a/brisa/app/arc_telemetry.py b/brisa/app/arc_telemetry.py
+new file mode 100644
+index 0000000..87ba6aa
+--- /dev/null
++++ b/brisa/app/arc_telemetry.py
+@@ -0,0 +1,69 @@
++"""Display-only readings for a single Intel Arc A310. Values are never cached."""
++
++from pathlib import Path
++
++
++# Intel compute-runtime's DG2 guidToKeyOffsetMap specifies SOC_TEMPERATURES at
++# byte 56. getGpuMaxTemperature() takes its low byte (GT temperature in C).
++DG2_LAYOUTS = {0x4F95, 0x4F9301, 0x4F9302, 0x4F9502}
++
++
++def _text(path):
++    try:
++        return path.read_text().strip()
++    except OSError:
++        return ""
++
++
++def _number(path):
++    try:
++        return int(_text(path), 0)
++    except ValueError:
++        return None
++
++
++def _pmt_temperature(gpu, root):
++    readings = []
++    for node in (root / "class/intel_pmt").glob("telem*"):
++        # Never borrow telemetry from a different card or an ambiguous bridge.
++        if gpu not in node.resolve().parents or _number(node / "guid") not in DG2_LAYOUTS:
++            continue
++        if _number(node / "offset") != 0:
++            continue  # Support only the zero-offset layout in this prototype.
++        try:
++            with (node / "telem").open("rb", buffering=0) as stream:
++                stream.seek(56)
++                data = stream.read(8)
++        except OSError:
++            continue
++        if len(data) == 8 and 0 < data[0] < 125:
++            readings.append(data[0])
++    return readings[0] if len(readings) == 1 else None
++
++
++def read_arc(root=Path("/sys")):
++    result = {"temperature_c": None, "fan_rpm": None}
++    devices = [dev for dev in (root / "bus/pci/devices").glob("*")
++               if _text(dev / "vendor") == "0x8086" and _text(dev / "device") == "0x56a6"]
++    if len(devices) != 1:
++        return result
++    gpu = devices[0].resolve()
++    for chip in (gpu / "hwmon").glob("hwmon*"):
++        driver = _text(chip / "name")
++        if driver not in {"i915", "xe"}:
++            continue
++        rpm = _number(chip / "fan1_input")
++        if rpm is not None and rpm >= 0:
++            result["fan_rpm"] = rpm
++        for sensor in sorted(chip.glob("temp*_input")):
++            label = _text(sensor.with_name(sensor.name.replace("_input", "_label"))).lower()
++            # i915 defines temp1_input as its GPU package reading even without a label.
++            package = driver == "i915" and sensor.name == "temp1_input" and not label
++            if package or label in {"gpu", "gt", "gpu temperature"}:
++                raw = _number(sensor)
++                if raw is not None and 0 < raw < 125000:
++                    result["temperature_c"] = raw / 1000
++                    break
++    if result["temperature_c"] is None:
++        result["temperature_c"] = _pmt_temperature(gpu, root)
++    return result
+diff --git a/brisa/app/static/index.html b/brisa/app/static/index.html
+index 617bab3..13e54ca 100644
+--- a/brisa/app/static/index.html
++++ b/brisa/app/static/index.html
+@@ -25,6 +25,13 @@
+       <div id="dashboard-content">
+         <div style="color:var(--text-muted); padding:40px 0; text-align:center; font-size:13px">Loading…</div>
+       </div>
++      <section class="dash-category" aria-label="SPARKLE Intel Arc A310 ECO">
++        <div class="dash-category-header"><span class="dash-category-title">SPARKLE Intel Arc A310 ECO</span><div class="dash-category-line"></div></div>
++        <div class="grid-4">
++          <div class="stat-card"><div class="stat-label">GPU temperature</div><span class="stat-value" id="arc-temp">—</span> <span class="stat-unit">°C</span></div>
++          <div class="stat-card"><div class="stat-label">GPU cooler fan</div><span class="stat-value" id="arc-rpm">—</span> <span class="stat-unit">RPM</span></div>
++        </div>
++      </section>
+     </div>
+   </div>
+ 
+@@ -176,6 +183,7 @@
+             </div>
+             <span class="mono" style="font-size:12px; color:var(--text-muted);" id="pct-${cid}"></span>
+           </div>
++          ${fan.id === 'hwmon-pwm-it87.2608/pwm2' ? '<small>Two front fans · one RPM reading</small>' : ''}
+         </div>`;
+     }
+ 
+@@ -239,8 +247,27 @@
+       }
+     }
+ 
++    async function loadArc() {
++      let reading = {};
++      try {
++        const response = await fetch('/api/dashboard/arc-a310', {
++          cache: 'no-store', signal: AbortSignal.timeout(5000)
++        });
++        if (response.ok) reading = await response.json();
++      } catch {
++        // A missing device or failed poll must clear previously displayed values.
++      } finally {
++        document.getElementById('arc-temp').textContent =
++          Number.isFinite(reading?.temperature_c) ? fmtTemp(reading.temperature_c) : 'Unavailable';
++        document.getElementById('arc-rpm').textContent =
++          Number.isFinite(reading?.fan_rpm) ? fmtRpm(reading.fan_rpm) : 'Unavailable';
++        setTimeout(loadArc, 10000);
++      }
++    }
++
++    loadArc();
+     loadState();
+     setInterval(loadState, 10000);
+   </script>
+ </body>
+-</html>
+\ No newline at end of file
++</html>
+diff --git a/brisa/tests/test_arc_telemetry.py b/brisa/tests/test_arc_telemetry.py
+new file mode 100644
+index 0000000..c354a28
+--- /dev/null
++++ b/brisa/tests/test_arc_telemetry.py
+@@ -0,0 +1,69 @@
++import tempfile
++import unittest
++from pathlib import Path
++
++from app.arc_telemetry import read_arc
++
++
++class ArcTelemetryTest(unittest.TestCase):
++    def setUp(self):
++        tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(tmp.cleanup)
++        self.root = Path(tmp.name)
++        self.gpu = self.root / "bus/pci/devices/0000:03:00.0"
++        self.chip = self.gpu / "hwmon/hwmon15"
++        self.chip.mkdir(parents=True)
++        (self.gpu / "vendor").write_text("0x8086")
++        (self.gpu / "device").write_text("0x56a6")
++        (self.chip / "name").write_text("i915")
++        (self.chip / "fan1_input").write_text("3119")
++
++    def telemetry(self, parent):
++        node = parent / "pmt/telem1"
++        node.mkdir(parents=True)
++        directory = self.root / "class/intel_pmt"
++        directory.mkdir(parents=True)
++        (directory / "telem1").symlink_to(node, target_is_directory=True)
++        (node / "guid").write_text("0x4f9502")
++        (node / "offset").write_text("0")
++        (node / "telem").write_bytes(bytes(56) + bytes([47, 60, 51, 0, 0, 0, 0, 0]))
++        return node
++
++    def test_independent_readings_and_zero_rpm(self):
++        self.assertEqual(read_arc(self.root), {"fan_rpm": 3119, "temperature_c": None})
++        (self.chip / "fan1_input").write_text("0")
++        self.assertEqual(read_arc(self.root)["fan_rpm"], 0)
++        self.telemetry(self.gpu)
++        self.assertEqual(read_arc(self.root)["temperature_c"], 47)
++        (self.chip / "fan1_input").unlink()
++        self.assertEqual(read_arc(self.root), {"fan_rpm": None, "temperature_c": 47})
++
++    def test_unknown_layout_and_short_read(self):
++        node = self.telemetry(self.gpu)
++        (node / "telem").write_bytes(bytes(56) + b"1")
++        self.assertIsNone(read_arc(self.root)["temperature_c"])
++        (node / "telem").write_bytes(bytes(64))
++        self.assertIsNone(read_arc(self.root)["temperature_c"])
++        (node / "telem").write_bytes(bytes([48]) * 64)
++        (node / "guid").write_text("0xffff")
++        self.assertIsNone(read_arc(self.root)["temperature_c"])
++
++    def test_other_device_and_disappearance(self):
++        self.telemetry(self.root / "another-device")
++        self.assertIsNone(read_arc(self.root)["temperature_c"])
++        (self.gpu / "device").unlink()
++        self.assertEqual(read_arc(self.root), {"temperature_c": None, "fan_rpm": None})
++
++    def test_labelled_gpu_temperature(self):
++        (self.chip / "temp1_label").write_text("GPU")
++        (self.chip / "temp1_input").write_text("42375")
++        self.assertEqual(read_arc(self.root)["temperature_c"], 42.375)
++
++    def test_i915_unlabelled_package_temperature(self):
++        (self.chip / "temp1_input").write_text("43000")
++        self.assertEqual(read_arc(self.root)["temperature_c"], 43)
++        (self.chip / "name").write_text("xe")
++        self.assertIsNone(read_arc(self.root)["temperature_c"])
++        (self.chip / "name").write_text("i915")
++        (self.chip / "temp1_label").write_text("memory")
++        self.assertIsNone(read_arc(self.root)["temperature_c"])
+diff --git a/brisa/tests/test_dashboard_readings.py b/brisa/tests/test_dashboard_readings.py
+new file mode 100644
+index 0000000..a821a88
+--- /dev/null
++++ b/brisa/tests/test_dashboard_readings.py
+@@ -0,0 +1,72 @@
++import unittest
++from unittest.mock import patch
++
++from app.api import routes
++from app.models import AppConfig, DashboardGroup, FanConfig
++
++
++class DashboardReadingsTest(unittest.IsolatedAsyncioTestCase):
++    async def state(self, config, sensors, speeds):
++        original = config.model_dump()
++        with (
++            patch.object(routes, "_get_app_config", return_value=config),
++            patch.object(routes, "detect_sensors", return_value=sensors),
++            patch.object(routes, "get_fan_status", return_value=[]),
++            patch.object(routes.hwmon_pwm, "get_fan_rpm", side_effect=speeds.get),
++        ):
++            result = await routes.get_state()
++        self.assertEqual(config.model_dump(), original)
++        return result
++
++    async def test_cpu_and_unassigned_tachometers(self):
++        sensors = [
++            {"id": f"k10temp-hwmon12/{label}", "driver": "k10temp", "label": label, "current_temp": temp}
++            for label, temp in [("Tctl", 71.5), ("Tccd1", 55), ("Tccd2", 63)]
++        ]
++        result = await self.state(AppConfig(), sensors, {"hwmon-pwm-it87.2608/pwm3": 0})
++        cpu, = result["sensor_groups"]
++        self.assertEqual([s["alias"] for s in cpu["items"]],
++                         ["CPU control (Tctl)", "CPU chiplet 1 (CCD1)", "CPU chiplet 2 (CCD2)"])
++        self.assertEqual([s["temp"] for s in cpu["items"]], [71.5, 55, 63])
++        fans, = result["fan_groups"]
++        self.assertEqual([f["current_rpm"] for f in fans["items"]], [0, None])
++        self.assertEqual([f["label"] for f in fans["items"]], ["Small front fan", "CPU fan"])
++        self.assertTrue(all(f["last_percent"] is None for f in fans["items"]))
++
++    async def test_preserves_user_groups_and_configured_fans(self):
++        pwm = "hwmon-pwm-it87.2608/pwm"
++        sid = "k10temp-hwmon2/Tctl"
++        config = AppConfig(
++            dashboard_groups=[
++                DashboardGroup(id="cpu", name="My CPU", type="sensor", item_ids=[sid]),
++                DashboardGroup(id="fan", name="My RPM", type="fan", item_ids=[pwm + "3"]),
++            ],
++            fan_configs=[FanConfig(fan_id=pwm+"4", fan_label="My fan", backend="hwmon-pwm",
++                                   sensor_id=sid, curve_name="silent")],
++            sensor_aliases={sid: "CPU control"},
++        )
++        result = await self.state(config, [
++            {"id": sid, "driver": "k10temp", "label": "Tctl", "current_temp": 70}
++        ], {pwm+"3": 1010, pwm+"4": 1440})
++        cpu, = result["sensor_groups"]
++        reading, = cpu["items"]
++        self.assertEqual(reading["alias"], "CPU control")
++        group, = result["fan_groups"]
++        third, = group["items"]
++        fourth, = result["ungrouped_fans"]
++        self.assertEqual((group["name"], third["current_rpm"]), ("My RPM", 1010))
++        self.assertEqual((fourth["label"], fourth["current_rpm"]), ("My fan", 1440))
++
++    async def test_hdd_labels_use_persistent_ids_and_preserve_aliases(self):
++        ids = [f"drivetemp-wwid-naa.{wwid}/{model}" for wwid, model in (
++            ("5000cca0e7c0a989", "WDC WD200EDGZ-11"), ("5000cca2c7d5d067", "WDC WD200EDGZ-11"),
++            ("5000c500e929dd89", "ST20000DM001-3Y3"), ("5000cca2c7d5da25", "WDC WD200EDGZ-11"),
++            ("5000000000000000", "Unknown"),
++        )]
++        config = AppConfig(dashboard_groups=[DashboardGroup(id="hdd", name="HDD", type="sensor", item_ids=ids)],
++                           sensor_aliases={ids[3]: "My drive"})
++        result = await self.state(config, [], {})
++        cards = result["sensor_groups"][0]["items"]
++        self.assertEqual([s["alias"] for s in cards],
++                         ["WD 20 TB · A989", "WD 20 TB · D067", "Seagate 20 TB · DD89", "My drive", None])
++        self.assertTrue(all(s["temp"] is None for s in cards))
