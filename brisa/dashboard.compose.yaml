@@ -1,0 +1,718 @@
+# HL8 dashboard files for brunoorsolon/brisa 512d7b2814797610bcc44e21cd92db79fe3cf7f6.
+# MIT License
+#
+# Copyright (c) 2026 Bruno Orsolon
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+configs:
+  dashboard-routes:
+    content: |
+      import logging
+      import re
+
+      from fastapi import APIRouter, HTTPException
+      from fastapi.responses import PlainTextResponse
+
+      from app.controller import _last_applied, resolve_virtual_sensors
+      from app.database import query_history
+      from app.sensors import detect_sensors
+      from app.arc_telemetry import read_arc
+      from app.liquidctl_wrapper import get_fan_status
+      from app import hwmon_pwm
+      from app.models import AppConfig
+
+      logger = logging.getLogger(__name__)
+      router = APIRouter()
+
+
+      @router.get("/dashboard/arc-a310")
+      def arc_a310():
+          return read_arc()
+
+
+      def _get_app_config() -> AppConfig:
+          from app.main import get_config
+          return get_config()
+
+
+      def _set_app_config(config: AppConfig) -> None:
+          from app.main import set_config
+          set_config(config)
+
+
+      def _apply_aliases(sensors: list[dict], aliases: dict[str, str]) -> list[dict]:
+          """Enrich sensor dicts with alias field."""
+          for s in sensors:
+              s["alias"] = aliases.get(s["id"])
+          return sensors
+
+
+      def _build_virtual_sensor_dicts(config: AppConfig, real_sensor_map: dict[str, float]) -> list[dict]:
+          """Build sensor-like dicts for virtual sensors with computed temps."""
+          virtual_temps = resolve_virtual_sensors(config.virtual_sensors, real_sensor_map)
+          result = []
+          for vs in config.virtual_sensors:
+              result.append({
+                  "id": vs.id,
+                  "driver": "virtual",
+                  "label": vs.name,
+                  "current_temp": virtual_temps.get(vs.id),
+                  "alias": config.sensor_aliases.get(vs.id),
+                  "virtual": True,
+                  "aggregation": vs.aggregation,
+                  "source_sensor_ids": vs.source_sensor_ids,
+              })
+          return result
+
+
+      def _dashboard_drive_label(sid):
+          # Use the persistent drive ID even when a configured disk is temporarily missing.
+          drive = re.fullmatch(r"drivetemp-wwid-naa\.([0-9a-fA-F]{16})/([^/]+)", sid)
+          if drive:
+              wwid, model = drive.groups()
+              for prefix, name in (("WDC WD200EDGZ-", "WD 20 TB"), ("ST20000DM001-", "Seagate 20 TB")):
+                  if model.startswith(prefix):
+                      return f"{name} · {wwid[-4:].upper()}"
+          return None
+
+
+      @router.get("/state")
+      async def get_state():
+          config = _get_app_config()
+
+          all_sensors = detect_sensors()
+          real_sensor_map = {s["id"]: s["current_temp"] for s in all_sensors}
+
+          # Resolve virtual sensors
+          virtual_temps = resolve_virtual_sensors(config.virtual_sensors, real_sensor_map)
+          sensor_map = {**real_sensor_map, **virtual_temps}
+
+          vs_map = {vs.id: vs for vs in config.virtual_sensors}
+          cpu_names = {
+              "Tctl": "CPU control (Tctl)",
+              "Tccd1": "CPU chiplet 1 (CCD1)",
+              "Tccd2": "CPU chiplet 2 (CCD2)",
+          }
+          cpu_labels = {s["id"]: cpu_names.get(s["label"], s["label"])
+                        for s in all_sensors if s["driver"] == "k10temp"}
+
+          def build_sensor_dict(sid):
+              vs = vs_map.get(sid)
+              default_label = vs.name if vs else cpu_labels.get(sid) or _dashboard_drive_label(sid)
+              return {
+                  "sensor_id": sid,
+                  "alias": config.sensor_aliases.get(sid) or default_label,
+                  "temp": sensor_map.get(sid),
+                  "virtual": sid in vs_map,
+                  "color": config.card_colors.get(sid),
+              }
+
+          try:
+              fan_status = get_fan_status()
+              rpm_map = {f["id"]: f["current_rpm"] for f in fan_status}
+          except Exception as e:
+              logger.warning("Could not fetch liquidctl fan status: %s", e)
+              rpm_map = {}
+
+          # Add hwmon-pwm RPMs
+          for fc in config.fan_configs:
+              if fc.backend == "hwmon-pwm":
+                  rpm = hwmon_pwm.get_fan_rpm(fc.fan_id)
+                  if rpm is not None:
+                      rpm_map[fc.fan_id] = rpm
+
+          fan_cfg_map = {fc.fan_id: fc for fc in config.fan_configs}
+          # HL8 wiring identified from the BIOS SYS FAN and CPU FAN register banks.
+          tach_labels = {
+              "hwmon-pwm-it87.2608/pwm3": "Small front fan",
+              "hwmon-pwm-it87.2608/pwm4": "CPU fan",
+          }
+          for fan_id in tach_labels:
+              if fan_id not in fan_cfg_map:
+                  rpm_map[fan_id] = hwmon_pwm.get_fan_rpm(fan_id)
+
+          def build_fan_dict(fan_id):
+              fc = fan_cfg_map.get(fan_id)
+              return {
+                  "id": fan_id,
+                  "label": fc.fan_label if fc else tach_labels.get(fan_id, fan_id),
+                  "current_rpm": rpm_map.get(fan_id),
+                  "override_percent": fc.override_percent if fc else None,
+                  "last_percent": None if fc is None and fan_id in tach_labels else _last_applied.get(fan_id),
+                  "color": config.card_colors.get(fan_id),
+              }
+
+          # Build grouped output
+          # Track which items are in groups so we can find ungrouped ones
+          grouped_sensor_ids = set()
+          grouped_fan_ids = set()
+
+          sensor_groups = []
+          fan_groups = []
+
+          for grp in config.dashboard_groups:
+              if grp.type == "sensor":
+                  items = []
+                  for sid in grp.item_ids:
+                      grouped_sensor_ids.add(sid)
+                      items.append(build_sensor_dict(sid))
+                  sensor_groups.append({
+                      "id": grp.id,
+                      "name": grp.name,
+                      "items": items,
+                  })
+              elif grp.type == "fan":
+                  items = []
+                  for fid in grp.item_ids:
+                      grouped_fan_ids.add(fid)
+                      items.append(build_fan_dict(fid))
+                  fan_groups.append({
+                      "id": grp.id,
+                      "name": grp.name,
+                      "items": items,
+                  })
+
+          # Ungrouped: fan-config sensors and configured fans not in any group
+          ungrouped_sensors = []
+          seen = set()
+          for fc in config.fan_configs:
+              if fc.sensor_id not in grouped_sensor_ids and fc.sensor_id not in seen:
+                  seen.add(fc.sensor_id)
+                  ungrouped_sensors.append(build_sensor_dict(fc.sensor_id))
+
+          ungrouped_fans = []
+          for fc in config.fan_configs:
+              if fc.fan_id not in grouped_fan_ids and fc.fan_id not in seen:
+                  seen.add(fc.fan_id)
+                  ungrouped_fans.append(build_fan_dict(fc.fan_id))
+
+          # Retain explicit groups and configured fan cards when already displayed.
+          visible_sensors = grouped_sensor_ids | {s["sensor_id"] for s in ungrouped_sensors}
+          cpu_items = [build_sensor_dict(sid) for sid in cpu_labels if sid not in visible_sensors]
+          if cpu_items:
+              sensor_groups.append({"id": "readonly-k10temp", "name": "AMD Ryzen 9 7945HX3D", "items": cpu_items})
+
+          tach_items = [build_fan_dict(fid) for fid in tach_labels
+                        if fid not in grouped_fan_ids and fid not in fan_cfg_map]
+          if tach_items:
+              fan_groups.append({"id": "readonly-it8613", "name": "Motherboard fan speeds", "items": tach_items})
+
+          return {
+              "sensor_groups": sensor_groups,
+              "fan_groups": fan_groups,
+              "ungrouped_sensors": ungrouped_sensors,
+              "ungrouped_fans": ungrouped_fans,
+          }
+
+
+      @router.get("/history")
+      async def get_history(hours: int = 24):
+          return query_history(hours)
+
+
+      @router.get("/config")
+      async def get_config():
+          return _get_app_config().model_dump()
+
+
+      @router.post("/config")
+      async def post_config(new_config: AppConfig):
+          from app.config import save_config, validate_config
+
+          try:
+              sensors = detect_sensors()
+          except Exception as e:
+              logger.error("POST /config: sensor detection failed: %s", e)
+              raise HTTPException(status_code=503, detail=f"Could not detect sensors for validation: {e}")
+
+          known_sensor_ids = [s["id"] for s in sensors]
+
+          known_fan_ids = []
+          try:
+              fans = get_fan_status()
+              known_fan_ids.extend(f["id"] for f in fans)
+          except Exception as e:
+              logger.warning("POST /config: liquidctl detection failed: %s", e)
+
+          # Include hwmon-pwm fans in known fan IDs
+          try:
+              pwm_fans = hwmon_pwm.detect_pwm_fans()
+              known_fan_ids.extend(f["id"] for f in pwm_fans)
+          except Exception as e:
+              logger.warning("POST /config: hwmon-pwm detection failed: %s", e)
+
+          errors = validate_config(new_config, known_sensor_ids, known_fan_ids)
+          if errors:
+              logger.warning("POST /config: validation failed with %d error(s):", len(errors))
+              for err in errors:
+                  logger.warning("  - %s", err)
+              logger.warning("POST /config: known sensor IDs: %s", known_sensor_ids)
+              logger.warning("POST /config: known fan IDs: %s", known_fan_ids)
+              raise HTTPException(status_code=422, detail=errors)
+
+          save_config(new_config)
+          _set_app_config(new_config)
+          logger.info("Config updated via API")
+          return {"status": "ok"}
+
+
+      @router.get("/devices")
+      async def get_devices():
+          config = _get_app_config()
+          sensors = detect_sensors()
+          _apply_aliases(sensors, config.sensor_aliases)
+
+          # Append virtual sensors
+          real_sensor_map = {s["id"]: s["current_temp"] for s in sensors}
+          virtual_sensor_dicts = _build_virtual_sensor_dicts(config, real_sensor_map)
+
+          fans = []
+          try:
+              fans = get_fan_status()
+          except Exception as e:
+              logger.warning("Could not fetch liquidctl fans for /api/devices: %s", e)
+
+          # Detect hwmon-pwm fans and add them
+          pwm_fans = hwmon_pwm.detect_pwm_fans()
+          for pf in pwm_fans:
+              fans.append({
+                  "id": pf["id"],
+                  "label": pf["label"],
+                  "current_rpm": pf["current_rpm"],
+                  "backend": "hwmon-pwm",
+              })
+
+          # Tag liquidctl fans with their backend
+          for f in fans:
+              if "backend" not in f:
+                  f["backend"] = "liquidctl"
+
+          return {
+              "sensors": sensors,
+              "virtual_sensors": virtual_sensor_dicts,
+              "fans": fans,
+          }
+
+
+      @router.post("/apply")
+      async def apply():
+          from app.controller import run_once
+          config = _get_app_config()
+          await run_once(config)
+          return {"status": "ok"}
+
+
+      @router.get("/metrics", include_in_schema=False)
+      async def metrics():
+          config = _get_app_config()
+          sensors = detect_sensors()
+          _apply_aliases(sensors, config.sensor_aliases)
+
+          real_sensor_map = {s["id"]: s["current_temp"] for s in sensors}
+
+          fans = []
+          try:
+              fans.extend(get_fan_status())
+          except Exception:
+              pass
+
+          # Add hwmon-pwm fans with RPM readings
+          for fc in config.fan_configs:
+              if fc.backend == "hwmon-pwm":
+                  rpm = hwmon_pwm.get_fan_rpm(fc.fan_id)
+                  if rpm is not None:
+                      fans.append({"id": fc.fan_id, "label": fc.fan_label, "current_rpm": rpm})
+
+          lines = []
+
+          lines.append("# HELP brisa_temperature_celsius Current temperature reading")
+          lines.append("# TYPE brisa_temperature_celsius gauge")
+          for s in sensors:
+              display = s.get("alias") or s["label"]
+              display = display.replace('"', '\\"')
+              driver = s["driver"].replace('"', '\\"')
+              lines.append(
+                  f'brisa_temperature_celsius{{sensor="{driver}",label="{display}"}} {s["current_temp"]}'
+              )
+
+          # Virtual sensors in metrics
+          virtual_sensor_dicts = _build_virtual_sensor_dicts(config, real_sensor_map)
+          for vs in virtual_sensor_dicts:
+              if vs["current_temp"] is not None:
+                  display = (vs.get("alias") or vs["label"]).replace('"', '\\"')
+                  lines.append(
+                      f'brisa_temperature_celsius{{sensor="virtual",label="{display}"}} {vs["current_temp"]}'
+                  )
+
+          lines.append("# HELP brisa_fan_rpm Current fan RPM")
+          lines.append("# TYPE brisa_fan_rpm gauge")
+          for f in fans:
+              fan_id = f["id"].replace('"', '\\"')
+              fan_label = f["label"].replace('"', '\\"')
+              lines.append(
+                  f'brisa_fan_rpm{{fan="{fan_id}",label="{fan_label}"}} {f["current_rpm"]}'
+              )
+
+          return PlainTextResponse("\n".join(lines) + "\n")
+  dashboard-arc:
+    content: |
+      """Display-only readings for a single Intel Arc A310. Values are never cached."""
+
+      from pathlib import Path
+
+
+      # Intel compute-runtime's DG2 guidToKeyOffsetMap specifies SOC_TEMPERATURES at
+      # byte 56. getGpuMaxTemperature() takes its low byte (GT temperature in C).
+      DG2_LAYOUTS = {0x4F95, 0x4F9301, 0x4F9302, 0x4F9502}
+
+
+      def _text(path):
+          try:
+              return path.read_text().strip()
+          except OSError:
+              return ""
+
+
+      def _number(path):
+          try:
+              return int(_text(path), 0)
+          except ValueError:
+              return None
+
+
+      def _pmt_temperature(gpu, root):
+          readings = []
+          for node in (root / "class/intel_pmt").glob("telem*"):
+              # Never borrow telemetry from a different card or an ambiguous bridge.
+              if gpu not in node.resolve().parents or _number(node / "guid") not in DG2_LAYOUTS:
+                  continue
+              if _number(node / "offset") != 0:
+                  continue  # Support only the zero-offset layout in this prototype.
+              try:
+                  with (node / "telem").open("rb", buffering=0) as stream:
+                      stream.seek(56)
+                      data = stream.read(8)
+              except OSError:
+                  continue
+              if len(data) == 8 and 0 < data[0] < 125:
+                  readings.append(data[0])
+          return readings[0] if len(readings) == 1 else None
+
+
+      def read_arc(root=Path("/sys")):
+          result = {"temperature_c": None, "fan_rpm": None}
+          devices = [dev for dev in (root / "bus/pci/devices").glob("*")
+                     if _text(dev / "vendor") == "0x8086" and _text(dev / "device") == "0x56a6"]
+          if len(devices) != 1:
+              return result
+          gpu = devices[0].resolve()
+          for chip in (gpu / "hwmon").glob("hwmon*"):
+              driver = _text(chip / "name")
+              if driver not in {"i915", "xe"}:
+                  continue
+              rpm = _number(chip / "fan1_input")
+              if rpm is not None and rpm >= 0:
+                  result["fan_rpm"] = rpm
+              for sensor in sorted(chip.glob("temp*_input")):
+                  label = _text(sensor.with_name(sensor.name.replace("_input", "_label"))).lower()
+                  # i915 defines temp1_input as its GPU package reading even without a label.
+                  package = driver == "i915" and sensor.name == "temp1_input" and not label
+                  if package or label in {"gpu", "gt", "gpu temperature"}:
+                      raw = _number(sensor)
+                      if raw is not None and 0 < raw < 125000:
+                          result["temperature_c"] = raw / 1000
+                          break
+          if result["temperature_c"] is None:
+              result["temperature_c"] = _pmt_temperature(gpu, root)
+          return result
+  dashboard-page:
+    content: |
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Brisa — Dashboard</title>
+        <link rel="stylesheet" href="/style.css">
+      </head>
+      <body>
+        <div id="sidebar" class="sidebar"></div>
+        <div class="main">
+          <div class="page">
+            <div class="page-header">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                  <h1 class="page-title"><span class="live-dot"></span>Dashboard</h1>
+                  <p class="page-subtitle" id="last-updated">Fetching…</p>
+                </div>
+                <button class="btn btn-ghost" onclick="applyNow()" id="apply-btn">
+                  ▶ Apply Now
+                </button>
+              </div>
+            </div>
+
+            <div id="dashboard-content">
+              <div style="color:var(--text-muted); padding:40px 0; text-align:center; font-size:13px">Loading…</div>
+            </div>
+            <section class="dash-category" aria-label="SPARKLE Intel Arc A310 ECO">
+              <div class="dash-category-header"><span class="dash-category-title">SPARKLE Intel Arc A310 ECO</span><div class="dash-category-line"></div></div>
+              <div class="grid-4">
+                <div class="stat-card"><div class="stat-label">GPU temperature</div><span class="stat-value" id="arc-temp">—</span> <span class="stat-unit">°C</span></div>
+                <div class="stat-card"><div class="stat-label">GPU cooler fan</div><span class="stat-value" id="arc-rpm">—</span> <span class="stat-unit">RPM</span></div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div id="toast"></div>
+        <script src="/app.js"></script>
+        <script>
+          let lastState = null;
+
+          async function loadState() {
+            try {
+              const data = await api('GET', '/state');
+              lastState = data;
+              renderDashboard(data);
+              document.getElementById('last-updated').textContent =
+                'Updated ' + new Date().toLocaleTimeString();
+            } catch (e) {
+              showToast('Failed to load state: ' + e.message, 'error');
+            }
+          }
+
+          function cardId(prefix, id) {
+            return prefix + btoa(unescape(encodeURIComponent(id))).replace(/[^a-zA-Z0-9]/g, '');
+          }
+
+          function renderDashboard(data) {
+            const container = document.getElementById('dashboard-content');
+            const hasFanGroups = data.fan_groups && data.fan_groups.length;
+            const hasSensorGroups = data.sensor_groups && data.sensor_groups.length;
+            const hasUngroupedFans = data.ungrouped_fans && data.ungrouped_fans.length;
+            const hasUngroupedSensors = data.ungrouped_sensors && data.ungrouped_sensors.length;
+            const hasAnything = hasFanGroups || hasSensorGroups || hasUngroupedFans || hasUngroupedSensors;
+
+            if (!hasAnything) {
+              container.innerHTML = `
+                <div class="empty-state">
+                  <div style="font-size:32px;margin-bottom:8px">〜</div>
+                  <p>No fans or sensors to display.</p>
+                  <p style="margin-top:8px">Configure fans in <a href="/fanconfig.html" style="color:var(--accent)">Fan Config</a>
+                  or set up dashboard groups in <a href="/devices.html" style="color:var(--accent)">Sensors & Fans</a>.</p>
+                </div>`;
+              return;
+            }
+
+            let html = '';
+
+            // Fan groups
+            if (hasFanGroups || hasUngroupedFans) {
+              html += `
+                <div class="dash-category">
+                  <div class="dash-category-header">
+                    <span class="dash-category-title">Fan Speeds</span>
+                    <div class="dash-category-line"></div>
+                  </div>`;
+
+              for (const grp of (data.fan_groups || [])) {
+                html += renderFanGroup(grp);
+              }
+
+              if (hasUngroupedFans) {
+                if (hasFanGroups) {
+                  html += `
+                    <div class="dash-group">
+                      <div class="dash-group-header">
+                        <div class="dash-group-accent" style="background:var(--text-muted)"></div>
+                        <span class="dash-group-title" style="color:var(--text-dim)">Other</span>
+                      </div>
+                      <div class="grid-4">$${data.ungrouped_fans.map(f => fanCardHTML(f)).join('')}</div>
+                    </div>`;
+                } else {
+                  html += `<div class="grid-4">$${data.ungrouped_fans.map(f => fanCardHTML(f)).join('')}</div>`;
+                }
+              }
+
+              html += '</div>';
+            }
+
+            // Sensor groups
+            if (hasSensorGroups || hasUngroupedSensors) {
+              html += `
+                <div class="dash-category">
+                  <div class="dash-category-header">
+                    <span class="dash-category-title">Temperatures</span>
+                    <div class="dash-category-line"></div>
+                  </div>`;
+
+              for (const grp of (data.sensor_groups || [])) {
+                html += renderSensorGroup(grp);
+              }
+
+              if (hasUngroupedSensors) {
+                if (hasSensorGroups) {
+                  html += `
+                    <div class="dash-group">
+                      <div class="dash-group-header">
+                        <div class="dash-group-accent" style="background:var(--text-muted)"></div>
+                        <span class="dash-group-title" style="color:var(--text-dim)">Other</span>
+                      </div>
+                      <div class="grid-4">$${data.ungrouped_sensors.map(s => sensorCardHTML(s)).join('')}</div>
+                    </div>`;
+                } else {
+                  html += `<div class="grid-4">$${data.ungrouped_sensors.map(s => sensorCardHTML(s)).join('')}</div>`;
+                }
+              }
+
+              html += '</div>';
+            }
+
+            container.innerHTML = html;
+            updateValues(data);
+          }
+
+          function renderFanGroup(grp) {
+            if (!grp.items.length) return '';
+            return `
+              <div class="dash-group">
+                <div class="dash-group-header">
+                  <div class="dash-group-accent"></div>
+                  <span class="dash-group-title">$${grp.name}</span>
+                </div>
+                <div class="grid-4">$${grp.items.map(f => fanCardHTML(f)).join('')}</div>
+              </div>`;
+          }
+
+          function renderSensorGroup(grp) {
+            if (!grp.items.length) return '';
+            return `
+              <div class="dash-group">
+                <div class="dash-group-header">
+                  <div class="dash-group-accent"></div>
+                  <span class="dash-group-title">$${grp.name}</span>
+                </div>
+                <div class="grid-4">$${grp.items.map(s => sensorCardHTML(s)).join('')}</div>
+              </div>`;
+          }
+
+          function fanCardHTML(fan) {
+            const cid = cardId('fan-card-', fan.id);
+            const colorAttr = fan.color ? ` data-color="$${fan.color}"` : '';
+            return `
+              <div class="stat-card" id="$${cid}"$${colorAttr}>
+                <div class="stat-label">
+                  $${fan.label || fan.id}
+                  $${fan.override_percent != null ? '<span class="badge badge-warn" style="margin-left:6px;font-size:10px">MANUAL</span>' : ''}
+                </div>
+                <div style="display:flex; align-items:baseline; justify-content:space-between;">
+                  <div>
+                    <span class="stat-value" id="val-$${cid}">—</span>
+                    <span class="stat-unit">rpm</span>
+                  </div>
+                  <span class="mono" style="font-size:12px; color:var(--text-muted);" id="pct-$${cid}"></span>
+                </div>
+                $${fan.id === 'hwmon-pwm-it87.2608/pwm2' ? '<small>Two front fans · one RPM reading</small>' : ''}
+              </div>`;
+          }
+
+          function sensorCardHTML(s) {
+            const cid = cardId('temp-card-', s.sensor_id);
+            const label = s.alias || s.sensor_id.split('/').pop();
+            const isVirtual = s.virtual === true;
+            const colorAttr = s.color ? ` data-color="$${s.color}"` : '';
+            return `
+              <div class="stat-card" id="$${cid}"$${colorAttr}>
+                <div class="stat-label" title="$${s.sensor_id}">
+                  $${label}
+                  $${isVirtual ? '<span class="badge badge-dim" style="margin-left:6px;font-size:10px">VIRTUAL</span>' : ''}
+                </div>
+                <div>
+                  <span class="stat-value" id="val-$${cid}">—</span>
+                  <span class="stat-unit">°C</span>
+                </div>
+              </div>`;
+          }
+
+          function updateValues(data) {
+            // Update fan values
+            const allFans = [
+              ...(data.fan_groups || []).flatMap(g => g.items),
+              ...(data.ungrouped_fans || []),
+            ];
+            allFans.forEach(fan => {
+              const cid = cardId('fan-card-', fan.id);
+              const valEl = document.getElementById('val-' + cid);
+              flashValue(valEl, fmtRpm(fan.current_rpm));
+              const pctEl = document.getElementById('pct-' + cid);
+              if (pctEl) pctEl.textContent = fan.last_percent != null ? '(' + fan.last_percent + '%)' : '';
+            });
+
+            // Update sensor values
+            const allSensors = [
+              ...(data.sensor_groups || []).flatMap(g => g.items),
+              ...(data.ungrouped_sensors || []),
+            ];
+            allSensors.forEach(s => {
+              const cid = cardId('temp-card-', s.sensor_id);
+              const valEl = document.getElementById('val-' + cid);
+              flashValue(valEl, fmtTemp(s.temp));
+            });
+          }
+
+          async function applyNow() {
+            const btn = document.getElementById('apply-btn');
+            btn.disabled = true;
+            btn.textContent = 'Applying…';
+            try {
+              await api('POST', '/apply');
+              showToast('Applied — fans updated', 'ok');
+              await loadState();
+            } catch (e) {
+              showToast('Apply failed: ' + e.message, 'error');
+            } finally {
+              btn.disabled = false;
+              btn.textContent = '▶ Apply Now';
+            }
+          }
+
+          async function loadArc() {
+            let reading = {};
+            try {
+              const response = await fetch('/api/dashboard/arc-a310', {
+                cache: 'no-store', signal: AbortSignal.timeout(5000)
+              });
+              if (response.ok) reading = await response.json();
+            } catch {
+              // A missing device or failed poll must clear previously displayed values.
+            } finally {
+              document.getElementById('arc-temp').textContent =
+                Number.isFinite(reading?.temperature_c) ? fmtTemp(reading.temperature_c) : 'Unavailable';
+              document.getElementById('arc-rpm').textContent =
+                Number.isFinite(reading?.fan_rpm) ? fmtRpm(reading.fan_rpm) : 'Unavailable';
+              setTimeout(loadArc, 10000);
+            }
+          }
+
+          loadArc();
+          loadState();
+          setInterval(loadState, 10000);
+        </script>
+      </body>
+      </html>

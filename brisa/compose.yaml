@@ -1,3 +1,6 @@
+include:
+  - dashboard.compose.yaml
+
 services:
   brisa:
     # Registry manifest verified against the reviewed Brisa 1.0.2 source revision.
@@ -11,6 +14,12 @@ services:
     configs:
       - source: brisa-fan-guard
         target: /opt/brisa-fan-guard.py
+      - source: dashboard-routes
+        target: /app/app/api/routes.py
+      - source: dashboard-arc
+        target: /app/app/arc_telemetry.py
+      - source: dashboard-page
+        target: /app/app/static/index.html
     environment:
       - TZ=${TZ:-America/New_York}
     ports:
